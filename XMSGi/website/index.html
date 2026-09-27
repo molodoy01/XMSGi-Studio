@@ -1,0 +1,751 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="description"
+        content="XMSGi — a desktop app for writing and scheduling Telegram messages from your own account."
+    >
+
+    <title>XMSGi — Telegram messages, on your time</title>
+
+    <style>
+        :root {
+            --bg: #08090c;
+            --surface: #101218;
+            --border: rgba(255,255,255,.09);
+            --text: #f5f7fb;
+            --muted: #9299a8;
+            --max: 1080px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(
+                    circle at 50% -10%,
+                    rgba(108,124,255,.16),
+                    transparent 38%
+                ),
+                var(--bg);
+            color: var(--text);
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+            line-height: 1.6;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        .container {
+            width: min(calc(100% - 40px), var(--max));
+            margin: 0 auto;
+        }
+
+        /* NAV */
+
+        nav {
+            height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -.045em;
+            transform: skewX(-4deg);
+            transform-origin: left center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 26px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .nav-links a {
+            transition: color .2s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        /* HERO */
+
+        .hero {
+            padding: 95px 0 105px;
+            text-align: center;
+        }
+
+        h1 {
+            max-width: 900px;
+            margin: 0 auto 24px;
+            font-size: clamp(52px, 8vw, 86px);
+            line-height: .98;
+            letter-spacing: -.07em;
+        }
+
+        .gradient {
+            display: block;
+            background: linear-gradient(
+                110deg,
+                #fff 20%,
+                #8f9aff 65%,
+                #b38aff
+            );
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero-description {
+            max-width: 600px;
+            margin: 0 auto;
+            color: var(--muted);
+            font-size: 18px;
+        }
+
+        .eyebrow,
+        .section-kicker {
+            margin: 0 0 14px;
+            color: #aeb7ff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 46px;
+            padding: 0 20px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            border: 1px solid var(--border);
+            transition:
+                transform .2s ease,
+                background .2s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+        }
+
+        .button.primary {
+            background: #f5f7fb;
+            color: #0b0c10;
+        }
+
+        .button.secondary {
+            background: rgba(255,255,255,.04);
+        }
+
+        /* APP GALLERY */
+
+        .gallery {
+            margin: 60px auto 0;
+            max-width: 980px;
+        }
+
+        .gallery-frame {
+            position: relative;
+            padding: 9px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(255,255,255,.035);
+            box-shadow:
+                0 35px 100px rgba(0,0,0,.45),
+                0 0 80px rgba(108,124,255,.08);
+        }
+
+        .gallery-image {
+            display: block;
+            width: 100%;
+            border-radius: 11px;
+            user-select: none;
+        }
+
+        /* GALLERY ARROWS */
+
+        .gallery-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+
+            width: 44px;
+            height: 70px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 0;
+            border: 0;
+            background: transparent;
+
+            color: rgba(255,255,255,.48);
+            font-size: 58px;
+            font-weight: 200;
+            line-height: 1;
+
+            cursor: pointer;
+
+            transition:
+                color .2s ease,
+                transform .2s ease;
+        }
+
+        .gallery-arrow:hover {
+            color: rgba(255,255,255,.9);
+        }
+
+        .gallery-arrow:active {
+            transform: translateY(-50%) scale(.94);
+        }
+
+        .gallery-arrow.prev {
+            left: 18px;
+        }
+
+        .gallery-arrow.next {
+            right: 18px;
+        }
+
+        .gallery-counter {
+            position: absolute;
+            right: 25px;
+            bottom: 23px;
+
+            padding: 5px 9px;
+
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 7px;
+
+            background: rgba(8,9,12,.55);
+
+            color: rgba(255,255,255,.58);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .08em;
+
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .transparency-copy h2 {
+            margin: 0 0 10px;
+            font-size: clamp(28px, 4vw, 42px);
+            letter-spacing: -.045em;
+            line-height: 1.05;
+        }
+
+        .transparency-copy p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .transparency-section {
+            padding: 0 0 100px;
+        }
+
+        .ai-section {
+            padding: 0 0 100px;
+        }
+
+        .ai-panel {
+            display: grid;
+            grid-template-columns: 1.1fr .9fr;
+            gap: 12px;
+        }
+
+        .ai-copy,
+        .ai-details {
+            padding: 30px;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+        }
+
+        .ai-copy h2 {
+            margin: 0 0 10px;
+            font-size: clamp(28px, 4vw, 42px);
+            letter-spacing: -.045em;
+            line-height: 1.05;
+        }
+
+        .ai-copy p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .ai-details {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .ai-details strong {
+            display: block;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-size: 15px;
+        }
+
+        .ai-details ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .ai-details li + li {
+            margin-top: 8px;
+        }
+
+        .transparency-panel {
+            display: grid;
+            grid-template-columns: 1.1fr .9fr;
+            gap: 12px;
+        }
+
+        .transparency-copy,
+        .transparency-details {
+            padding: 30px;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+        }
+
+        .transparency-details {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .transparency-details strong {
+            display: block;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-size: 15px;
+        }
+
+        .transparency-details ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .transparency-details li + li {
+            margin-top: 8px;
+        }
+
+        /* DOWNLOAD */
+
+        .download-section {
+            padding: 0 0 105px;
+            text-align: center;
+        }
+
+        .download-box {
+            padding: 45px 30px;
+
+            border: 1px solid var(--border);
+            border-radius: 16px;
+
+            background:
+                linear-gradient(
+                    120deg,
+                    rgba(108,124,255,.12),
+                    rgba(255,255,255,.025)
+                );
+        }
+
+        .download-box h2 {
+            margin: 0 0 8px;
+            font-size: clamp(30px, 4vw, 42px);
+            letter-spacing: -.045em;
+        }
+
+        .download-box p {
+            margin: 0 auto 24px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* FOOTER */
+
+        footer {
+            padding: 30px 0 40px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        /* TABLET */
+
+        @media (max-width: 800px) {
+            .ai-panel,
+            .transparency-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 560px) {
+            .container {
+                width: min(calc(100% - 28px), var(--max));
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding-top: 65px;
+                padding-bottom: 80px;
+            }
+
+            h1 {
+                font-size: clamp(46px, 14vw, 68px);
+            }
+
+            .hero-description {
+                font-size: 16px;
+            }
+
+            .gallery {
+                margin-top: 42px;
+            }
+
+            .gallery-arrow {
+                width: 36px;
+                height: 60px;
+                font-size: 48px;
+            }
+
+            .gallery-arrow.prev {
+                left: 8px;
+            }
+
+            .gallery-arrow.next {
+                right: 8px;
+            }
+
+            .gallery-counter {
+                right: 18px;
+                bottom: 18px;
+            }
+
+            .download-section {
+                padding-bottom: 80px;
+            }
+
+            .download-box {
+                padding: 35px 22px;
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header class="container">
+    <nav>
+        <a class="brand" href="#">XMSGi</a>
+
+        <div class="nav-links">
+            <a href="#how-it-works">How it works</a>
+            <a href="#trust">Trust</a>
+            <a href="https://github.com/molodoy01/XMSGi">GitHub</a>
+        </div>
+    </nav>
+</header>
+
+<main>
+
+    <!-- HERO -->
+
+    <section class="hero">
+        <div class="container">
+
+            <h1>
+                Telegram messages,
+                <span class="gradient">
+                    when you choose.
+                </span>
+            </h1>
+
+            <p class="hero-description">
+                Write, schedule, and review Telegram messages from your own account. XMSGi keeps the timing in your hands.
+            </p>
+
+            <div class="actions">
+
+                <a
+                    class="button primary"
+                    href="https://github.com/molodoy01/XMSGi/releases/tag/v2.2.0"
+                >
+                    Download for Windows
+                </a>
+
+                <a
+                    class="button secondary"
+                    href="https://github.com/molodoy01/XMSGi"
+                >
+                    View on GitHub
+                </a>
+
+            </div>
+
+            <!-- APP GALLERY -->
+
+            <div class="gallery">
+                <div class="gallery-frame">
+
+                    <img
+                        id="gallery-image"
+                        class="gallery-image"
+                        src="screenshots/01.png"
+                        alt="XMSGi desktop application"
+                    >
+
+                    <button
+                        id="gallery-prev"
+                        class="gallery-arrow prev"
+                        type="button"
+                        aria-label="Previous screenshot"
+                    >
+                        ‹
+                    </button>
+
+                    <button
+                        id="gallery-next"
+                        class="gallery-arrow next"
+                        type="button"
+                        aria-label="Next screenshot"
+                    >
+                        ›
+                    </button>
+
+                    <div
+                        id="gallery-counter"
+                        class="gallery-counter"
+                    >
+                        01 / 03
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+
+    <section class="ai-section" id="how-it-works">
+        <div class="container">
+            <div class="ai-panel">
+                <div class="ai-copy">
+                    <p class="section-kicker">How it works</p>
+                    <h2>Simple from the first step.</h2>
+                    <p>Open XMSGi, pick a Telegram chat, prepare the message, and decide whether it should go now or later.</p>
+                </div>
+                <div class="ai-details">
+                    <strong>Your message, your decision</strong>
+                    <ul>
+                        <li>Choose an available chat, group, or dialog from your Telegram account.</li>
+                        <li>Write the text and add attachments when needed.</li>
+                        <li>Send it immediately or set a chosen date and time.</li>
+                        <li>Use silent delivery or a message effect when required.</li>
+                        <li>Review the outcome in the sending history.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="transparency-section" id="trust">
+        <div class="container">
+            <div class="transparency-panel">
+                <div class="transparency-copy">
+                    <p class="section-kicker">Security and sessions</p>
+                    <h2>Your account, your session, your timing.</h2>
+                    <p>XMSGi works with a Telegram user account, not a bot. The session is kept locally on the device so you can sign out without losing access for later.</p>
+                </div>
+                <div class="transparency-details">
+                    <strong>What stays with you</strong>
+                    <ul>
+                        <li>Sign out while keeping the Telegram session available for a later return.</li>
+                        <li>Forget the account to remove the saved Telegram session from the device.</li>
+                        <li>Sensitive local data is protected with Electron safeStorage where the operating system supports it.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- DOWNLOAD -->
+
+    <section class="download-section">
+        <div class="container">
+
+            <div class="download-box">
+
+                <h2>Plan the moments that matter.</h2>
+
+                <p>
+                    A stylish, functional way to schedule Telegram messages as reminders for yourself or thoughtful notes for the people close to you.
+                </p>
+
+                <a
+                    class="button primary"
+                    href="https://github.com/molodoy01/XMSGi/releases/tag/v2.2.0"
+                >
+                    Download for Windows
+                </a>
+
+            </div>
+
+        </div>
+    </section>
+
+</main>
+
+
+<footer>
+    <div class="container footer-inner">
+
+        <span>© 2026 XMSGi</span>
+
+        <a href="https://github.com/molodoy01/XMSGi">
+            Open source on GitHub
+        </a>
+
+    </div>
+</footer>
+
+
+<script>
+    const images = [
+        "screenshots/01.png",
+        "screenshots/02.png",
+        "screenshots/03.png"
+    ];
+
+    const image = document.getElementById("gallery-image");
+    const counter = document.getElementById("gallery-counter");
+    const previous = document.getElementById("gallery-prev");
+    const next = document.getElementById("gallery-next");
+
+    let current = 0;
+
+    function showImage(index) {
+        current = (index + images.length) % images.length;
+
+        image.src = images[current];
+
+        counter.textContent =
+            String(current + 1).padStart(2, "0") +
+            " / " +
+            String(images.length).padStart(2, "0");
+    }
+
+    previous.addEventListener("click", () => {
+        showImage(current - 1);
+    });
+
+    next.addEventListener("click", () => {
+        showImage(current + 1);
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") {
+            showImage(current - 1);
+        }
+
+        if (event.key === "ArrowRight") {
+            showImage(current + 1);
+        }
+    });
+
+    let touchStartX = 0;
+
+    image.addEventListener(
+        "touchstart",
+        (event) => {
+            touchStartX = event.changedTouches[0].screenX;
+        },
+        { passive: true }
+    );
+
+    image.addEventListener(
+        "touchend",
+        (event) => {
+            const touchEndX = event.changedTouches[0].screenX;
+            const difference = touchStartX - touchEndX;
+
+            if (Math.abs(difference) < 40) {
+                return;
+            }
+
+            if (difference > 0) {
+                showImage(current + 1);
+            } else {
+                showImage(current - 1);
+            }
+        },
+        { passive: true }
+    );
+</script>
+
+</body>
+</html>
+

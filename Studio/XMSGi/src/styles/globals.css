@@ -1,0 +1,66 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--void);
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154, 168, 184, 0.35) transparent;
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: var(--sans);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, #16140f 0%, transparent 55%),
+    var(--void);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 100vh;
+  line-height: 1.4;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154, 168, 184, 0.35) transparent;
+}
+
+html:has(.auth-panel),
+body:has(.auth-panel) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154, 168, 184, 0.35) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(154, 168, 184, 0.32);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(154, 168, 184, 0.5);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+h1 {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(36px, 7vw, 56px);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  font-weight: 700;
+  color: var(--text);
+}
