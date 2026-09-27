@@ -1,5 +1,0 @@
-[33m18b4007[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m)[m refactor: make XMSGi the sole product identity
-[33mdb280dc[m feat: add XMSGi persistence compatibility migration
-[33m99b18f7[m Complete Studio persistence and publishing flow
-[33m442780b[m Complete Stage A Studio persistence flow
-[33m43f3e33[m chore: save current work
