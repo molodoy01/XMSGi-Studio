@@ -313,8 +313,6 @@ function App() {
           twoFactorPassword={twoFactorPassword}
           authBusy={authBusy}
           authError={authError}
-          isConfirmingLogout={isConfirmingLogout}
-          setIsConfirmingLogout={setIsConfirmingLogout}
           setShowAuthForm={setShowAuthForm}
           setAuthStep={setAuthStep}
           setPhoneNumber={setPhoneNumber}
@@ -330,7 +328,6 @@ function App() {
               }
             }
           }}
-          handleDisconnect={handleDisconnect}
           handleWelcomeBack={async () => {
             await handleWelcomeBack();
             if (typeof window.telegram?.getAuthState === 'function') {

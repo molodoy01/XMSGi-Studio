@@ -247,7 +247,7 @@ export function useScheduler({
     return () => {
       cancelled = true;
     };
-  }, [connected, historyReady, loadUpcoming, saveUpcoming, showNotification, t]);
+  }, [accountId, connected, historyReady, loadUpcoming, saveSent, saveUpcoming, showNotification, t]);
 
   useEffect(() => {
     const moveDueMessages = () => {
@@ -292,7 +292,7 @@ export function useScheduler({
     const intervalId = window.setInterval(moveDueMessages, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [historyReady, saveSent, saveUpcoming, upcoming]);
+  }, [accountId, historyReady, saveSent, saveUpcoming, upcoming]);
 
   function handleSchedule(assistantSchedule?: {
     chatId: string;

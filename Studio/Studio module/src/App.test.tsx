@@ -10,7 +10,7 @@ async function renderApp() {
   document.body.appendChild(container);
   const root: Root = createRoot(container);
   await act(async () => {
-    root.render(<App />);
+    root.render(<App connected />);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -69,7 +69,14 @@ describe('App media publish records', () => {
     Object.defineProperty(window, 'telegram', {
       configurable: true,
       value: {
+        getChats: vi.fn().mockResolvedValue({ success: true, chats: [
+          { id: 'telegram', name: 'Telegram', username: 'telegram', type: 'channel' },
+        ] }),
         getChatHistory: vi.fn().mockResolvedValue({ success: true, history: { chat: { id: 'telegram', title: 'Telegram' }, messages: [] } }),
+        send: vi.fn().mockResolvedValue({ success: true }),
+        schedule: vi.fn().mockResolvedValue({ success: true, telegramMessageId: 42, confirmed: true }),
+        cancel: vi.fn().mockResolvedValue({ success: true }),
+        findChat: vi.fn().mockResolvedValue({ success: false, error: 'Chat not found.' }),
         getFilePath: vi.fn(() => '/tmp/photo.png'),
       },
     });
@@ -128,6 +135,11 @@ describe('App media publish records', () => {
 
     await openQueue();
     expect(document.querySelector('.message-attachment-image')).toBeTruthy();
+    expect(window.telegram.schedule).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: 'telegram',
+      message: 'Media post',
+      attachments: ['/managed/photo.png'],
+    }));
     unmount();
   });
 
@@ -143,6 +155,13 @@ describe('App media publish records', () => {
 
     await openQueue();
     expect(document.querySelector('.message-attachment-image')).toBeTruthy();
+    expect(window.telegram.send).toHaveBeenCalledWith(
+      'telegram',
+      'Media post',
+      ['/managed/photo.png'],
+      [],
+      undefined,
+    );
     unmount();
   });
 

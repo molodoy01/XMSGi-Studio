@@ -33,8 +33,6 @@ type SchedulePageProps = {
   twoFactorPassword: string;
   authBusy: boolean;
   authError: string;
-  isConfirmingLogout: boolean;
-  setIsConfirmingLogout: Dispatch<SetStateAction<boolean>>;
   setShowAuthForm: Dispatch<SetStateAction<boolean>>;
   setAuthStep: Dispatch<SetStateAction<'phone' | 'code' | 'password'>>;
   setPhoneNumber: Dispatch<SetStateAction<string>>;
@@ -42,7 +40,6 @@ type SchedulePageProps = {
   setTwoFactorPassword: Dispatch<SetStateAction<string>>;
   setAuthError: Dispatch<SetStateAction<string>>;
   handleTelegramAuth: () => Promise<void>;
-  handleDisconnect: () => Promise<void>;
   handleWelcomeBack: () => Promise<void>;
   handleForgetAccount: () => Promise<void>;
   chats: Chat[];
@@ -113,8 +110,6 @@ export function SchedulePage(props: SchedulePageProps) {
     twoFactorPassword,
     authBusy,
     authError,
-    isConfirmingLogout,
-    setIsConfirmingLogout,
     setShowAuthForm,
     setAuthStep,
     setPhoneNumber,
@@ -122,7 +117,6 @@ export function SchedulePage(props: SchedulePageProps) {
     setTwoFactorPassword,
     setAuthError,
     handleTelegramAuth,
-    handleDisconnect,
     handleWelcomeBack,
     handleForgetAccount,
     chats,

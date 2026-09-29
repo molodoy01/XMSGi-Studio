@@ -61,7 +61,7 @@ describe('Telegram core FloodWait integration', () => {
       signedOut: false,
     };
     let dialogRequests = 0;
-    let fakeClient;
+    const fakeClientRef = { current: undefined };
 
     nodeModule._load = function load(request, parent, isMain) {
       if (request === 'teleproto') {
@@ -69,7 +69,7 @@ describe('Telegram core FloodWait integration', () => {
           TelegramClient: class FakeTelegramClient {
             constructor() {
               this.connected = false;
-              fakeClient = this;
+              fakeClientRef.current = this;
             }
 
             connect() {
@@ -133,7 +133,7 @@ describe('Telegram core FloodWait integration', () => {
       const request = core.getChats();
       await vi.waitFor(() => expect(dialogRequests).toBe(1));
 
-      expect(fakeClient?.connected).toBe(true);
+      expect(fakeClientRef.current?.connected).toBe(true);
       expect(core.getTelegramRateLimitState().current).toMatchObject({
         paused: true,
         pausedUntil: clock.now() + 10_000,

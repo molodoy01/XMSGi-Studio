@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const xmsgiSource = fileURLToPath(new URL('./src/', import.meta.url));
 const externalStudioEntry = fileURLToPath(
-  new URL('../Studio/XMSGi/src/App.tsx', import.meta.url)
+  new URL('../Studio/Studio module/src/App.tsx', import.meta.url)
 );
 const externalStudioRoot = path.dirname(externalStudioEntry);
 const normalizedExternalStudioRoot = externalStudioRoot.replace(/\\/g, '/');
