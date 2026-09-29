@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import { ChatRemoveModal } from '@/components/ChatRemoveModal';
 import { ChatPreviewStand, type ChatWallpaper } from '@/components/ChatPreviewStand';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
-import { MessagesPanel } from '@/components/MessagesPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { WorkspaceTextStage } from '@/components/WorkspaceTextStage';
 import { NOTIFICATION_DURATION_MS } from '@/hooks/useNotifications';
@@ -48,12 +47,6 @@ type WorkspacePageProps = {
   lastAction: 'sent' | 'scheduled' | null;
   notification: import('@/types').NotificationState;
   closeNotification: () => void;
-  upcoming: ScheduledMessage[];
-  sent: ScheduledMessage[];
-  activeTab: 'upcoming' | 'sent';
-  revealingId: string | null;
-  cancelingIds: Set<string>;
-  sendingIds: Set<string>;
   setDate: React.Dispatch<React.SetStateAction<string>>;
   setTime: React.Dispatch<React.SetStateAction<string>>;
   handleSchedule: (payload?: {
@@ -65,23 +58,14 @@ type WorkspacePageProps = {
     entities?: RichTextEntity[];
     replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>;
   }, repeat?: ScheduleRepeatOptions) => void;
-  handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: RichTextEntity[], replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>) => Promise<boolean>;
-  handleSendNow: (message: ScheduledMessage) => void;
-  handleDeleteMessage: (message: ScheduledMessage) => void;
-  handleClearSent: () => void;
-  handleClearAll: () => void;
-  setActiveTab: React.Dispatch<React.SetStateAction<'upcoming' | 'sent'>>;
-  publishingDraft: boolean;
   handleCancelMessage: (message: ScheduledMessage) => void;
+  handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: RichTextEntity[], replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>) => Promise<boolean>;
+  publishingDraft: boolean;
+  onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
 };
 
 type PublishAction = 'send' | 'schedule' | 'draft';
-
-type QueueScrollMetrics = {
-  scrollTop: number;
-  scrollHeight: number;
-  clientHeight: number;
-};
 
 type IconRimMotion = {
   currentAngle: number;
@@ -516,26 +500,19 @@ export function WorkspacePage({
   lastAction,
   notification,
   closeNotification,
-  upcoming,
-  sent,
-  activeTab,
-  revealingId,
-  cancelingIds,
-  sendingIds,
   setDate,
   setTime,
   handleSchedule,
-  handleSendDraftNow,
-  handleSendNow,
-  handleDeleteMessage,
-  handleClearSent,
-  handleClearAll,
-  setActiveTab,
-  publishingDraft,
   handleCancelMessage,
+  handleSendDraftNow,
+  publishingDraft,
+  onRegisterHistoryDraftOpener,
+  onRegisterHistoryRescheduleHandler,
 }: WorkspacePageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bodyInputRef = useRef<HTMLDivElement | null>(null);
+  const historyDraftOpenerRef = useRef<(draft: SavedDraft) => void>(() => undefined);
+  const historyRescheduleHandlerRef = useRef<(message: ScheduledMessage) => void>(() => undefined);
   const previewFeedRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const initialPreviewLayoutRef = useRef<PreviewLayout | null>(null);
@@ -626,16 +603,6 @@ export function WorkspacePage({
   const [previewHistoryError, setPreviewHistoryError] = useState('');
   const [previewHistoryRetry, setPreviewHistoryRetry] = useState(0);
   const [chatLookupError, setChatLookupError] = useState('');
-  const [rightPanelMode, setRightPanelMode] = useState<'preview' | 'queue'>('preview');
-  const queueContentRef = useRef<HTMLDivElement | null>(null);
-  const queueScrollTrackRef = useRef<HTMLDivElement | null>(null);
-  const queueScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
-  const [queueScrollDragging, setQueueScrollDragging] = useState(false);
-  const [queueScrollMetrics, setQueueScrollMetrics] = useState<QueueScrollMetrics>({
-    scrollTop: 0,
-    scrollHeight: 0,
-    clientHeight: 0,
-  });
   const [chatWallpaper, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
   const [chatListOpen, setChatListOpen] = useState(false);
   const [publishMenuOpen, setPublishMenuOpen] = useState(false);
@@ -819,117 +786,6 @@ export function WorkspacePage({
         collapsed: nextVisible ? current.collapsed : false,
       };
     });
-  };
-
-  const handlePreviewPanelModeChange = (mode: 'preview' | 'queue') => {
-    setRightPanelMode(mode);
-  };
-
-  useLayoutEffect(() => {
-    const scrollArea = rightPanelMode === 'queue'
-      ? queueContentRef.current?.querySelector<HTMLElement>('.messages-panel')
-      : null;
-
-    if (!scrollArea) {
-      setQueueScrollMetrics({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 });
-      return;
-    }
-
-    const syncMetrics = () => {
-      const next = {
-        scrollTop: scrollArea.scrollTop,
-        scrollHeight: scrollArea.scrollHeight,
-        clientHeight: scrollArea.clientHeight,
-      };
-      setQueueScrollMetrics((current) => (
-        current.scrollTop === next.scrollTop
-        && current.scrollHeight === next.scrollHeight
-        && current.clientHeight === next.clientHeight
-          ? current
-          : next
-      ));
-    };
-
-    syncMetrics();
-    scrollArea.addEventListener('scroll', syncMetrics, { passive: true });
-    scrollArea.addEventListener('load', syncMetrics, true);
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncMetrics);
-    resizeObserver?.observe(scrollArea);
-    Array.from(scrollArea.children).forEach((child) => resizeObserver?.observe(child));
-
-    const mutationObserver = typeof MutationObserver === 'undefined' ? null : new MutationObserver(syncMetrics);
-    mutationObserver?.observe(scrollArea, { childList: true, subtree: true, characterData: true });
-
-    return () => {
-      scrollArea.removeEventListener('scroll', syncMetrics);
-      scrollArea.removeEventListener('load', syncMetrics, true);
-      resizeObserver?.disconnect();
-      mutationObserver.disconnect();
-    };
-  }, [activeTab, rightPanelMode, sent, upcoming]);
-
-  const queueCanScroll = !previewCollapsed && queueScrollMetrics.scrollHeight > queueScrollMetrics.clientHeight + 1;
-  const queueScrollbarThumbHeight = queueCanScroll
-    ? Math.min(100, Math.max(10, queueScrollMetrics.clientHeight / queueScrollMetrics.scrollHeight * 100))
-    : 100;
-  const queueScrollbarThumbTop = queueCanScroll
-    ? queueScrollMetrics.scrollTop / (queueScrollMetrics.scrollHeight - queueScrollMetrics.clientHeight)
-      * (100 - queueScrollbarThumbHeight)
-    : 0;
-
-  const handleQueueScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
-    const track = queueScrollTrackRef.current;
-    if (!scrollArea || !track) return;
-
-    const maxScroll = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
-    const trackHeight = track.clientHeight;
-    const thumbHeight = Math.min(trackHeight, Math.max(16, scrollArea.clientHeight / Math.max(1, scrollArea.scrollHeight) * trackHeight));
-
-    if ((event.target as HTMLElement).closest('.chat-preview-scrollbar-thumb')) {
-      queueScrollDragRef.current = { pointerY: event.clientY, scrollTop: scrollArea.scrollTop };
-      setQueueScrollDragging(true);
-      track.setPointerCapture(event.pointerId);
-    } else {
-      const bounds = track.getBoundingClientRect();
-      const travel = Math.max(1, trackHeight - thumbHeight);
-      const position = (event.clientY - bounds.top - thumbHeight / 2) / travel;
-      scrollArea.scrollTop = Math.max(0, Math.min(maxScroll, position * maxScroll));
-    }
-
-    event.preventDefault();
-  };
-
-  const handleQueueScrollbarPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const drag = queueScrollDragRef.current;
-    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
-    const track = queueScrollTrackRef.current;
-    if (!drag || !scrollArea || !track) return;
-
-    const maxScroll = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
-    const trackHeight = track.clientHeight;
-    const thumbHeight = Math.min(trackHeight, Math.max(16, scrollArea.clientHeight / Math.max(1, scrollArea.scrollHeight) * trackHeight));
-    const travel = Math.max(1, trackHeight - thumbHeight);
-    scrollArea.scrollTop = Math.max(0, Math.min(maxScroll, drag.scrollTop + (event.clientY - drag.pointerY) / travel * maxScroll));
-  };
-
-  const handleQueueScrollbarKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
-    if (!scrollArea) return;
-
-    const pageStep = Math.max(40, scrollArea.clientHeight * 0.75);
-    const nextScrollTop = event.key === 'ArrowDown' ? scrollArea.scrollTop + 40
-      : event.key === 'ArrowUp' ? scrollArea.scrollTop - 40
-        : event.key === 'PageDown' ? scrollArea.scrollTop + pageStep
-          : event.key === 'PageUp' ? scrollArea.scrollTop - pageStep
-            : event.key === 'Home' ? 0
-              : event.key === 'End' ? scrollArea.scrollHeight - scrollArea.clientHeight
-                : null;
-    if (nextScrollTop === null) return;
-
-    event.preventDefault();
-    scrollArea.scrollTop = nextScrollTop;
   };
 
   useEffect(() => {
@@ -1398,30 +1254,6 @@ export function WorkspacePage({
     });
   };
 
-  const rescheduleMessage = (message: ScheduledMessage) => {
-    const chat = chats.find((item) => item.id === message.chatId);
-    const scheduledAt = new Date(message.when);
-    if (!chat || Number.isNaN(scheduledAt.getTime())) return;
-
-    const nextDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
-    const nextTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
-    setSelectedChat(chat);
-    setDraftBody(message.text);
-    setDraftEntities(message.entities ?? []);
-    setAttachments((message.attachments ?? []).map((path) => ({
-      name: path.split(/[\\/]/).pop() || path,
-      path,
-    })));
-    setDate(nextDate);
-    setTime(nextTime);
-    setRepeatMode('none');
-    setRepeatDays([]);
-    setRepeatOccurrences(1);
-    handleCancelMessage(message);
-    setRightPanelMode('preview');
-    changeStageMode('editor');
-  };
-
   const saveCurrentDraft = async () => {
     if (!hasDraftContent) return;
 
@@ -1571,6 +1403,44 @@ export function WorkspacePage({
     setStageTab('drafts');
     setStageMode('draft');
   };
+
+  const rescheduleMessage = (message: ScheduledMessage) => {
+    const chat = chats.find((item) => item.id === message.chatId);
+    const scheduledAt = new Date(message.when);
+    if (!chat || Number.isNaN(scheduledAt.getTime())) return;
+
+    const nextDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
+    const nextTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
+    setSelectedChat(chat);
+    setDraftBody(message.text);
+    setDraftEntities(message.entities ?? []);
+    setAttachments((message.attachments ?? []).map((path) => ({
+      name: path.split(/[\\/]/).pop() || path,
+      path,
+    })));
+    setDate(nextDate);
+    setTime(nextTime);
+    setRepeatMode('none');
+    setRepeatDays([]);
+    setRepeatOccurrences(1);
+    handleCancelMessage(message);
+    changeStageMode('editor');
+  };
+
+  historyDraftOpenerRef.current = openDraftEditor;
+  historyRescheduleHandlerRef.current = rescheduleMessage;
+
+  useEffect(() => {
+    if (!onRegisterHistoryDraftOpener) return;
+    onRegisterHistoryDraftOpener((draft) => historyDraftOpenerRef.current(draft));
+    return () => onRegisterHistoryDraftOpener(null);
+  }, [onRegisterHistoryDraftOpener]);
+
+  useEffect(() => {
+    if (!onRegisterHistoryRescheduleHandler) return;
+    onRegisterHistoryRescheduleHandler((message) => historyRescheduleHandlerRef.current(message));
+    return () => onRegisterHistoryRescheduleHandler(null);
+  }, [onRegisterHistoryRescheduleHandler]);
 
   const closeDraftEditor = () => {
     draftEditingSourceRef.current = null;
@@ -2173,17 +2043,6 @@ export function WorkspacePage({
                   </button>
                   <button
                     type="button"
-                    className={`workspace-page-action-button workspace-page-mode-button workspace-page-mode-button-history ${rightPanelMode === 'queue' ? 'is-active' : ''}`}
-                    onClick={() => {
-                      setRightPanelMode((current) => current === 'queue' ? 'preview' : 'queue');
-                    }}
-                    aria-pressed={rightPanelMode === 'queue'}
-                    title="View scheduled messages and sent history"
-                  >
-                    Queue / History
-                  </button>
-                  <button
-                    type="button"
                     className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'template' ? 'is-active' : ''}`}
                     onClick={() => {
                       if (stageMode === 'template') {
@@ -2393,101 +2252,30 @@ export function WorkspacePage({
             data-collapsed={previewCollapsed ? 'true' : 'false'}
             data-visible={previewLayout.visible === false ? 'false' : 'true'}
           >
-            {rightPanelMode === 'queue' ? (
-              <div className="workspace-page-queue-panel">
-                <div className="workspace-page-queue-header">
-                  <span>Queue / history</span>
-                </div>
-                <div className="chat-preview-window-shell">
-                  <div
-                    ref={queueContentRef}
-                    id="workspace-queue-scroll-region"
-                    className={`workspace-page-queue-content theme-${chatWallpaper.theme}`}
-                    style={chatWallpaper.theme === 'custom' && chatWallpaper.image
-                      ? { backgroundImage: `url(${chatWallpaper.image})` }
-                      : undefined}
-                  >
-                    <MessagesPanel
-                      upcoming={upcoming}
-                      sent={sent}
-                      upcomingLabel="Queue"
-                      assistantText=""
-                      revealingId={revealingId}
-                      activeTab={activeTab}
-                      onTabChange={setActiveTab}
-                      onCancel={handleCancelMessage}
-                      onReschedule={rescheduleMessage}
-                      onSendNow={handleSendNow}
-                      onDelete={handleDeleteMessage}
-                      onClearSent={handleClearSent}
-                      onClearAll={handleClearAll}
-                      cancelingIds={cancelingIds}
-                      sendingIds={sendingIds}
-                      showAllMessages
-                      hideCancel
-                    />
-                  </div>
-                  <div
-                    ref={queueScrollTrackRef}
-                    className={`chat-preview-scrollbar-track${queueCanScroll ? '' : ' is-hidden'}${queueScrollDragging ? ' is-dragging' : ''}`}
-                    role="scrollbar"
-                    tabIndex={queueCanScroll ? 0 : -1}
-                    aria-label="Queue and history scroll"
-                    aria-controls="workspace-queue-scroll-region"
-                    aria-orientation="vertical"
-                    aria-hidden={!queueCanScroll}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={queueCanScroll
-                      ? Math.round(queueScrollMetrics.scrollTop / (queueScrollMetrics.scrollHeight - queueScrollMetrics.clientHeight) * 100)
-                      : 0}
-                    onPointerDown={handleQueueScrollbarPointerDown}
-                    onPointerMove={handleQueueScrollbarPointerMove}
-                    onPointerUp={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
-                    onPointerCancel={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
-                    onLostPointerCapture={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
-                    onKeyDown={handleQueueScrollbarKeyDown}
-                  >
-                    {queueCanScroll && (
-                      <div
-                        className="chat-preview-scrollbar-thumb"
-                        style={{
-                          height: `${queueScrollbarThumbHeight}%`,
-                          top: `${queueScrollbarThumbTop}%`,
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <ChatPreviewStand
-                chats={chats}
-                selectedChat={selectedChat}
-                previewHistory={previewHistory}
-                previewHistoryLoading={previewHistoryLoading}
-                previewFeedRef={previewFeedRef}
-                draftText={previewText}
-                draftEntities={stageMode === 'template' && templateEditingId
-                  ? []
-                  : stageMode === 'draft' && draftEditingId
-                    ? draftBodyEntities
-                    : draftEntities}
-                inlineButtons={inlineButtons}
-                attachments={attachments}
-                previewTime={previewTime}
-                collapsed={previewCollapsed}
-                chatListOpen={chatListOpen}
-                onToggleChatList={() => setChatListOpen((current) => !current)}
-                onSelectChat={(chat) => {
-                  setSelectedChat(chat);
-                  setChatListOpen(false);
-                }}
-                onWallpaperChange={setChatWallpaper}
-                rightPanelMode={rightPanelMode}
-                onRightPanelModeChange={handlePreviewPanelModeChange}
-              />
-            )}
+            <ChatPreviewStand
+              chats={chats}
+              selectedChat={selectedChat}
+              previewHistory={previewHistory}
+              previewHistoryLoading={previewHistoryLoading}
+              previewFeedRef={previewFeedRef}
+              draftText={previewText}
+              draftEntities={stageMode === 'template' && templateEditingId
+                ? []
+                : stageMode === 'draft' && draftEditingId
+                  ? draftBodyEntities
+                  : draftEntities}
+              inlineButtons={inlineButtons}
+              attachments={attachments}
+              previewTime={previewTime}
+              collapsed={previewCollapsed}
+              chatListOpen={chatListOpen}
+              onToggleChatList={() => setChatListOpen((current) => !current)}
+              onSelectChat={(chat) => {
+                setSelectedChat(chat);
+                setChatListOpen(false);
+              }}
+              onWallpaperChange={setChatWallpaper}
+            />
           </section>
         </main>
       </div>

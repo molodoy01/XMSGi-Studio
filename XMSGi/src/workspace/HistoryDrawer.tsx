@@ -1,19 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText, Maximize2, Minimize2, Search, Trash2, X } from 'lucide-react';
 import type { ScheduledMessage } from '@/types';
 import { richTextToHtml } from '@/lib/richText';
+import type { PersistedDraftStore } from '../../../Studio/Studio module/src/types';
+import { normalizePersistedStudioDrafts, normalizeSavedDraft, sortHistoryItems } from './historyModel';
+import type { HistoryItem } from './historyModel';
 
-type HistorySourceFilter = 'all' | 'studio' | 'personal';
-type HistoryStatusFilter = 'upcoming' | 'completed';
+type HistorySourceFilter = 'all' | 'workspace' | 'personal';
+type HistoryBulkActionSource = Exclude<HistorySourceFilter, 'all'>;
+type HistoryStatusFilter = 'scheduled' | 'sent' | 'drafts';
 type HistoryExportScope = 'upcoming' | 'completed';
 type HistoryExportFormat = 'txt' | 'json';
 
-export type HistoryDrawerRecord = {
-  source: 'studio' | 'personal';
-  status: 'upcoming' | 'completed';
-  chatLabel: string;
-  message: ScheduledMessage;
+type HistoryDraftStorageApi = {
+  load: () => Promise<{ success: boolean; store?: PersistedDraftStore }>;
 };
+
+type HistoryWindow = Window & { draftStorage?: HistoryDraftStorageApi };
 
 function toAttachmentUrl(filePath: string) {
   if (/^(?:data:|https?:|file:)/i.test(filePath)) return filePath;
@@ -65,20 +68,36 @@ function normalizeSearchText(value: string) {
     .trim();
 }
 
-function matchesHistoryQuery(record: HistoryDrawerRecord, query: string) {
+function getHistoryStatusLabel(status: HistoryItem['status']) {
+  if (status === 'scheduled') return 'Запланировано';
+  if (status === 'sending') return 'Отправляется';
+  if (status === 'sent') return 'Отправлено';
+  if (status === 'failed' || status === 'cancelled') return 'Ошибка';
+  if (status === 'draft') return 'Черновик';
+  return 'Черновик';
+}
+
+function getHistoryTimestamp(record: HistoryItem) {
+  return record.scheduledAt || record.sentAt || record.updatedAt || '';
+}
+
+function matchesHistoryQuery(record: HistoryItem, query: string) {
   const tokens = normalizeSearchText(query).split(' ').filter(Boolean);
   if (tokens.length === 0) return true;
 
-  const date = new Date(record.message.when);
+  const timestamp = getHistoryTimestamp(record);
+  const date = new Date(timestamp);
   const searchableValues = [
-    record.message.chatName,
-    record.message.text,
-    record.chatLabel,
-    record.source === 'studio' ? 'Studio' : 'Личное',
-    formatTime(record.message.when),
-    formatDateLabel(record.message.when),
+    record.title,
+    record.text,
+    record.channelName,
+    record.channelLabel,
+    record.source === 'workspace' ? 'Studio' : 'Личное',
+    getHistoryStatusLabel(record.status),
+    formatTime(timestamp),
+    formatDateLabel(timestamp),
     new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
-    record.message.when,
+    timestamp,
   ].map(normalizeSearchText);
 
   return tokens.every((token) => searchableValues.some((value) => value.includes(token)));
@@ -91,22 +110,32 @@ function formatExportStatus(status: ScheduledMessage['status']) {
   return 'Отправлено';
 }
 
-function formatExportText(records: HistoryDrawerRecord[], scope: HistoryExportScope) {
-  const selectedRecords = records.filter((record) => record.status === scope);
+function getExportMessage(record: HistoryItem, scope: HistoryExportScope) {
+  if (record.original.kind !== 'scheduled') return null;
+  if (scope === 'upcoming' && record.status !== 'scheduled') return null;
+  if (scope === 'completed' && record.status !== 'sent') return null;
+  return record.original.message;
+}
+
+function formatExportText(records: HistoryItem[], scope: HistoryExportScope) {
+  const selectedRecords = records.flatMap((record) => {
+    const message = getExportMessage(record, scope);
+    return message ? [{ record, message }] : [];
+  });
   const exportedAt = new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date());
-  const entries = selectedRecords.map(({ source, chatLabel, message }, index) => {
+  const entries = selectedRecords.map(({ record, message }, index) => {
     const scheduledAt = new Intl.DateTimeFormat('ru-RU', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(message.when));
-    const chat = chatLabel ? `${message.chatName} (${chatLabel})` : message.chatName;
+    const chat = record.channelName;
     const lines = [
       `${index + 1}. ${message.chatName}`,
-      `Источник: ${source === 'studio' ? 'Studio' : 'Личное'}`,
-      `Чат: ${chat}`,
+      `Источник: ${record.source === 'workspace' ? 'Studio' : 'Личное'}`,
+      `Чат: ${record.channelLabel ? `${message.chatName} (${record.channelLabel})` : chat}`,
       `Дата и время: ${scheduledAt}`,
       `Статус: ${formatExportStatus(message.status)}`,
       '',
@@ -134,10 +163,12 @@ function formatExportText(records: HistoryDrawerRecord[], scope: HistoryExportSc
   ].join('\n');
 }
 
-function exportHistoryRecords(records: HistoryDrawerRecord[], scope: HistoryExportScope, format: HistoryExportFormat) {
+function exportHistoryRecords(records: HistoryItem[], scope: HistoryExportScope, format: HistoryExportFormat) {
   const selectedRecords = records
-    .filter((record) => record.status === scope)
-    .map(({ source, chatLabel, message }) => ({ source, chatLabel, ...message }));
+    .flatMap((record) => {
+      const message = getExportMessage(record, scope);
+      return message ? [{ source: record.source, ...message }] : [];
+    });
   const payload = format === 'json'
     ? JSON.stringify({ exportedAt: new Date().toISOString(), messages: selectedRecords }, null, 2)
     : formatExportText(records, scope);
@@ -160,20 +191,67 @@ export function HistoryDrawer({
   onClose,
   records,
   onCancel,
+  onReschedule,
+  onSendNow,
   onDelete,
+  onOpenDraft,
+  onClearSent,
+  onClearAll,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  records: HistoryDrawerRecord[];
-  onCancel: (record: HistoryDrawerRecord) => void;
-  onDelete: (record: HistoryDrawerRecord) => void;
+  records: HistoryItem[];
+  onCancel: (record: HistoryItem) => void;
+  onReschedule: (record: HistoryItem) => void;
+  onSendNow: (record: HistoryItem) => void;
+  onDelete: (record: HistoryItem) => void;
+  onOpenDraft: (record: HistoryItem) => void;
+  onClearSent: (source: HistoryBulkActionSource) => void;
+  onClearAll: (source: HistoryBulkActionSource) => void;
 }) {
   const [sourceFilter, setSourceFilter] = useState<HistorySourceFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>('upcoming');
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>('scheduled');
   const [query, setQuery] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<HistoryDrawerRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<HistoryItem | null>(null);
+  const [draftItems, setDraftItems] = useState<HistoryItem[]>([]);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  const expandedPostRef = useRef<HTMLDivElement | null>(null);
+  const scrollExpandedPostToBottomRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!scrollExpandedPostToBottomRef.current) return;
+    scrollExpandedPostToBottomRef.current = false;
+    const expandedPost = expandedPostRef.current;
+    if (typeof expandedPost?.scrollIntoView === 'function') {
+      expandedPost.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [selectedRecord]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    const draftStorage = (window as HistoryWindow).draftStorage;
+
+    const loadDrafts = async () => {
+      if (!draftStorage) {
+        setDraftItems([]);
+        return;
+      }
+
+      try {
+        const result = await draftStorage.load();
+        if (active) setDraftItems(result.success ? normalizePersistedStudioDrafts(result.store) : []);
+      } catch {
+        if (active) setDraftItems([]);
+      }
+    };
+
+    void loadDrafts();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -207,22 +285,35 @@ export function HistoryDrawer({
   }, [isExportMenuOpen, isOpen]);
 
   const filteredRecords = useMemo(() => {
-    return records
+    const categoryRecords = [...records, ...draftItems]
       .filter((record) => {
         if (sourceFilter !== 'all' && record.source !== sourceFilter) return false;
-        if (record.status !== statusFilter) return false;
+        if (statusFilter === 'scheduled'
+          && record.status !== 'scheduled'
+          && record.status !== 'sending'
+          && record.status !== 'failed'
+          && record.status !== 'cancelled') return false;
+        if (statusFilter === 'sent' && record.status !== 'sent') return false;
+        if (statusFilter === 'drafts' && record.status !== 'draft') return false;
 
         return matchesHistoryQuery(record, query);
-      })
-        .sort((left, right) => new Date(left.message.when).getTime() - new Date(right.message.when).getTime());
-      }, [query, records, sourceFilter, statusFilter]);
+      });
+    return sortHistoryItems(categoryRecords, statusFilter);
+  }, [draftItems, query, records, sourceFilter, statusFilter]);
 
   const selectedRecordIndex = selectedRecord
-    ? filteredRecords.findIndex((record) => record.source === selectedRecord.source && record.message.id === selectedRecord.message.id)
+    ? filteredRecords.findIndex((record) => record.id === selectedRecord.id)
     : -1;
   const visibleRecords = selectedRecordIndex >= 0
     ? filteredRecords.slice(0, selectedRecordIndex + 1)
     : filteredRecords;
+  const selectedSource = sourceFilter === 'all' ? null : sourceFilter;
+  const hasSentInSelectedSource = selectedSource !== null && records.some((record) =>
+    record.source === selectedSource && record.original.kind === 'scheduled' && record.status === 'sent',
+  );
+  const hasUpcomingInSelectedSource = selectedSource !== null && records.some((record) =>
+    record.source === selectedSource && record.original.kind === 'scheduled' && record.status !== 'sent',
+  );
 
   if (!isOpen) return null;
 
@@ -254,7 +345,7 @@ export function HistoryDrawer({
 
         <div className="history-drawer-controls">
           <div className="history-source-filters" role="group" aria-label="Источник записей">
-            {(['all', 'studio', 'personal'] as const).map((item) => (
+            {(['all', 'workspace', 'personal'] as const).map((item) => (
               <button
                 key={item}
                 type="button"
@@ -262,7 +353,7 @@ export function HistoryDrawer({
                 className={`history-filter${sourceFilter === item ? ' is-active' : ''}`}
                 aria-pressed={sourceFilter === item}
               >
-                {item === 'all' ? 'Все' : item === 'studio' ? 'Studio' : 'Личное'}
+                {item === 'all' ? 'Все' : item === 'workspace' ? 'Studio' : 'Личное'}
               </button>
             ))}
           </div>
@@ -279,7 +370,7 @@ export function HistoryDrawer({
 
           <div className="history-status-row">
             <div className="history-status-filters" role="tablist" aria-label="Статус записей">
-              {(['upcoming', 'completed'] as const).map((item) => (
+              {(['scheduled', 'sent', 'drafts'] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -288,16 +379,44 @@ export function HistoryDrawer({
                   role="tab"
                   aria-selected={statusFilter === item}
                 >
-                  {item === 'upcoming' ? 'Предстоящие' : 'Завершённые'}
+                  {item === 'scheduled'
+                    ? 'Запланировано'
+                    : item === 'sent'
+                      ? 'Отправлено'
+                      : 'Черновики'}
                 </button>
               ))}
+            </div>
+            <div className="history-bulk-actions">
+              {statusFilter === 'sent' && (
+                <button
+                  type="button"
+                  className="clear-history"
+                  disabled={!selectedSource || !hasSentInSelectedSource}
+                  onClick={() => { if (selectedSource) onClearSent(selectedSource); }}
+                  title="Очистить историю отправленных сообщений"
+                >
+                  Очистить отправленные
+                </button>
+              )}
+              {statusFilter === 'scheduled' && (
+                <button
+                  type="button"
+                  className="clear-history"
+                  disabled={!selectedSource || !hasUpcomingInSelectedSource}
+                  onClick={() => { if (selectedSource) onClearAll(selectedSource); }}
+                  title="Отменить все запланированные сообщения"
+                >
+                  Очистить всё
+                </button>
+              )}
             </div>
             <div className="history-export-control" ref={exportMenuRef}>
               <button
                 type="button"
                 className="history-export-button"
                 onClick={() => setIsExportMenuOpen((current) => !current)}
-                disabled={records.length === 0}
+                disabled={!records.some((record) => record.original.kind === 'scheduled')}
                 aria-label="Экспортировать записи"
                 aria-haspopup="menu"
                 aria-expanded={isExportMenuOpen}
@@ -310,19 +429,19 @@ export function HistoryDrawer({
                 <div className="history-export-menu" role="menu" aria-label="Формат экспорта">
                   <div className="history-export-menu-group">
                     <span className="history-export-menu-label">Запланированные</span>
-                    <button type="button" role="menuitem" aria-label="Запланированные — текстовый файл (.txt)" disabled={!records.some((record) => record.status === 'upcoming')} onClick={() => { exportHistoryRecords(records, 'upcoming', 'txt'); setIsExportMenuOpen(false); }}>
+                    <button type="button" role="menuitem" aria-label="Запланированные — текстовый файл (.txt)" disabled={!records.some((record) => record.status === 'scheduled')} onClick={() => { exportHistoryRecords(records, 'upcoming', 'txt'); setIsExportMenuOpen(false); }}>
                       Текстовый файл (.txt)
                     </button>
-                    <button type="button" role="menuitem" aria-label="Запланированные — резервная копия (.json)" disabled={!records.some((record) => record.status === 'upcoming')} onClick={() => { exportHistoryRecords(records, 'upcoming', 'json'); setIsExportMenuOpen(false); }}>
+                    <button type="button" role="menuitem" aria-label="Запланированные — резервная копия (.json)" disabled={!records.some((record) => record.status === 'scheduled')} onClick={() => { exportHistoryRecords(records, 'upcoming', 'json'); setIsExportMenuOpen(false); }}>
                       Резервная копия (.json)
                     </button>
                   </div>
                   <div className="history-export-menu-group">
                     <span className="history-export-menu-label">Завершённые</span>
-                    <button type="button" role="menuitem" aria-label="Завершённые — текстовый файл (.txt)" disabled={!records.some((record) => record.status === 'completed')} onClick={() => { exportHistoryRecords(records, 'completed', 'txt'); setIsExportMenuOpen(false); }}>
+                    <button type="button" role="menuitem" aria-label="Завершённые — текстовый файл (.txt)" disabled={!records.some((record) => record.status === 'sent')} onClick={() => { exportHistoryRecords(records, 'completed', 'txt'); setIsExportMenuOpen(false); }}>
                       Текстовый файл (.txt)
                     </button>
-                    <button type="button" role="menuitem" aria-label="Завершённые — резервная копия (.json)" disabled={!records.some((record) => record.status === 'completed')} onClick={() => { exportHistoryRecords(records, 'completed', 'json'); setIsExportMenuOpen(false); }}>
+                    <button type="button" role="menuitem" aria-label="Завершённые — резервная копия (.json)" disabled={!records.some((record) => record.status === 'sent')} onClick={() => { exportHistoryRecords(records, 'completed', 'json'); setIsExportMenuOpen(false); }}>
                       Резервная копия (.json)
                     </button>
                   </div>
@@ -337,47 +456,64 @@ export function HistoryDrawer({
             <div className="history-empty">Ничего не найдено.</div>
           ) : (
             visibleRecords.map((record) => {
-              const isExpanded = selectedRecord?.source === record.source && selectedRecord.message.id === record.message.id;
+              const isExpanded = selectedRecord?.id === record.id;
+              const timestamp = getHistoryTimestamp(record);
+              const entities = record.entities;
+              const scheduleMessage = record.original.kind === 'scheduled' ? record.original.message : null;
 
               return (
-              <article className={`history-record${isExpanded ? ' is-expanded' : ''}`} key={`${record.source}:${record.message.id}`}>
+              <article
+                className={`history-record${isExpanded ? ' is-expanded' : ''}${record.status === 'draft' ? ' is-draft' : ''}`}
+                data-draft-color={record.status === 'draft' ? record.draftColor ?? 'gray' : undefined}
+                key={record.id}
+              >
                 <button
                   type="button"
                   className="history-record-open"
                   onClick={() => setSelectedRecord(isExpanded ? null : record)}
-                  aria-label={`${isExpanded ? 'Свернуть' : 'Открыть'} публикацию: ${record.message.chatName}`}
+                  aria-label={`${isExpanded ? 'Свернуть' : 'Открыть'} публикацию: ${record.title}`}
                   aria-expanded={isExpanded}
                 >
                   <span className="history-record-meta">
-                    <span className={`history-record-source is-${record.source}`}>
-                      {record.source === 'studio' ? 'Studio' : 'Личное'}
+                    <span className={`history-record-source is-${record.source === 'workspace' ? 'studio' : 'personal'}`}>
+                      {record.source === 'workspace' ? 'Studio' : 'Личное'}
                     </span>
-                    <span className="history-record-date">{formatDateLabel(record.message.when)}</span>
+                    <span className="history-record-date">{getHistoryStatusLabel(record.status)} · {formatDateLabel(timestamp)}</span>
+                    {record.status === 'draft' && (
+                      <span
+                        className="history-record-draft-dot"
+                        data-color={record.draftColor ?? 'gray'}
+                        aria-label={`Цвет черновика: ${record.draftColor ?? 'gray'}`}
+                        title={`Цвет: ${record.draftColor ?? 'gray'}`}
+                      />
+                    )}
                   </span>
 
                   <span className="history-record-heading">
-                    <strong>{record.message.chatName}</strong>
-                    <time dateTime={record.message.when}>{formatTime(record.message.when)}</time>
+                    <strong>{record.title}</strong>
+                    <time dateTime={timestamp}>{formatTime(timestamp)}</time>
                   </span>
 
-                  {record.chatLabel && <span className="history-record-chat">{record.chatLabel}</span>}
-                  {!isExpanded && <span className="history-record-text">{record.message.text}</span>}
+                  {(record.channelLabel || record.channelName) && <span className="history-record-chat">{record.channelLabel || record.channelName}</span>}
+                  {!isExpanded && <span className="history-record-text">{record.text}</span>}
                 </button>
                 {isExpanded && (
                   <div className="history-post-expanded" aria-label="Полный текст запланированного сообщения">
                     <div className="history-post-time-row">
-                      <time dateTime={record.message.when}>{formatTime(record.message.when)}</time>
-                      <span>{formatExportStatus(record.message.status)}</span>
+                      <time dateTime={timestamp}>{formatTime(timestamp)}</time>
+                      <span>{getHistoryStatusLabel(record.status)}</span>
                     </div>
+                    {record.lastError && <p className="history-record-error" role="alert">{record.lastError}</p>}
                     <div
+                      ref={expandedPostRef}
                       className="history-post-text"
                       dangerouslySetInnerHTML={{
-                        __html: richTextToHtml(record.message.text, record.message.entities ?? []),
+                        __html: richTextToHtml(record.text, entities),
                       }}
                     />
-                    {Boolean(record.message.attachments?.length) && (
+                    {Boolean(record.attachments.length) && (
                       <div className="history-post-attachments" aria-label="Вложения">
-                        {record.message.attachments?.map((attachment) => (
+                        {record.attachments.map((attachment) => (
                           isImageAttachment(attachment) ? (
                             <img key={attachment} src={toAttachmentUrl(attachment)} alt={getAttachmentName(attachment)} />
                           ) : (
@@ -389,10 +525,10 @@ export function HistoryDrawer({
                         ))}
                       </div>
                     )}
-                    {(record.message.silent || record.message.effect) && (
+                    {(record.silent || record.effect) && (
                       <div className="history-post-options">
-                        {record.message.silent && <span>Без звука</span>}
-                        {record.message.effect && <span>Эффект: {record.message.effect}</span>}
+                        {record.silent && <span>Без звука</span>}
+                        {record.effect && <span>Эффект: {record.effect}</span>}
                       </div>
                     )}
                   </div>
@@ -401,8 +537,15 @@ export function HistoryDrawer({
                   <button
                     type="button"
                     className="history-record-action is-expand"
-                    onClick={() => setSelectedRecord(isExpanded ? null : record)}
-                    aria-label={`${isExpanded ? 'Свернуть' : 'Открыть полностью'}: ${record.message.chatName}`}
+                    onClick={() => {
+                      if (isExpanded) {
+                        setSelectedRecord(null);
+                        return;
+                      }
+                      scrollExpandedPostToBottomRef.current = true;
+                      setSelectedRecord(record);
+                    }}
+                    aria-label={`${isExpanded ? 'Свернуть' : 'Открыть полностью'}: ${record.title}`}
                     aria-expanded={isExpanded}
                   >
                     {isExpanded
@@ -410,7 +553,34 @@ export function HistoryDrawer({
                       : <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />}
                     <span>{isExpanded ? 'Свернуть' : 'Открыть полностью'}</span>
                   </button>
-                  {record.status === 'upcoming' && (
+                  {(record.status === 'scheduled' || record.status === 'failed') && scheduleMessage && (
+                    <button
+                      type="button"
+                      className="history-record-action is-send-now"
+                      onClick={() => onSendNow(record)}
+                    >
+                      <span>{record.status === 'failed' ? 'Повторить' : 'Отправить сейчас'}</span>
+                    </button>
+                  )}
+                  {record.source === 'workspace' && record.status === 'scheduled' && scheduleMessage && (
+                    <button
+                      type="button"
+                      className="history-record-action is-reschedule"
+                      onClick={() => {
+                        onReschedule(record);
+                        onClose();
+                      }}
+                      aria-label={`Перепланировать: ${record.title}`}
+                    >
+                      <span>Перепланировать</span>
+                    </button>
+                  )}
+                  {record.status === 'sending' && scheduleMessage && (
+                    <button type="button" className="history-record-action is-send-now" disabled>
+                      <span>Отправляется…</span>
+                    </button>
+                  )}
+                  {record.status === 'scheduled' && scheduleMessage && (
                     <button
                       type="button"
                       className="history-record-action is-cancel"
@@ -423,18 +593,33 @@ export function HistoryDrawer({
                       <span>Отменить</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="history-record-action is-delete"
-                    onClick={() => {
-                      onDelete(record);
-                      if (isExpanded) setSelectedRecord(null);
-                    }}
-                    aria-label={`Удалить: ${record.message.chatName}`}
-                  >
-                    <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
-                    <span>Удалить</span>
-                  </button>
+                  {record.status === 'sent' && scheduleMessage && (
+                    <button
+                      type="button"
+                      className="history-record-action is-delete"
+                      onClick={() => {
+                        onDelete(record);
+                        if (isExpanded) setSelectedRecord(null);
+                      }}
+                      aria-label={`Удалить: ${record.title}`}
+                    >
+                      <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
+                      <span>Удалить</span>
+                    </button>
+                  )}
+                  {record.status === 'draft' && (
+                    <button
+                      type="button"
+                      className="history-record-action is-expand"
+                      onClick={() => {
+                        onOpenDraft(record);
+                        onClose();
+                      }}
+                      aria-label={`Открыть черновик: ${record.title}`}
+                    >
+                      <span>Открыть</span>
+                    </button>
+                  )}
                 </div>
               </article>
               );

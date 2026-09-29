@@ -1,7 +1,8 @@
 import { useEffect, useState, type PropsWithChildren } from 'react';
 import { useLocale } from '@/lib/i18n';
 import { getTelegramStatusPresentation as getTelegramStatusPresentationFromModule } from './telegramStatusPresentation';
-import { HistoryDrawer, type HistoryDrawerRecord } from './HistoryDrawer';
+import { HistoryDrawer } from './HistoryDrawer';
+import type { HistoryItem, HistorySource } from './historyModel';
 
 /* eslint-disable react-refresh/only-export-components */
 export { getTelegramStatusPresentationFromModule as getTelegramStatusPresentation };
@@ -18,9 +19,14 @@ type AppShellProps = PropsWithChildren<{
   handleDisconnect: () => Promise<void>;
   handleForgetAccount: () => Promise<void>;
   onOpenSettings: () => void;
-  historyRecords: HistoryDrawerRecord[];
-  onHistoryCancel: (record: HistoryDrawerRecord) => void;
-  onHistoryDelete: (record: HistoryDrawerRecord) => void;
+  historyRecords: HistoryItem[];
+  onHistoryCancel: (record: HistoryItem) => void;
+  onHistoryReschedule: (record: HistoryItem) => void;
+  onHistorySendNow: (record: HistoryItem) => void;
+  onHistoryDelete: (record: HistoryItem) => void;
+  onHistoryOpenDraft: (record: HistoryItem) => void;
+  onHistoryClearSent: (source: HistorySource) => void;
+  onHistoryClearAll: (source: HistorySource) => void;
 }>;
 
 export function AppShell({
@@ -37,7 +43,12 @@ export function AppShell({
   onOpenSettings,
   historyRecords,
   onHistoryCancel,
+  onHistoryReschedule,
+  onHistorySendNow,
   onHistoryDelete,
+  onHistoryOpenDraft,
+  onHistoryClearSent,
+  onHistoryClearAll,
 }: AppShellProps) {
   const { t } = useLocale();
   const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
@@ -135,7 +146,12 @@ export function AppShell({
         onClose={() => setIsHistoryOpen(false)}
         records={historyRecords}
         onCancel={onHistoryCancel}
+        onReschedule={onHistoryReschedule}
+        onSendNow={onHistorySendNow}
         onDelete={onHistoryDelete}
+        onOpenDraft={onHistoryOpenDraft}
+        onClearSent={onHistoryClearSent}
+        onClearAll={onHistoryClearAll}
       />
     </div>
   );

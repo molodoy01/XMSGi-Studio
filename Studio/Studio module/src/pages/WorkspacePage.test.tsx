@@ -45,23 +45,12 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
     lastAction: null,
     notification: baseNotification,
     closeNotification: vi.fn(),
-    upcoming: [],
-    sent: [],
-    activeTab: 'upcoming',
-    revealingId: null,
-    cancelingIds: new Set(),
-    sendingIds: new Set(),
     setDate: vi.fn(),
     setTime: vi.fn(),
     handleSchedule: vi.fn(),
-    handleSendDraftNow: vi.fn().mockResolvedValue(true),
-    handleSendNow: vi.fn(),
-    handleDeleteMessage: vi.fn(),
-    handleClearSent: vi.fn(),
-    handleClearAll: vi.fn(),
-    setActiveTab: vi.fn(),
-    publishingDraft: false,
     handleCancelMessage: vi.fn(),
+    handleSendDraftNow: vi.fn().mockResolvedValue(true),
+    publishingDraft: false,
   };
 
   await act(async () => {
@@ -126,6 +115,66 @@ describe('WorkspacePage main-screen flows', () => {
     expect(document.querySelector('.workspace-page-schedule-empty-panel')).not.toBeNull();
 
     document.body.removeAttribute('data-live-preview');
+    unmount();
+  });
+
+  it('registers the existing draft editor for History Drawer draft actions', async () => {
+    const registerDraftOpener = vi.fn();
+    const { unmount } = await renderWorkspacePage({ onRegisterHistoryDraftOpener: registerDraftOpener });
+    const draft = {
+      id: 'history-draft-1',
+      name: 'History draft',
+      body: 'Draft opened from history',
+      createdAt: '2026-09-29T17:00:00.000Z',
+      updatedAt: '2026-09-29T18:00:00.000Z',
+    };
+
+    expect(registerDraftOpener).toHaveBeenCalledWith(expect.any(Function));
+    await act(async () => {
+      registerDraftOpener.mock.calls[0][0](draft);
+    });
+
+    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active')).not.toBeNull();
+    unmount();
+  });
+
+  it('registers the legacy Studio reschedule flow and restores the scheduled post in the editor', async () => {
+    const registerRescheduler = vi.fn();
+    const handleCancelMessage = vi.fn();
+    const setSelectedChat = vi.fn();
+    const setDate = vi.fn();
+    const setTime = vi.fn();
+    const scheduledAt = new Date('2035-01-15T18:30:00.000Z');
+    const message: ScheduledMessage = {
+      id: 'studio-reschedule-1',
+      chatId: chatA.id,
+      chatName: chatA.name,
+      text: 'Restore this scheduled post',
+      when: scheduledAt.toISOString(),
+      createdAt: '2035-01-15T17:00:00.000Z',
+      status: 'confirmed',
+      attachments: ['C:\\files\\brief.pdf'],
+      entities: [{ type: 'bold', offset: 0, length: 7 }],
+    };
+    const { unmount } = await renderWorkspacePage({
+      onRegisterHistoryRescheduleHandler: registerRescheduler,
+      handleCancelMessage,
+      setSelectedChat,
+      setDate,
+      setTime,
+    });
+
+    expect(registerRescheduler).toHaveBeenCalledWith(expect.any(Function));
+    await act(async () => {
+      registerRescheduler.mock.calls[0][0](message);
+    });
+
+    expect(setSelectedChat).toHaveBeenCalledWith(chatA);
+    expect(setDate).toHaveBeenCalledWith(`${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`);
+    expect(setTime).toHaveBeenCalledWith(`${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`);
+    expect(handleCancelMessage).toHaveBeenCalledWith(message);
+    expect(document.querySelector('.workspace-page-rich-text-input.is-active')?.textContent).toContain(message.text);
+
     unmount();
   });
 
@@ -323,83 +372,14 @@ describe('WorkspacePage main-screen flows', () => {
     vi.useRealTimers();
   });
 
-  it('keeps the queue, templates, time and repeat controls in the compact action family', async () => {
+  it('keeps the editor preview and removes the duplicate queue UI', async () => {
     const { unmount } = await renderWorkspacePage();
 
-    await act(async () => {
-      (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
-    });
-
-    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
-      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
-
-    expect(scheduleOption).toBeTruthy();
-
-    await act(async () => {
-      scheduleOption.click();
-    });
-
     const actionGroup = document.querySelector('.workspace-page-action-left-group');
-    const actionButtons = Array.from(actionGroup?.querySelectorAll('button') ?? []);
-    const queueButton = actionButtons.find((button) => button.textContent?.trim() === 'Queue / History') as HTMLButtonElement | undefined;
-    const templateButton = actionButtons.find((button) => button.textContent?.trim() === 'Templates') as HTMLButtonElement | undefined;
-    const compactGroup = document.querySelector('.workspace-page-schedule-compact-group');
-    const compactButtons = Array.from(compactGroup?.querySelectorAll('.workspace-page-schedule-compact-button') ?? []);
-    const timeButton = compactButtons.find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement | undefined;
-    const repeatButton = compactButtons.find((button) => button.textContent?.trim() === 'Repeat') as HTMLButtonElement | undefined;
-
-    expect(queueButton).toBeTruthy();
-    expect(templateButton).toBeTruthy();
-    expect(compactGroup).toBeTruthy();
-    expect(compactButtons).toHaveLength(2);
-    expect(timeButton).toBeTruthy();
-    expect(repeatButton).toBeTruthy();
-    expect(timeButton?.classList.contains('workspace-page-schedule-compact-button')).toBe(true);
-    expect(repeatButton?.classList.contains('workspace-page-schedule-compact-button')).toBe(true);
-    expect(templateButton?.classList.contains('workspace-page-mode-button')).toBe(true);
-    expect(queueButton?.classList.contains('workspace-page-mode-button')).toBe(true);
-
-    const queueIndex = actionButtons.indexOf(queueButton as HTMLButtonElement);
-    const templateIndex = actionButtons.indexOf(templateButton as HTMLButtonElement);
-    expect(queueIndex).toBeGreaterThan(-1);
-    expect(templateIndex).toBe(queueIndex + 1);
-    expect(actionGroup?.textContent).toContain('Queue / History');
-    expect(actionGroup?.textContent).toContain('Templates');
-    expect(compactGroup?.textContent).toContain('Time');
-    expect(compactGroup?.textContent).toContain('Repeat');
-
-    unmount();
-  });
-
-  it('hides Cancel in Queue / History while keeping Reschedule available', async () => {
-    const scheduledMessage: ScheduledMessage = {
-      id: 'scheduled-1',
-      chatId: chatA.id,
-      chatName: chatA.name,
-      text: 'Scheduled message',
-      when: '2026-09-29T17:00:00.000Z',
-      createdAt: '2026-09-29T16:00:00.000Z',
-      status: 'confirmed',
-    };
-    const { unmount } = await renderWorkspacePage({ upcoming: [scheduledMessage] });
-
-    await act(async () => {
-      (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
-    });
-    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
-      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
-    await act(async () => {
-      scheduleOption.click();
-    });
-    const queueButton = Array.from(document.querySelectorAll('.workspace-page-mode-button-history'))[0] as HTMLButtonElement;
-    await act(async () => {
-      queueButton.click();
-    });
-
-    const queueActions = Array.from(document.querySelectorAll('.workspace-page-queue-content .msg-btn'))
-      .map((button) => button.textContent?.trim());
-    expect(queueActions).not.toContain('Cancel');
-    expect(queueActions).toContain('Reschedule');
+    expect(actionGroup?.querySelector('.workspace-page-mode-button-history')).toBeNull();
+    expect(actionGroup?.textContent).not.toContain('Queue / History');
+    expect(document.querySelector('.workspace-page-preview-panel')).not.toBeNull();
+    expect(document.querySelector('.messages-panel')).toBeNull();
 
     unmount();
   });
@@ -564,7 +544,7 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('shows the unhighlighted Draft button after Queue / History only for the draft action', async () => {
+  it('shows the Draft button only for the draft action without a duplicate queue action', async () => {
     const { unmount } = await renderWorkspacePage();
 
     const actionGroup = document.querySelector('.workspace-page-action-left-group');
@@ -572,10 +552,7 @@ describe('WorkspacePage main-screen flows', () => {
       .map((button) => button.textContent?.trim());
 
     expect(leftGroupButtons).not.toContain('Drafts');
-    expect(leftGroupButtons.indexOf('Templates')).toBe(leftGroupButtons.indexOf('Queue / History') + 1);
-    expect((Array.from(actionGroup?.querySelectorAll(':scope > button') ?? [])
-      .find((button) => button.textContent?.trim() === 'Queue / History') as HTMLButtonElement).title)
-      .toBe('View scheduled messages and sent history');
+    expect(leftGroupButtons).not.toContain('Queue / History');
     expect((Array.from(actionGroup?.querySelectorAll(':scope > button') ?? [])
       .find((button) => button.textContent?.trim() === 'Templates') as HTMLButtonElement).title)
       .toBe('Open and manage reusable message templates');
@@ -625,13 +602,12 @@ describe('WorkspacePage main-screen flows', () => {
 
     const activeActionGroup = document.querySelector('.workspace-page-action-left-group');
     const actionButtons = Array.from(activeActionGroup?.querySelectorAll(':scope > button') ?? []);
-    const queueButtonIndex = actionButtons.findIndex((button) => button.textContent?.trim() === 'Queue / History');
     const draftToggle = actionButtons.find((button) => button.textContent?.trim() === 'Draft');
     const templatesButtonIndex = actionButtons.findIndex((button) => button.textContent?.trim() === 'Templates');
 
     expect(draftToggle).not.toBeNull();
-    expect(templatesButtonIndex).toBe(queueButtonIndex + 1);
-    expect(actionButtons.indexOf(draftToggle as HTMLButtonElement)).toBe(queueButtonIndex + 2);
+    expect(templatesButtonIndex).toBeGreaterThanOrEqual(0);
+    expect(actionButtons.indexOf(draftToggle as HTMLButtonElement)).toBe(templatesButtonIndex + 1);
     expect(draftToggle?.classList.contains('workspace-page-mode-button-template')).toBe(true);
     expect(draftToggle?.classList.contains('is-active')).toBe(false);
     expect(draftToggle?.classList.contains('workspace-page-schedule-compact-button')).toBe(false);

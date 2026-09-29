@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { getTelegramStatusPresentation } from './AppShell';
+import { createElement } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { LocaleProvider } from '@/lib/i18n';
+import { AppShell, getTelegramStatusPresentation } from './AppShell';
 
 const baseStatus = {
   accountId: 'telegram-session:active-account',
@@ -17,5 +20,35 @@ describe('Telegram status presentation', () => {
     ['unknown error', { ...baseStatus, status: 'error' as const, category: 'unknown' as const }, 'error', 'telegramStatus.error'],
   ])('maps %s to a visible presentation', (_name, status, tone, labelKey) => {
     expect(getTelegramStatusPresentation(status)).toMatchObject({ tone, labelKey });
+  });
+});
+
+describe('shared History Drawer entry point', () => {
+  it.each(['planner', 'studio'] as const)('opens the same drawer from %s', (view) => {
+    render(createElement(LocaleProvider, null, createElement(AppShell, {
+      view,
+      onViewChange: vi.fn(),
+      connected: true,
+      authBusy: false,
+      isConfirmingLogout: false,
+      setIsConfirmingLogout: vi.fn(),
+      setShowAuthForm: vi.fn(),
+      handleDisconnect: async () => undefined,
+      handleForgetAccount: async () => undefined,
+      onOpenSettings: vi.fn(),
+      historyRecords: [],
+      onHistoryCancel: vi.fn(),
+      onHistoryReschedule: vi.fn(),
+      onHistorySendNow: vi.fn(),
+      onHistoryDelete: vi.fn(),
+      onHistoryOpenDraft: vi.fn(),
+      onHistoryClearSent: vi.fn(),
+      onHistoryClearAll: vi.fn(),
+    }, createElement('div', null, 'Current screen'))));
+
+    fireEvent.click(screen.getByRole('button', { name: 'История' }));
+
+    expect(screen.getByRole('dialog', { name: 'История' })).toBeInTheDocument();
+    expect(screen.getByText('Current screen')).toBeInTheDocument();
   });
 });

@@ -36,15 +36,7 @@ async function attachImage() {
   });
 }
 
-async function openQueue() {
-  const historyButton = document.querySelector('.workspace-page-mode-button-history') as HTMLButtonElement;
-  await act(async () => {
-    historyButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await Promise.resolve();
-  });
-}
-
-describe('App media publish records', () => {
+describe('App media publishing', () => {
   beforeEach(() => {
     (globalThis as typeof globalThis & { ResizeObserver?: { new (): { observe: (node: Element) => void; unobserve: (node: Element) => void; disconnect: () => void } } }).ResizeObserver = class {
       observe() {}
@@ -108,7 +100,7 @@ describe('App media publish records', () => {
     });
   });
 
-  it('keeps attachments on a scheduled Queue record', async () => {
+  it('passes attachments to Telegram when scheduling', async () => {
     const { unmount } = await renderApp();
     await attachImage();
 
@@ -133,8 +125,6 @@ describe('App media publish records', () => {
       await Promise.resolve();
     });
 
-    await openQueue();
-    expect(document.querySelector('.message-attachment-image')).toBeTruthy();
     expect(window.telegram.schedule).toHaveBeenCalledWith(expect.objectContaining({
       chatId: 'telegram',
       message: 'Media post',
@@ -143,7 +133,7 @@ describe('App media publish records', () => {
     unmount();
   });
 
-  it('keeps attachments on a sent History record', async () => {
+  it('passes attachments to Telegram when sending', async () => {
     const { unmount } = await renderApp();
     await attachImage();
 
@@ -153,8 +143,6 @@ describe('App media publish records', () => {
       await Promise.resolve();
     });
 
-    await openQueue();
-    expect(document.querySelector('.message-attachment-image')).toBeTruthy();
     expect(window.telegram.send).toHaveBeenCalledWith(
       'telegram',
       'Media post',

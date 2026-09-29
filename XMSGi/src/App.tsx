@@ -1,28 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAssistant, useChats, useNotifications, useScheduler, useTelegramAuth } from './core';
-import type { Chat, ScheduledMessage } from '@/types';
+import type { Chat } from '@/types';
+import type { SavedDraft } from '$studio';
+import type { ScheduledMessage as StudioScheduledMessage } from '../../Studio/Studio module/src/types';
 import { AppShell, StudioMount } from './workspace';
-import type { HistoryDrawerRecord } from './workspace/HistoryDrawer';
+import { normalizeScheduledMessages } from './workspace/historyModel';
+import type { HistoryItem, HistorySource } from './workspace/historyModel';
 import { SchedulePage } from './pages/SchedulePage';
 import { SettingsPage } from './pages/SettingsPage';
 import type { TelegramStatusSnapshot } from './hooks/useTelegramAuth';
 
 type AppRoute = '/' | '/settings';
 type ProductView = 'studio' | 'planner';
-
-function toHistoryRecords(
-  messages: ScheduledMessage[],
-  source: HistoryDrawerRecord['source'],
-  status: HistoryDrawerRecord['status'],
-  chats: Chat[],
-): HistoryDrawerRecord[] {
-  return messages.map((message) => {
-    const chat = chats.find((item) => item.id === message.chatId);
-    const chatLabel = chat?.username ? `@${chat.username}` : '';
-
-    return { message, source, status, chatLabel };
-  });
-}
 
 function getCurrentHashPath(): AppRoute {
   const hash = window.location.hash.replace(/^#/, '').trim();
@@ -41,7 +30,6 @@ function App() {
   const [route, setRoute] = useState<AppRoute>(getCurrentHashPath());
   const [productView, setProductView] = useState<ProductView>('studio');
   const [activeAccountId, setActiveAccountId] = useState<'account-1' | 'account-2'>(() => 'account-1');
-  const [scheduleActiveTab, setScheduleActiveTab] = useState<'upcoming' | 'sent'>('upcoming');
 
   const {
     notification,
@@ -50,6 +38,14 @@ function App() {
   } = useNotifications();
   const studioNotifications = useNotifications();
   const [studioMessage, setStudioMessage] = useState('');
+  const studioDraftOpenerRef = useRef<((draft: SavedDraft) => void) | null>(null);
+  const studioHistoryReschedulerRef = useRef<((message: StudioScheduledMessage) => void) | null>(null);
+  const registerHistoryDraftOpener = useCallback((opener: ((draft: SavedDraft) => void) | null) => {
+    studioDraftOpenerRef.current = opener;
+  }, []);
+  const registerHistoryRescheduleHandler = useCallback((handler: ((message: StudioScheduledMessage) => void) | null) => {
+    studioHistoryReschedulerRef.current = handler;
+  }, []);
 
   const chatsApiRef = useRef<{
     setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
@@ -146,9 +142,6 @@ function App() {
     sent: personalSent,
     scheduling: personalScheduling,
     successPulse: personalSuccessPulse,
-    revealingId: personalRevealingId,
-    cancelingIds: personalCancelingIds,
-    sendingIds: personalSendingIds,
     dateEditedRef: personalDateEditedRef,
     timeEditedRef: personalTimeEditedRef,
     openPickerRef: personalOpenPickerRef,
@@ -190,25 +183,59 @@ function App() {
   });
 
   const historyRecords = [
-    ...toHistoryRecords(personalUpcoming, 'personal', 'upcoming', chats),
-    ...toHistoryRecords(personalSent, 'personal', 'completed', chats),
-    ...toHistoryRecords(studioScheduler.upcoming, 'studio', 'upcoming', chats),
-    ...toHistoryRecords(studioScheduler.sent, 'studio', 'completed', chats),
+    ...normalizeScheduledMessages(personalUpcoming, 'personal', 'upcoming', chats),
+    ...normalizeScheduledMessages(personalSent, 'personal', 'sent', chats),
+    ...normalizeScheduledMessages(studioScheduler.upcoming, 'workspace', 'upcoming', chats),
+    ...normalizeScheduledMessages(studioScheduler.sent, 'workspace', 'sent', chats),
   ];
 
-  const cancelHistoryRecord = (record: HistoryDrawerRecord) => {
-    if (record.source === 'studio') {
-      studioScheduler.handleCancelMessage(record.message);
+  const cancelHistoryRecord = (record: HistoryItem) => {
+    if (record.original.kind !== 'scheduled' || record.status !== 'scheduled') return;
+    if (record.source === 'workspace') {
+      studioScheduler.handleCancelMessage(record.original.message);
     } else {
-      handlePersonalCancelMessage(record.message);
+      handlePersonalCancelMessage(record.original.message);
     }
   };
 
-  const deleteHistoryRecord = (record: HistoryDrawerRecord) => {
-    if (record.source === 'studio') {
-      studioScheduler.handleDeleteMessage(record.message);
+  const sendHistoryRecordNow = (record: HistoryItem) => {
+    if (record.original.kind !== 'scheduled') return;
+    if (record.source === 'workspace') {
+      studioScheduler.handleSendNow(record.original.message);
     } else {
-      handlePersonalDeleteMessage(record.message);
+      handlePersonalSendNow(record.original.message);
+    }
+  };
+
+  const rescheduleHistoryRecord = (record: HistoryItem) => {
+    if (record.source !== 'workspace' || record.original.kind !== 'scheduled' || record.status !== 'scheduled') return;
+    setProductView('studio');
+    studioHistoryReschedulerRef.current?.({ ...record.original.message, status: 'scheduled' });
+  };
+
+  const clearHistorySent = (source: HistorySource) => {
+    if (source === 'workspace') studioScheduler.handleClearSent();
+    else handlePersonalClearSent();
+  };
+
+  const clearHistoryAll = (source: HistorySource) => {
+    if (source === 'workspace') studioScheduler.handleClearAll();
+    else handlePersonalClearAll();
+  };
+
+  const deleteHistoryRecord = (record: HistoryItem) => {
+    if (record.original.kind !== 'scheduled' || record.status !== 'sent') return;
+    if (record.source === 'workspace') {
+      studioScheduler.handleDeleteMessage(record.original.message);
+    } else {
+      handlePersonalDeleteMessage(record.original.message);
+    }
+  };
+
+  const openHistoryDraft = (record: HistoryItem) => {
+    setProductView(record.source === 'workspace' ? 'studio' : 'planner');
+    if (record.original.kind === 'saved-draft') {
+      studioDraftOpenerRef.current?.(record.original.draft);
     }
   };
 
@@ -319,7 +346,12 @@ function App() {
       }}
       historyRecords={historyRecords}
       onHistoryCancel={cancelHistoryRecord}
+      onHistoryReschedule={rescheduleHistoryRecord}
+      onHistorySendNow={sendHistoryRecordNow}
       onHistoryDelete={deleteHistoryRecord}
+      onHistoryOpenDraft={openHistoryDraft}
+      onHistoryClearSent={clearHistorySent}
+      onHistoryClearAll={clearHistoryAll}
     >
       <div className={`product-view ${productView === 'studio' ? 'is-active' : ''}`} aria-hidden={productView !== 'studio'}>
         <StudioMount
@@ -331,6 +363,8 @@ function App() {
             notification: studioNotifications.notification,
             closeNotification: studioNotifications.closeNotification,
           }}
+          onRegisterHistoryDraftOpener={registerHistoryDraftOpener}
+          onRegisterHistoryRescheduleHandler={registerHistoryRescheduleHandler}
         />
       </div>
       <div className={`product-view ${productView === 'planner' ? 'is-active' : ''}`} aria-hidden={productView !== 'planner'}>
@@ -406,24 +440,12 @@ function App() {
           handleAssistantSubmit={handleAssistantSubmit}
           date={personalDate}
           time={personalTime}
-          upcoming={personalUpcoming}
-          sent={personalSent}
-          activeTab={scheduleActiveTab}
           scheduling={personalScheduling}
           successPulse={personalSuccessPulse}
-          revealingId={personalRevealingId}
-          cancelingIds={personalCancelingIds}
-          sendingIds={personalSendingIds}
           dateEditedRef={personalDateEditedRef}
           timeEditedRef={personalTimeEditedRef}
           openPickerRef={personalOpenPickerRef}
           handleSchedule={handlePersonalSchedule}
-          handleCancelMessage={handlePersonalCancelMessage}
-          handleSendNow={handlePersonalSendNow}
-          handleDeleteMessage={handlePersonalDeleteMessage}
-          handleClearSent={handlePersonalClearSent}
-          handleClearAll={handlePersonalClearAll}
-          setActiveTab={setScheduleActiveTab}
           setDate={setPersonalDate}
           setTime={setPersonalTime}
             showNotification={showNotification}

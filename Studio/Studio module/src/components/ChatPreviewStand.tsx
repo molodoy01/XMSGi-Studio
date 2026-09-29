@@ -41,8 +41,6 @@ type ChatPreviewStandProps = {
   onToggleChatList: () => void;
   onSelectChat: (chat: Chat) => void;
   onWallpaperChange?: (wallpaper: ChatWallpaper) => void;
-  rightPanelMode?: 'preview' | 'queue';
-  onRightPanelModeChange?: (mode: 'preview' | 'queue') => void;
 };
 
 type HistoryGroup = {
