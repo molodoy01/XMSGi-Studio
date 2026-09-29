@@ -25,6 +25,7 @@ interface Props {
   onDelete: (msg: ScheduledMessage) => void;
   showDelete: boolean;
   showCancel: boolean;
+  showReschedule?: boolean;
   showSendNow: boolean;
   railColor?: string;
   isCanceling?: boolean;
@@ -42,6 +43,7 @@ export function MessageCard({
   onDelete,
   showDelete,
   showCancel,
+  showReschedule = showCancel,
   showSendNow,
   railColor,
   isCanceling,
@@ -150,7 +152,7 @@ export function MessageCard({
           </button>
         )}
 
-        {showCancel && (
+        {showReschedule && (
           <button
             className="msg-btn reschedule"
             onClick={() => onReschedule(message)}

@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAssistant, useChats, useNotifications, useScheduler, useTelegramAuth } from './core';
-import type { Chat } from '@/types';
+import type { Chat, ScheduledMessage } from '@/types';
 import { AppShell, StudioMount } from './workspace';
+import type { HistoryDrawerRecord } from './workspace/HistoryDrawer';
 import { SchedulePage } from './pages/SchedulePage';
 import { SettingsPage } from './pages/SettingsPage';
 import type { TelegramStatusSnapshot } from './hooks/useTelegramAuth';
 
 type AppRoute = '/' | '/settings';
 type ProductView = 'studio' | 'planner';
+
+function toHistoryRecords(
+  messages: ScheduledMessage[],
+  source: HistoryDrawerRecord['source'],
+  status: HistoryDrawerRecord['status'],
+  chats: Chat[],
+): HistoryDrawerRecord[] {
+  return messages.map((message) => {
+    const chat = chats.find((item) => item.id === message.chatId);
+    const chatLabel = chat?.username ? `@${chat.username}` : '';
+
+    return { message, source, status, chatLabel };
+  });
+}
 
 function getCurrentHashPath(): AppRoute {
   const hash = window.location.hash.replace(/^#/, '').trim();
@@ -174,6 +189,29 @@ function App() {
     setAssistantIntent,
   });
 
+  const historyRecords = [
+    ...toHistoryRecords(personalUpcoming, 'personal', 'upcoming', chats),
+    ...toHistoryRecords(personalSent, 'personal', 'completed', chats),
+    ...toHistoryRecords(studioScheduler.upcoming, 'studio', 'upcoming', chats),
+    ...toHistoryRecords(studioScheduler.sent, 'studio', 'completed', chats),
+  ];
+
+  const cancelHistoryRecord = (record: HistoryDrawerRecord) => {
+    if (record.source === 'studio') {
+      studioScheduler.handleCancelMessage(record.message);
+    } else {
+      handlePersonalCancelMessage(record.message);
+    }
+  };
+
+  const deleteHistoryRecord = (record: HistoryDrawerRecord) => {
+    if (record.source === 'studio') {
+      studioScheduler.handleDeleteMessage(record.message);
+    } else {
+      handlePersonalDeleteMessage(record.message);
+    }
+  };
+
   const studioConnected = connected && !signedOut && activeAccountId === 'account-1';
   const activeStudioStatus: TelegramStatusSnapshot = activeAccountId === 'account-1'
     ? telegramStatus
@@ -279,6 +317,9 @@ function App() {
         setProductView('planner');
         navigate('/settings');
       }}
+      historyRecords={historyRecords}
+      onHistoryCancel={cancelHistoryRecord}
+      onHistoryDelete={deleteHistoryRecord}
     >
       <div className={`product-view ${productView === 'studio' ? 'is-active' : ''}`} aria-hidden={productView !== 'studio'}>
         <StudioMount

@@ -1,6 +1,7 @@
 .workspace-page {
   position: relative;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   background: hsl(220 16.7% 6%);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -67,6 +68,7 @@
 .workspace-page-shell {
   display: flex;
   width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
@@ -124,12 +126,14 @@
 .workspace-page-main {
   flex: 1 1 auto;
   display: flex;
+  height: 100%;
   flex-direction: row;
   align-items: stretch;
   gap: 16px;
   padding: 88px 20px 20px;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -174,11 +178,13 @@
 .workspace-page-queue-panel {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
-  height: 100%;
+  max-width: 100%;
   min-height: 0;
+  max-height: 100%;
   gap: 8px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .workspace-page-queue-header {
@@ -221,9 +227,11 @@
 
 .workspace-page-queue-content {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
@@ -232,7 +240,10 @@
   border-radius: 0 0 12px 12px;
   background: #172127;
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(144, 196, 192, 0.04);
-  transform: translateY(-7px);
+}
+
+.workspace-page-queue-content > .messages-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .workspace-page-queue-content.theme-telegram {
@@ -256,10 +267,20 @@
 
 .workspace-page-queue-content > .messages-panel {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-color: rgba(154, 168, 184, 0.36) transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.workspace-page-queue-content .message-row {
+  min-width: 0;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+
+.workspace-page-queue-content .message-chat {
+  overflow-wrap: anywhere;
 }
 
 .workspace-page-queue-content .messages-panel-wrapper {
@@ -5174,7 +5195,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     position: relative;
     z-index: 1;
     width: auto;
-    height: min(510.6px, calc(100vh - 128px));
+    height: min(510.6px, calc(100dvh - 172px));
     min-width: 360px;
     max-width: none;
     flex: 1 1 auto;
@@ -5241,7 +5262,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   }
 
   .workspace-page-editor-panel {
-    height: min(535px, calc(100vh - 128px));
+    height: min(535px, calc(100dvh - 172px));
   }
 
   .workspace-page-editor-canvas {
@@ -5583,7 +5604,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     max-width: 360px;
     max-height: 560px;
     min-width: 360px;
-    min-height: min(430px, calc(100vh - 128px));
+    min-height: min(430px, max(0px, calc(100dvh - 172px)));
     flex: 0 0 360px;
     transform: none;
   }
@@ -5602,7 +5623,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 
 @media (min-width: 600px) {
   .workspace-page-preview-panel {
-    height: min(560px, calc(100vh - 128px));
+    height: min(560px, max(0px, calc(100dvh - 172px)));
   }
 
   .workspace-page-preview-shell {
@@ -6534,7 +6555,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     width: 360px;
     max-width: 360px;
     min-width: 360px;
-    min-height: 360px;
+    min-height: min(360px, max(0px, calc(100dvh - 172px)));
   }
 
   .workspace-page-media-row {

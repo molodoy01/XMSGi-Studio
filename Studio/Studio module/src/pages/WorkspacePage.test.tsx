@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Chat, NotificationState } from '@/types';
+import type { Chat, NotificationState, ScheduledMessage } from '@/types';
 import { readWorkspaceDraftStoreFallback, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -367,6 +367,39 @@ describe('WorkspacePage main-screen flows', () => {
     expect(actionGroup?.textContent).toContain('Templates');
     expect(compactGroup?.textContent).toContain('Time');
     expect(compactGroup?.textContent).toContain('Repeat');
+
+    unmount();
+  });
+
+  it('hides Cancel in Queue / History while keeping Reschedule available', async () => {
+    const scheduledMessage: ScheduledMessage = {
+      id: 'scheduled-1',
+      chatId: chatA.id,
+      chatName: chatA.name,
+      text: 'Scheduled message',
+      when: '2026-09-29T17:00:00.000Z',
+      createdAt: '2026-09-29T16:00:00.000Z',
+      status: 'confirmed',
+    };
+    const { unmount } = await renderWorkspacePage({ upcoming: [scheduledMessage] });
+
+    await act(async () => {
+      (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
+    });
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => {
+      scheduleOption.click();
+    });
+    const queueButton = Array.from(document.querySelectorAll('.workspace-page-mode-button-history'))[0] as HTMLButtonElement;
+    await act(async () => {
+      queueButton.click();
+    });
+
+    const queueActions = Array.from(document.querySelectorAll('.workspace-page-queue-content .msg-btn'))
+      .map((button) => button.textContent?.trim());
+    expect(queueActions).not.toContain('Cancel');
+    expect(queueActions).toContain('Reschedule');
 
     unmount();
   });

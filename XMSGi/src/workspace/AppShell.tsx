@@ -1,6 +1,7 @@
-import type { PropsWithChildren } from 'react';
+import { useEffect, useState, type PropsWithChildren } from 'react';
 import { useLocale } from '@/lib/i18n';
 import { getTelegramStatusPresentation as getTelegramStatusPresentationFromModule } from './telegramStatusPresentation';
+import { HistoryDrawer, type HistoryDrawerRecord } from './HistoryDrawer';
 
 /* eslint-disable react-refresh/only-export-components */
 export { getTelegramStatusPresentationFromModule as getTelegramStatusPresentation };
@@ -17,6 +18,9 @@ type AppShellProps = PropsWithChildren<{
   handleDisconnect: () => Promise<void>;
   handleForgetAccount: () => Promise<void>;
   onOpenSettings: () => void;
+  historyRecords: HistoryDrawerRecord[];
+  onHistoryCancel: (record: HistoryDrawerRecord) => void;
+  onHistoryDelete: (record: HistoryDrawerRecord) => void;
 }>;
 
 export function AppShell({
@@ -31,18 +35,30 @@ export function AppShell({
   handleDisconnect,
   handleForgetAccount,
   onOpenSettings,
+  historyRecords,
+  onHistoryCancel,
+  onHistoryDelete,
 }: AppShellProps) {
   const { t } = useLocale();
   const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
   const sectionLabel = view === 'planner' ? t('product.planner') : t('product.studio');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isHistoryOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsHistoryOpen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isHistoryOpen]);
 
   return (
-    <div className="product-shell">
+    <div className={`product-shell ${view === 'planner' ? 'planner-shell' : 'studio-shell'}`} style={{ position: 'relative' }}>
       {connected && (
         <header className="topbar">
           <div className="topbar-identity">
             <span className="brand" aria-label="XMSGi"><span>XMSGi</span></span>
-            <span className="product-section-title">{sectionLabel}</span>
           </div>
 
           <button
@@ -85,6 +101,16 @@ export function AppShell({
             <button
               type="button"
               className="settings-action"
+              onClick={() => setIsHistoryOpen(true)}
+              title="История"
+              aria-label="История"
+            >
+              <span className="action-label">История</span>
+            </button>
+
+            <button
+              type="button"
+              className="settings-action"
               onClick={() => {
                 setShowAuthForm(false);
                 setIsConfirmingLogout(false);
@@ -98,7 +124,19 @@ export function AppShell({
           </div>
         </header>
       )}
+      {connected && (
+        <span className="product-section-title product-section-title-detached" aria-current="page">
+          {sectionLabel}
+        </span>
+      )}
       <main className="product-shell-content">{children}</main>
+      <HistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        records={historyRecords}
+        onCancel={onHistoryCancel}
+        onDelete={onHistoryDelete}
+      />
     </div>
   );
 }

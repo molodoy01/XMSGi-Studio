@@ -18,6 +18,7 @@ interface Props {
   cancelingIds: Set<string>;
   sendingIds: Set<string>;
   showAllMessages?: boolean;
+  hideCancel?: boolean;
   upcomingLabel?: string;
 }
 
@@ -37,6 +38,7 @@ export function MessagesPanel({
   cancelingIds,
   sendingIds,
   showAllMessages = false,
+  hideCancel = false,
   upcomingLabel = 'Upcoming',
 }: Props) {
   const [showOlderUpcoming, setShowOlderUpcoming] = useState(false);
@@ -344,7 +346,8 @@ export function MessagesPanel({
                   onReschedule={onReschedule}
                   onSendNow={onSendNow}
                   onDelete={onDelete}
-                  showCancel={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id)}
+                  showCancel={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id) && !hideCancel}
+                  showReschedule={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id)}
                   showSendNow={(msg.status === 'scheduled' || msg.status === 'confirmed') && !sendingIds.has(msg.id)}
                   showDelete={true}
                   railColor="#9aa8b8"
@@ -378,7 +381,8 @@ export function MessagesPanel({
                     onReschedule={onReschedule}
                     onSendNow={onSendNow}
                     onDelete={onDelete}
-                    showCancel={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id)}
+                    showCancel={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id) && !hideCancel}
+                    showReschedule={(msg.status === 'scheduled' || msg.status === 'confirmed') && !cancelingIds.has(msg.id)}
                     showSendNow={(msg.status === 'scheduled' || msg.status === 'confirmed') && !sendingIds.has(msg.id)}
                     showDelete={true}
                     railColor="#9aa8b8"

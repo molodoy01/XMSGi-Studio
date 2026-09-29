@@ -5,7 +5,6 @@ import { CalendarDays, Clock, Menu, Paperclip, X } from 'lucide-react';
 import xmsgiLogoWhite from '@/assets/xmsgi-logo-white.svg';
 import { Notification } from '@/components/Notification';
 import { ChatPicker } from '@/components/ChatPicker';
-import { MessagesPanel } from '@/components/MessagesPanel';
 import { getMessageMaxLength, insertMessageText, limitMessageText } from '@/lib/messageLimits';
 import { getNextDateTimeKeyboardField, isValidDateTimeKeyboardField, type DateTimeKeyboardField } from '@/lib/dateTimeKeyboard';
 import { resetMessageOptionsForNewMessage } from '@/lib/messageComposer';
@@ -145,20 +144,8 @@ export function SchedulePage(props: SchedulePageProps) {
     timeEditedRef,
     openPickerRef,
     handleSchedule,
-    upcoming,
-    sent,
-    activeTab,
     setDate,
     setTime,
-    revealingId,
-    cancelingIds,
-    sendingIds,
-    handleCancelMessage,
-    handleSendNow,
-    handleDeleteMessage,
-    handleClearSent,
-    handleClearAll,
-    setActiveTab,
     showNotification,
   } = props;
   const { locale, setLocale, t } = useLocale();
@@ -201,6 +188,8 @@ export function SchedulePage(props: SchedulePageProps) {
   const premiumEffects = availableEffects.filter((effect) => effect.premiumRequired === true);
   const freeEffects = availableEffects.filter((effect) => effect.premiumRequired !== true);
   const messageMaxLength = getMessageMaxLength(attachments.length > 0);
+  const hasPlannerNotification = connected && notification.visible && notification.message.trim().length > 0;
+  const isShortPlannerNotification = notification.message.trim().length <= 32;
 
   useEffect(() => {
     setMessage((current) => limitMessageText(current, messageMaxLength));
@@ -485,7 +474,7 @@ export function SchedulePage(props: SchedulePageProps) {
         message={notification.message}
         type={notification.type}
         title={notification.title}
-        visible={notification.visible}
+        visible={notification.visible && !connected}
         onClose={closeNotification}
       />
 
@@ -1152,24 +1141,17 @@ export function SchedulePage(props: SchedulePageProps) {
               </button>
             </section>
 
-            <section className="messages-panel-wrapper">
-              <MessagesPanel
-                upcoming={upcoming}
-                sent={sent}
-                assistantText={displayedAssistantResponse}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                onCancel={handleCancelMessage}
-                onSendNow={handleSendNow}
-                onDelete={handleDeleteMessage}
-                onClearSent={handleClearSent}
-                onClearAll={handleClearAll}
-                cancelingIds={cancelingIds}
-                sendingIds={sendingIds}
-                revealingId={revealingId}
-                selectedMessageOption={selectedMessageOption}
-              />
-            </section>
+            <div className="messages-panel-wrapper" aria-hidden={!hasPlannerNotification}>
+              {hasPlannerNotification && (
+                <span
+                  className={`planner-inline-notification ${isShortPlannerNotification ? 'is-short' : 'is-long'} is-${notification.type}`}
+                  role={notification.type === 'error' ? 'alert' : 'status'}
+                  aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+                >
+                  {notification.message}
+                </span>
+              )}
+            </div>
 
           </>
         )}

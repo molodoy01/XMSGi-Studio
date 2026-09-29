@@ -77,6 +77,12 @@ type WorkspacePageProps = {
 
 type PublishAction = 'send' | 'schedule' | 'draft';
 
+type QueueScrollMetrics = {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+};
+
 type IconRimMotion = {
   currentAngle: number;
   targetAngle: number;
@@ -621,6 +627,15 @@ export function WorkspacePage({
   const [previewHistoryRetry, setPreviewHistoryRetry] = useState(0);
   const [chatLookupError, setChatLookupError] = useState('');
   const [rightPanelMode, setRightPanelMode] = useState<'preview' | 'queue'>('preview');
+  const queueContentRef = useRef<HTMLDivElement | null>(null);
+  const queueScrollTrackRef = useRef<HTMLDivElement | null>(null);
+  const queueScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
+  const [queueScrollDragging, setQueueScrollDragging] = useState(false);
+  const [queueScrollMetrics, setQueueScrollMetrics] = useState<QueueScrollMetrics>({
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+  });
   const [chatWallpaper, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
   const [chatListOpen, setChatListOpen] = useState(false);
   const [publishMenuOpen, setPublishMenuOpen] = useState(false);
@@ -808,6 +823,113 @@ export function WorkspacePage({
 
   const handlePreviewPanelModeChange = (mode: 'preview' | 'queue') => {
     setRightPanelMode(mode);
+  };
+
+  useLayoutEffect(() => {
+    const scrollArea = rightPanelMode === 'queue'
+      ? queueContentRef.current?.querySelector<HTMLElement>('.messages-panel')
+      : null;
+
+    if (!scrollArea) {
+      setQueueScrollMetrics({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 });
+      return;
+    }
+
+    const syncMetrics = () => {
+      const next = {
+        scrollTop: scrollArea.scrollTop,
+        scrollHeight: scrollArea.scrollHeight,
+        clientHeight: scrollArea.clientHeight,
+      };
+      setQueueScrollMetrics((current) => (
+        current.scrollTop === next.scrollTop
+        && current.scrollHeight === next.scrollHeight
+        && current.clientHeight === next.clientHeight
+          ? current
+          : next
+      ));
+    };
+
+    syncMetrics();
+    scrollArea.addEventListener('scroll', syncMetrics, { passive: true });
+    scrollArea.addEventListener('load', syncMetrics, true);
+
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncMetrics);
+    resizeObserver?.observe(scrollArea);
+    Array.from(scrollArea.children).forEach((child) => resizeObserver?.observe(child));
+
+    const mutationObserver = typeof MutationObserver === 'undefined' ? null : new MutationObserver(syncMetrics);
+    mutationObserver?.observe(scrollArea, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      scrollArea.removeEventListener('scroll', syncMetrics);
+      scrollArea.removeEventListener('load', syncMetrics, true);
+      resizeObserver?.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [activeTab, rightPanelMode, sent, upcoming]);
+
+  const queueCanScroll = !previewCollapsed && queueScrollMetrics.scrollHeight > queueScrollMetrics.clientHeight + 1;
+  const queueScrollbarThumbHeight = queueCanScroll
+    ? Math.min(100, Math.max(10, queueScrollMetrics.clientHeight / queueScrollMetrics.scrollHeight * 100))
+    : 100;
+  const queueScrollbarThumbTop = queueCanScroll
+    ? queueScrollMetrics.scrollTop / (queueScrollMetrics.scrollHeight - queueScrollMetrics.clientHeight)
+      * (100 - queueScrollbarThumbHeight)
+    : 0;
+
+  const handleQueueScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
+    const track = queueScrollTrackRef.current;
+    if (!scrollArea || !track) return;
+
+    const maxScroll = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
+    const trackHeight = track.clientHeight;
+    const thumbHeight = Math.min(trackHeight, Math.max(16, scrollArea.clientHeight / Math.max(1, scrollArea.scrollHeight) * trackHeight));
+
+    if ((event.target as HTMLElement).closest('.chat-preview-scrollbar-thumb')) {
+      queueScrollDragRef.current = { pointerY: event.clientY, scrollTop: scrollArea.scrollTop };
+      setQueueScrollDragging(true);
+      track.setPointerCapture(event.pointerId);
+    } else {
+      const bounds = track.getBoundingClientRect();
+      const travel = Math.max(1, trackHeight - thumbHeight);
+      const position = (event.clientY - bounds.top - thumbHeight / 2) / travel;
+      scrollArea.scrollTop = Math.max(0, Math.min(maxScroll, position * maxScroll));
+    }
+
+    event.preventDefault();
+  };
+
+  const handleQueueScrollbarPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = queueScrollDragRef.current;
+    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
+    const track = queueScrollTrackRef.current;
+    if (!drag || !scrollArea || !track) return;
+
+    const maxScroll = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
+    const trackHeight = track.clientHeight;
+    const thumbHeight = Math.min(trackHeight, Math.max(16, scrollArea.clientHeight / Math.max(1, scrollArea.scrollHeight) * trackHeight));
+    const travel = Math.max(1, trackHeight - thumbHeight);
+    scrollArea.scrollTop = Math.max(0, Math.min(maxScroll, drag.scrollTop + (event.clientY - drag.pointerY) / travel * maxScroll));
+  };
+
+  const handleQueueScrollbarKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const scrollArea = queueContentRef.current?.querySelector<HTMLElement>('.messages-panel');
+    if (!scrollArea) return;
+
+    const pageStep = Math.max(40, scrollArea.clientHeight * 0.75);
+    const nextScrollTop = event.key === 'ArrowDown' ? scrollArea.scrollTop + 40
+      : event.key === 'ArrowUp' ? scrollArea.scrollTop - 40
+        : event.key === 'PageDown' ? scrollArea.scrollTop + pageStep
+          : event.key === 'PageUp' ? scrollArea.scrollTop - pageStep
+            : event.key === 'Home' ? 0
+              : event.key === 'End' ? scrollArea.scrollHeight - scrollArea.clientHeight
+                : null;
+    if (nextScrollTop === null) return;
+
+    event.preventDefault();
+    scrollArea.scrollTop = nextScrollTop;
   };
 
   useEffect(() => {
@@ -2276,30 +2398,66 @@ export function WorkspacePage({
                 <div className="workspace-page-queue-header">
                   <span>Queue / history</span>
                 </div>
-                <div
-                  className={`workspace-page-queue-content theme-${chatWallpaper.theme}`}
-                  style={chatWallpaper.theme === 'custom' && chatWallpaper.image
-                    ? { backgroundImage: `url(${chatWallpaper.image})` }
-                    : undefined}
-                >
-                  <MessagesPanel
-                    upcoming={upcoming}
-                    sent={sent}
-                    upcomingLabel="Queue"
-                    assistantText=""
-                    revealingId={revealingId}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    onCancel={handleCancelMessage}
-                    onReschedule={rescheduleMessage}
-                    onSendNow={handleSendNow}
-                    onDelete={handleDeleteMessage}
-                    onClearSent={handleClearSent}
-                    onClearAll={handleClearAll}
-                    cancelingIds={cancelingIds}
-                    sendingIds={sendingIds}
-                    showAllMessages
-                  />
+                <div className="chat-preview-window-shell">
+                  <div
+                    ref={queueContentRef}
+                    id="workspace-queue-scroll-region"
+                    className={`workspace-page-queue-content theme-${chatWallpaper.theme}`}
+                    style={chatWallpaper.theme === 'custom' && chatWallpaper.image
+                      ? { backgroundImage: `url(${chatWallpaper.image})` }
+                      : undefined}
+                  >
+                    <MessagesPanel
+                      upcoming={upcoming}
+                      sent={sent}
+                      upcomingLabel="Queue"
+                      assistantText=""
+                      revealingId={revealingId}
+                      activeTab={activeTab}
+                      onTabChange={setActiveTab}
+                      onCancel={handleCancelMessage}
+                      onReschedule={rescheduleMessage}
+                      onSendNow={handleSendNow}
+                      onDelete={handleDeleteMessage}
+                      onClearSent={handleClearSent}
+                      onClearAll={handleClearAll}
+                      cancelingIds={cancelingIds}
+                      sendingIds={sendingIds}
+                      showAllMessages
+                      hideCancel
+                    />
+                  </div>
+                  <div
+                    ref={queueScrollTrackRef}
+                    className={`chat-preview-scrollbar-track${queueCanScroll ? '' : ' is-hidden'}${queueScrollDragging ? ' is-dragging' : ''}`}
+                    role="scrollbar"
+                    tabIndex={queueCanScroll ? 0 : -1}
+                    aria-label="Queue and history scroll"
+                    aria-controls="workspace-queue-scroll-region"
+                    aria-orientation="vertical"
+                    aria-hidden={!queueCanScroll}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={queueCanScroll
+                      ? Math.round(queueScrollMetrics.scrollTop / (queueScrollMetrics.scrollHeight - queueScrollMetrics.clientHeight) * 100)
+                      : 0}
+                    onPointerDown={handleQueueScrollbarPointerDown}
+                    onPointerMove={handleQueueScrollbarPointerMove}
+                    onPointerUp={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
+                    onPointerCancel={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
+                    onLostPointerCapture={() => { queueScrollDragRef.current = null; setQueueScrollDragging(false); }}
+                    onKeyDown={handleQueueScrollbarKeyDown}
+                  >
+                    {queueCanScroll && (
+                      <div
+                        className="chat-preview-scrollbar-thumb"
+                        style={{
+                          height: `${queueScrollbarThumbHeight}%`,
+                          top: `${queueScrollbarThumbTop}%`,
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
