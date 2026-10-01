@@ -2,7 +2,7 @@
   position: relative;
   height: 100%;
   min-height: 0;
-  background: hsl(220 16.7% 6%);
+  background: #030405;
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   overflow: hidden;

@@ -736,10 +736,12 @@ body:has(.auth-panel) {
 }
 
 .product-shell.studio-shell {
+  --void: #030405;
   height: 100vh;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
+  background: radial-gradient(ellipse 72% 44% at 50% 0%, #101216 0%, transparent 72%), #030405;
 }
 
 .product-shell.studio-shell > .product-shell-content {
@@ -779,6 +781,10 @@ body:has(.product-shell.studio-shell) {
   height: 64px;
   margin-left: calc(50% - 50vw);
   padding: 0 29.5px;
+}
+
+.studio-shell > .topbar {
+  background: radial-gradient(ellipse 38% 150% at 50% 0%, rgba(154, 168, 184, 0.08) 0%, transparent 72%);
 }
 
 .settings-action.product-mode-switch {
