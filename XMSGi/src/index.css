@@ -2524,6 +2524,42 @@ textarea {
   line-height: 1;
 }
 
+.message-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.message-label-row > .composer-field-label {
+  margin: 0;
+  color: rgba(222, 230, 238, 0.8);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+
+.message-clear-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(193, 206, 220, 0.68);
+  cursor: pointer;
+}
+
+.message-clear-button:hover,
+.message-clear-button:focus-visible {
+  background: rgba(193, 206, 220, 0.08);
+  color: var(--text);
+}
+
 .message-input-wrap {
   padding-bottom: 11px;
   position: relative;
@@ -2675,6 +2711,138 @@ textarea {
   transform: none;
 }
 
+.message-emoji-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.message-field-meta .message-emoji-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(216, 242, 220, 0.9);
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+
+.message-field-meta .message-emoji-button:hover,
+.message-field-meta .message-emoji-button:focus-visible,
+.message-field-meta .message-emoji-button[aria-expanded="true"] {
+  background: rgba(193, 206, 220, 0.08);
+  color: var(--text);
+}
+
+.message-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  z-index: 50;
+  width: 264px;
+  max-width: calc(100vw - 32px);
+  padding: 10px;
+  border: 1px solid rgba(193, 205, 218, 0.2);
+  border-radius: 6px;
+  background: #111518;
+  color: var(--text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+}
+
+.message-emoji-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+  margin-bottom: 7px;
+  color: rgba(193, 206, 220, 0.78);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.message-emoji-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(193, 206, 220, 0.72);
+  cursor: pointer;
+}
+
+.message-emoji-close:hover,
+.message-emoji-close:focus-visible {
+  background: rgba(193, 206, 220, 0.08);
+  color: var(--text);
+}
+
+.message-emoji-recent,
+.message-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.message-emoji-recent {
+  margin-bottom: 5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(193, 205, 218, 0.12);
+}
+
+.message-emoji-grid {
+  max-height: 218px;
+  overflow-y: auto;
+}
+
+.message-emoji-option {
+  display: grid;
+  aspect-ratio: 1;
+  min-width: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.message-emoji-option:hover,
+.message-emoji-option:focus-visible,
+.message-emoji-option.is-recent {
+  background: rgba(193, 206, 220, 0.12);
+  outline: none;
+}
+
+.message-emoji-more {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 7px;
+  padding: 4px 6px;
+  border: 0;
+  border-top: 1px solid rgba(193, 205, 218, 0.12);
+  background: transparent;
+  color: rgba(193, 206, 220, 0.82);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.message-emoji-more:hover,
+.message-emoji-more:focus-visible {
+  color: var(--text);
+}
+
 .message-field-meta .message-attachments {
   order: 2;
 }
@@ -2689,7 +2857,7 @@ textarea {
   width: auto;
   min-width: 88px;
   margin-left: auto;
-  margin-right: 20px;
+  margin-right: 58px;
   color: rgba(183, 194, 204, 0.58);
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
@@ -2704,13 +2872,16 @@ textarea {
 }
 
 .message-send-control {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  right: 0;
   display: inline-flex;
   order: 4;
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
   margin-right: 0;
+  transform: translateY(-50%);
   z-index: 2;
 }
 
@@ -4776,7 +4947,8 @@ textarea:focus-visible {
   }
 
   .message-field-meta .message-send-control {
-    margin-right: -44px;
+    right: 0;
+    margin-right: 0;
   }
 
   .message-placeholder {
@@ -4792,6 +4964,19 @@ textarea:focus-visible {
   .message-input-wrap {
     width: 100%;
     margin-left: 0;
+  }
+
+  .message-field-meta .message-counter {
+    min-width: 0;
+    margin-right: 58px;
+    transform: none;
+  }
+
+  .message-field-meta .message-effect-menu {
+    top: calc(100% + 8px);
+    right: 0;
+    left: auto;
+    width: min(176px, calc(100vw - 32px));
   }
 
   .message-field {

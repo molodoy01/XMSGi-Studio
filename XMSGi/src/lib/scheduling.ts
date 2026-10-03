@@ -115,7 +115,8 @@ export function createPendingSchedule(
   return {
     ...input,
     id: input.operationId,
-    status: 'pending',
+    status: 'sending',
+    retryAction: 'schedule',
   };
 }
 
@@ -125,7 +126,14 @@ export function applyScheduleResult(
   result: TelegramScheduleResult
 ): ScheduledMessage[] {
   if (!result.success) {
-    return messages;
+    return messages.map((message) => message.operationId === operationId
+      ? {
+        ...message,
+        status: 'failed',
+        lastError: result.error || 'Telegram did not confirm that this schedule was saved.',
+        retryAction: 'schedule',
+      }
+      : message);
   }
 
   const telegramMessageId = result.telegramMessageId ?? result.id;
@@ -134,7 +142,7 @@ export function applyScheduleResult(
     message.operationId === operationId
       ? {
           ...message,
-          status: result.confirmed ? 'confirmed' : 'scheduled',
+          status: 'scheduled',
           telegramMessageId,
         }
       : message

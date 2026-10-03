@@ -1,6 +1,8 @@
 import type { Chat, ScheduledMessage, Template } from '@/types';
 
 export type MessageHistoryScope = 'personal' | 'workspace';
+export type ScheduleHistorySnapshot = { upcoming: ScheduledMessage[]; sent: ScheduledMessage[] };
+export type ScheduleHistoryField = 'upcoming' | 'sent' | 'snapshot';
 
 const UPCOMING_KEYS: Record<MessageHistoryScope, string> = {
   personal: 'awaitmsg_upcoming',
@@ -24,20 +26,65 @@ export function load<T>(key: string, fallback: T): T {
   }
 }
 
-export function save<T>(key: string, data: T): void {
+export function save<T>(key: string, data: T): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    return true;
   } catch {
-    // ignore
+    return false;
   }
 }
 
+function normalizeScheduleMessage(value: unknown): ScheduledMessage | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const message = value as Partial<ScheduledMessage>;
+  if (
+    typeof message.id !== 'string'
+    || typeof message.chatId !== 'string'
+    || typeof message.chatName !== 'string'
+    || typeof message.text !== 'string'
+    || typeof message.when !== 'string'
+    || typeof message.createdAt !== 'string'
+  ) return null;
+
+  const knownStatuses = ['pending', 'scheduled', 'confirmed', 'sending', 'sent', 'failed'];
+  const unknownStatus = typeof message.status !== 'string' || !knownStatuses.includes(message.status);
+  const legacyPending = message.status === 'pending';
+  const status: ScheduledMessage['status'] = unknownStatus || legacyPending
+    ? 'failed'
+    : message.status === 'confirmed'
+      ? 'scheduled'
+      : message.status as ScheduledMessage['status'];
+
+  return {
+    ...message as ScheduledMessage,
+    status: status === 'sending' ? 'failed' : status,
+    ...((unknownStatus || legacyPending || status === 'sending') ? {
+      lastError: message.lastError || (legacyPending
+        ? 'This schedule was interrupted before Telegram confirmed it.'
+        : status === 'sending'
+          ? 'The app closed while this message was sending. Check Telegram before retrying.'
+          : 'This message had an unknown saved status and needs review.'),
+      retryAction: message.retryAction ?? (legacyPending ? 'schedule' : 'send'),
+    } : {}),
+  };
+}
+
+function loadScheduleMessages(key: string): ScheduledMessage[] {
+  const stored = load<unknown>(key, []);
+  if (!Array.isArray(stored)) return [];
+  return stored
+    .map(normalizeScheduleMessage)
+    .filter((message): message is ScheduledMessage => message !== null);
+}
+
 export function loadUpcoming(scope: MessageHistoryScope = 'personal'): ScheduledMessage[] {
-  return load<ScheduledMessage[]>(UPCOMING_KEYS[scope], []);
+  return loadScheduleMessages(UPCOMING_KEYS[scope]);
 }
 
 export function loadSent(scope: MessageHistoryScope = 'personal'): ScheduledMessage[] {
-  return load<ScheduledMessage[]>(SENT_KEYS[scope], []);
+  return loadScheduleMessages(SENT_KEYS[scope]);
 }
 
 export function saveUpcoming(messages: ScheduledMessage[], scope: MessageHistoryScope = 'personal'): void {
@@ -52,14 +99,43 @@ export function saveSent(messages: ScheduledMessage[], scope: MessageHistoryScop
   }
 }
 
+export async function persistScheduleHistoryAndWait(
+  scope: MessageHistoryScope,
+  field: ScheduleHistoryField,
+  messages: ScheduledMessage[] | ScheduleHistorySnapshot,
+): Promise<boolean> {
+  if (typeof window !== 'undefined' && typeof window.telegram?.saveScheduleHistory === 'function') {
+    try {
+      const payload = field === 'snapshot'
+        ? { scope, field, messages: messages as ScheduleHistorySnapshot }
+        : { scope, field, messages: messages as ScheduledMessage[] };
+      const result = await window.telegram.saveScheduleHistory(payload);
+      return result.success;
+    } catch {
+      return false;
+    }
+  }
+
+  if (field === 'snapshot') {
+    const snapshot = messages as ScheduleHistorySnapshot;
+    return save(UPCOMING_KEYS[scope], snapshot.upcoming)
+      && save(SENT_KEYS[scope], snapshot.sent);
+  }
+
+  return save(field === 'upcoming' ? UPCOMING_KEYS[scope] : SENT_KEYS[scope], messages);
+}
+
 function persistScheduleHistory(
   scope: MessageHistoryScope,
-  field: 'upcoming' | 'sent',
-  messages: ScheduledMessage[],
+  field: ScheduleHistoryField,
+  messages: ScheduledMessage[] | ScheduleHistorySnapshot,
 ): boolean {
   if (typeof window === 'undefined' || typeof window.telegram?.saveScheduleHistory !== 'function') return false;
 
-  void window.telegram.saveScheduleHistory({ scope, field, messages }).then((result) => {
+  const payload = field === 'snapshot'
+    ? { scope, field, messages: messages as ScheduleHistorySnapshot }
+    : { scope, field, messages: messages as ScheduledMessage[] };
+  void window.telegram.saveScheduleHistory(payload).then((result) => {
     if (!result.success) console.error(result.error || 'Schedule history could not be saved.');
   }).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : 'Schedule history could not be saved.');

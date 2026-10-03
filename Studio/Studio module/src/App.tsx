@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { WorkspacePage } from './pages/WorkspacePage';
 import type { Chat, NotificationState, SavedDraft, ScheduledMessage } from './types';
 import type { InlineKeyboardMarkup } from './lib/inlineKeyboard';
-import { type ScheduleRepeatOptions } from './lib/scheduling';
+import { isFutureSchedule, type ScheduleRepeatOptions } from './lib/scheduling';
 import { createScheduledEntries } from './services/scheduleDomainService';
 import { publishToChannel, scheduleToChannel } from './services/publishingService';
 import { telegramChannelAdapter } from './services/telegramChannelAdapter';
@@ -24,6 +24,12 @@ function toLocalDateTime(value: Date) {
   const date = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
   const time = `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
   return { date, time };
+}
+
+function getDefaultScheduleDateTime() {
+  const nextHour = new Date();
+  nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+  return toLocalDateTime(nextHour);
 }
 
 type StudioAppProps = {
@@ -65,10 +71,11 @@ export type StudioSchedulerRuntime = {
 };
 
 export default function App({ connected: xmsgiConnected, chats: xmsgiChats, scheduler, activeAccountId = 'account-1', onRegisterHistoryDraftOpener, onRegisterHistoryRescheduleHandler }: StudioAppProps = {}) {
+  const [defaultSchedule] = useState(getDefaultScheduleDateTime);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(xmsgiChats?.[0] ?? null);
   const [localChats, setLocalChats] = useState(xmsgiChats ?? []);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [time, setTime] = useState('12:00');
+  const [date, setDate] = useState(defaultSchedule.date);
+  const [time, setTime] = useState(defaultSchedule.time);
   const [upcoming, setUpcoming] = useState<ScheduledMessage[]>([]);
   const [sent, setSent] = useState<ScheduledMessage[]>([]);
   const [notification, setNotification] = useState<NotificationState>({ message: '', title: '', type: 'info', visible: false });
@@ -87,6 +94,10 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
   const confirmRemoveChat = () => { const chat = removeModal.chat; if (!chat) return; setLocalChats((current) => current.filter((item) => item.id !== chat.id)); if (selectedChat?.id === chat.id) setSelectedChat(localChats.find((item) => item.id !== chat.id) ?? null); setRemoveModal({ show: false, chat: null }); };
   const handleSchedule = async (payload?: { chatId: string; message: string; date: string; time: string; attachments?: string[]; entities?: unknown; replyMarkup?: InlineKeyboardMarkup }, repeat?: ScheduleRepeatOptions) => {
     if (!payload || scheduling) return;
+    if (!isFutureSchedule(payload.date, payload.time)) {
+      showNotification('Дата и время должны быть в будущем.', 'error');
+      return;
+    }
     const chat = localChats.find((item) => item.id === payload.chatId) ?? selectedChat;
     if (!chat) return;
 

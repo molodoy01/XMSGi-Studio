@@ -52,13 +52,13 @@ describe('Pending scheduling recovery', () => {
     vi.unstubAllGlobals();
   });
 
-  it('creates and persists a Pending record', () => {
-    const pending = createPending('operation-1');
+  it('creates a retryable Sending record and restores interrupted work as Failed', () => {
+    const sending = createPending('operation-1');
 
-    saveUpcoming([pending]);
+    expect(sending).toMatchObject({ status: 'sending', retryAction: 'schedule' });
+    saveUpcoming([sending]);
 
-    expect(loadUpcoming()).toEqual([pending]);
-    expect(loadUpcoming()[0].status).toBe('pending');
+    expect(loadUpcoming()[0]).toMatchObject({ status: 'failed', retryAction: 'schedule' });
   });
 
   it('keeps attachments on a pending record for restart recovery', () => {
@@ -92,7 +92,7 @@ describe('Pending scheduling recovery', () => {
     });
   });
 
-  it('marks a message confirmed when Telegram confirms the schedule', () => {
+  it('keeps the canonical Scheduled status when Telegram confirms the schedule', () => {
     const pending = createPending('operation-1');
     const updated = applyScheduleResult(
       [pending],
@@ -102,7 +102,7 @@ describe('Pending scheduling recovery', () => {
 
     expect(updated[0]).toMatchObject({
       operationId: 'operation-1',
-      status: 'confirmed',
+      status: 'scheduled',
       telegramMessageId: 'telegram-1',
     });
   });
@@ -124,13 +124,18 @@ describe('Pending scheduling recovery', () => {
     });
   });
 
-  it('recovers Pending records after a restart', () => {
-    const pending = createPending('operation-1');
-    saveUpcoming([pending]);
+  it('recovers an interrupted Sending record as Failed after a restart', () => {
+    const sending = createPending('operation-1');
+    saveUpcoming([sending]);
 
     const restored = loadUpcoming();
 
-    expect(getPendingSchedules(restored)).toEqual([pending]);
+    expect(restored).toMatchObject([{
+      operationId: 'operation-1',
+      status: 'failed',
+      retryAction: 'schedule',
+    }]);
+    expect(getPendingSchedules(restored)).toEqual([]);
   });
 
   it('reuses an existing Telegram scheduled message instead of creating a duplicate', () => {
@@ -149,18 +154,22 @@ describe('Pending scheduling recovery', () => {
     ).toEqual(existing);
   });
 
-  it('keeps the Pending record when scheduling fails', () => {
-    const pending = createPending('operation-1');
-    const unchanged = applyScheduleResult(
-      [pending],
+  it('marks schedule failure Failed and retryable', () => {
+    const sending = createPending('operation-1');
+    const failed = applyScheduleResult(
+      [sending],
       'operation-1',
       { success: false, error: 'Telegram unavailable' }
     );
 
-    saveUpcoming(unchanged);
+    saveUpcoming(failed);
 
-    expect(loadUpcoming()).toEqual([pending]);
-    expect(loadUpcoming()[0].status).toBe('pending');
+    expect(loadUpcoming()[0]).toMatchObject({
+      operationId: 'operation-1',
+      status: 'failed',
+      lastError: 'Telegram unavailable',
+      retryAction: 'schedule',
+    });
   });
 });
 

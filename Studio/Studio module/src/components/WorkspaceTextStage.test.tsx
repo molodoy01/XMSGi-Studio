@@ -387,6 +387,15 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
+  it('shows the local timezone offset once', () => {
+    const { unmount } = renderStage({ mode: 'schedule' });
+    const timezone = document.querySelector('.workspace-page-schedule-timezone')?.textContent ?? '';
+
+    expect(timezone).toMatch(/UTC[+-]\d{2}:\d{2}$/);
+    expect(timezone).not.toMatch(/GMT[+-]\d.*GMT[+-]\d/);
+    unmount();
+  });
+
   it('keeps the standard Back and Done footer for schedule', () => {
     const { unmount } = renderStage({ mode: 'schedule', date: '2026-01-10', time: '09:00' });
 
@@ -461,29 +470,36 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
-  it('places quick time controls after the time block and updates the time setter', () => {
+  it('places quick time controls after the time block and updates the schedule date and time', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 3, 23, 59, 30));
+    const setDate = vi.fn();
     const setTime = vi.fn();
-    const { unmount } = renderStage({ mode: 'schedule', scheduleFocus: 'time', setTime });
+    const { unmount } = renderStage({ mode: 'schedule', scheduleFocus: 'time', setDate, setTime });
 
-    const quickPanel = document.querySelector('.workspace-page-schedule-quick-panel') as HTMLElement;
-    const timeRow = document.querySelector('.workspace-page-schedule-inline-row') as HTMLElement;
-    expect(timeRow.nextElementSibling).toBe(quickPanel);
-    expect(document.querySelector('.workspace-page-schedule-summary')).toBeNull();
+    try {
+      const quickPanel = document.querySelector('.workspace-page-schedule-quick-panel') as HTMLElement;
+      const timeRow = document.querySelector('.workspace-page-schedule-inline-row') as HTMLElement;
+      expect(timeRow.nextElementSibling).toBe(quickPanel);
+      expect(document.querySelector('.workspace-page-schedule-summary')).toBeNull();
 
-    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
-    act(() => {
-      const setNativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      setNativeValue?.call(timeInput, '14:45');
-      timeInput.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    expect(setTime).toHaveBeenCalledWith('14:45');
+      const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
+      act(() => {
+        const setNativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setNativeValue?.call(timeInput, '14:45');
+        timeInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(setTime).toHaveBeenCalledWith('14:45');
 
-    const plusHour = document.querySelector('[aria-label="Set time +1h"]') as HTMLButtonElement;
-    act(() => {
-      plusHour.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    expect(setTime).toHaveBeenCalledWith(expect.stringMatching(/^\d{2}:\d{2}$/));
-    unmount();
+      const nextMinute = document.querySelector('[aria-label="Set time +1m"]') as HTMLButtonElement;
+      act(() => nextMinute.click());
+
+      expect(setDate).toHaveBeenCalledWith('2026-10-04');
+      expect(setTime).toHaveBeenCalledWith('00:00');
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
 
   it('renders the time picker outside the schedule field and aligns it to the clock button', () => {
@@ -516,12 +532,14 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(timePicker.parentElement).toBe(document.body);
     expect(timePicker.style.top).toBe('208px');
     expect(timePicker.style.left).toBe('120px');
+    expect(clockButton.getAttribute('aria-expanded')).toBe('true');
     expect(timePicker.querySelectorAll('[role="option"]')).toHaveLength(96);
     expect(timePicker.querySelector('[aria-selected="true"]')?.textContent).toBe('09:00');
 
-    act(() => {
-      (timePicker.querySelector('[role="option"][aria-selected="false"]') as HTMLButtonElement).click();
-    });
+    const option = timePicker.querySelector('[role="option"][aria-selected="false"]') as HTMLButtonElement;
+    act(() => option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+    expect(document.querySelector('[role="listbox"][aria-label="Available times"]')).not.toBeNull();
+    act(() => option.click());
     expect(setTime).toHaveBeenCalled();
     expect(timeField.querySelector('[role="listbox"]')).toBeNull();
 
@@ -530,7 +548,49 @@ describe('WorkspaceTextStage editor flows', () => {
       clockButton.click();
     });
     expect(timeField.querySelector('[role="listbox"]')).toBeNull();
+    expect(clockButton.getAttribute('aria-expanded')).toBe('false');
     unmount();
+  });
+
+  it('keeps the time picker within a short viewport and closes it on Escape', () => {
+    const previousHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    const previousWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 220 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 });
+    const { unmount } = renderStage({ mode: 'schedule', scheduleFocus: 'time' });
+    const clockButton = document.querySelector('[aria-label="Open time picker"]') as HTMLButtonElement;
+    vi.spyOn(clockButton, 'getBoundingClientRect').mockReturnValue({
+      top: 182,
+      bottom: 200,
+      left: 280,
+      right: 298,
+      width: 18,
+      height: 18,
+      x: 280,
+      y: 182,
+      toJSON: () => ({}),
+    });
+
+    try {
+      act(() => clockButton.click());
+      const timePicker = document.querySelector('[role="listbox"][aria-label="Available times"]') as HTMLElement;
+      expect(timePicker.style.top).toBe('8px');
+      expect(timePicker.style.left).toBe('132px');
+
+      act(() => timePicker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      expect(document.querySelector('[role="listbox"][aria-label="Available times"]')).toBeNull();
+      expect(clockButton.getAttribute('aria-expanded')).toBe('false');
+
+      act(() => clockButton.click());
+      act(() => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+      expect(document.querySelector('[role="listbox"][aria-label="Available times"]')).toBeNull();
+    } finally {
+      unmount();
+      if (previousHeight) Object.defineProperty(window, 'innerHeight', previousHeight);
+      else Reflect.deleteProperty(window, 'innerHeight');
+      if (previousWidth) Object.defineProperty(window, 'innerWidth', previousWidth);
+      else Reflect.deleteProperty(window, 'innerWidth');
+    }
   });
 
   it('keeps template and chat stages navigable with stable list and footer regions', () => {
@@ -598,6 +658,21 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     expect(onChatSelectionDone).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('shows a Telegram-blue initial when a contact photo fails to load', () => {
+    const chatWithBrokenPhoto = { ...chatA, avatarDataUrl: 'broken-avatar-url' };
+    const { unmount } = renderStage({ mode: 'chat', chats: [chatWithBrokenPhoto], selectedChats: [] });
+    const avatar = document.querySelector('.workspace-page-chat-stage-avatar') as HTMLElement;
+    const image = avatar.querySelector('img') as HTMLImageElement;
+
+    expect(image).toBeTruthy();
+    act(() => image.dispatchEvent(new Event('error')));
+
+    expect(avatar.querySelector('img')).toBeNull();
+    expect(avatar.textContent).toBe('A');
+    expect(avatar.classList.contains('is-broken')).toBe(true);
     unmount();
   });
 
@@ -782,6 +857,43 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     expect(onChange).toHaveBeenLastCalledWith('Hello World', []);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('adds pasted clipboard images as attachments instead of dropping them', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onPasteImages = vi.fn();
+    const image = new File(['image-bytes'], 'clipboard-photo.png', { type: 'image/png' });
+
+    act(() => {
+      root.render(
+        <RichTextEditor
+          text=""
+          entities={[]}
+          onChange={vi.fn()}
+          onPasteImages={onPasteImages}
+          maxLength={4096}
+        />,
+      );
+    });
+
+    const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        items: [{ kind: 'file', type: 'image/png', getAsFile: () => image }],
+        getData: () => '',
+      },
+    });
+
+    act(() => editor.dispatchEvent(pasteEvent));
+
+    expect(pasteEvent.defaultPrevented).toBe(true);
+    expect(onPasteImages).toHaveBeenCalledWith([image]);
 
     act(() => root.unmount());
     container.remove();

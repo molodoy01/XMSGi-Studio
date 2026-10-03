@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { CalendarDays, Clock, MessageCircle, Search, Star, Upload } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Chat, DraftColor, RichTextEntity, SavedDraft, Template } from '@/types';
-import { MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
+import { getScheduleDateTimeAfter, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
 import { InlineKeyboardBuilder } from '@/components/InlineKeyboardBuilder';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
@@ -28,20 +28,15 @@ const LEGACY_FAVORITE_CHATS_STORAGE_KEY = 'awaitmsg_favorite_chats';
 function getLocalTimezoneLabel() {
   const now = new Date();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZoneName: 'short',
-    timeZone: timezone,
-  }).formatToParts(now);
-  const name = parts.find((part) => part.type === 'timeZoneName')?.value || timezone;
   const offsetMinutes = -now.getTimezoneOffset();
   const sign = offsetMinutes >= 0 ? '+' : '-';
   const absoluteMinutes = Math.abs(offsetMinutes);
   const offsetHours = Math.floor(absoluteMinutes / 60);
   const offsetRemainder = absoluteMinutes % 60;
-  const offset = `GMT${sign}${offsetHours}${offsetRemainder ? `:${String(offsetRemainder).padStart(2, '0')}` : ''}`;
+  const offset = `UTC${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetRemainder).padStart(2, '0')}`;
   const country = timezone === 'Europe/Helsinki' ? 'Finland' : timezone;
 
-  return `${country} · ${name} (${offset})`;
+  return `${country} · ${offset}`;
 }
 
 function getDraftAttachmentSummary(draft: SavedDraft): string {
@@ -188,10 +183,12 @@ export function WorkspaceTextStage({
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [addingChat, setAddingChat] = useState(false);
+  const [failedAvatarSources, setFailedAvatarSources] = useState<Set<string>>(() => new Set());
   const [scheduleDateDraft, setScheduleDateDraft] = useState<{ year: string; month: string; day: string } | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [timePickerPosition, setTimePickerPosition] = useState({ top: 0, left: 0 });
+  const timePickerRef = useRef<HTMLDivElement | null>(null);
   const [favoriteChatIds, setFavoriteChatIds] = useState<string[]>(() => {
     try {
       const primaryRaw = window.localStorage.getItem(FAVORITE_CHATS_STORAGE_KEY);
@@ -312,8 +309,13 @@ export function WorkspaceTextStage({
       if (!button) return;
 
       const bounds = button.getBoundingClientRect();
+      const pickerHeight = Math.min(220, window.innerHeight - 16);
+      const spaceBelow = window.innerHeight - bounds.bottom - 8;
+      const top = spaceBelow >= pickerHeight
+        ? bounds.bottom + 8
+        : Math.max(8, bounds.top - pickerHeight - 8);
       setTimePickerPosition({
-        top: bounds.bottom + 8,
+        top,
         left: Math.min(
           Math.max(8, bounds.left),
           Math.max(8, window.innerWidth - 188),
@@ -322,11 +324,30 @@ export function WorkspaceTextStage({
     };
 
     updateTimePickerPosition();
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        !timePickerButtonRef.current?.contains(target)
+        && !timePickerRef.current?.contains(target)
+      ) {
+        setTimePickerOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setTimePickerOpen(false);
+      timePickerButtonRef.current?.focus();
+    };
     window.addEventListener('resize', updateTimePickerPosition);
     window.addEventListener('scroll', updateTimePickerPosition, true);
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
     return () => {
       window.removeEventListener('resize', updateTimePickerPosition);
       window.removeEventListener('scroll', updateTimePickerPosition, true);
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
     };
   }, [timePickerOpen]);
   const scheduleTimeLabel = time
@@ -342,12 +363,11 @@ export function WorkspaceTextStage({
     biweekly: `Every 2 weeks${repeatDays.length ? ` · ${repeatDays.join(', ')}` : ''}`,
     monthly: `Every month${date ? ` · day ${new Date(`${date}T12:00:00`).getDate()}` : ''}`,
   }[repeatMode];
-  const formatTimeString = (value: Date) => `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
   const quickTimePresets = [
-    { label: 'Now', value: formatTimeString(new Date()) },
-    { label: '+15m', value: formatTimeString(new Date(Date.now() + 15 * 60 * 1000)) },
-    { label: '+30m', value: formatTimeString(new Date(Date.now() + 30 * 60 * 1000)) },
-    { label: '+1h', value: formatTimeString(new Date(Date.now() + 60 * 60 * 1000)) },
+    { label: '+1m', minutes: 0 },
+    { label: '+15m', minutes: 15 },
+    { label: '+30m', minutes: 30 },
+    { label: '+1h', minutes: 60 },
   ];
   const repeatModePresets: Array<{ label: string; value: ScheduleRepeatOptions['mode'] }> = [
     { label: "Doesn't repeat", value: 'none' },
@@ -477,7 +497,7 @@ export function WorkspaceTextStage({
                 </div>
                   </div>
                   <label className="workspace-page-schedule-inline-field workspace-page-schedule-inline-time">
-                    <button ref={timePickerButtonRef} type="button" className="workspace-page-schedule-icon-button" aria-label="Open time picker" onClick={(event) => {
+                    <button ref={timePickerButtonRef} type="button" className="workspace-page-schedule-icon-button" aria-label="Open time picker" aria-haspopup="listbox" aria-expanded={timePickerOpen} onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
                       openScheduleTimePicker();
@@ -486,6 +506,7 @@ export function WorkspaceTextStage({
                     </button>
                     {timePickerOpen && createPortal(
                       <div
+                        ref={timePickerRef}
                         className="workspace-page-schedule-time-picker"
                         role="listbox"
                         aria-label="Available times"
@@ -528,7 +549,11 @@ export function WorkspaceTextStage({
                 <div className="workspace-page-schedule-options-heading">Quick time</div>
                 <div className="workspace-page-schedule-quick-row">
                   {quickTimePresets.map((preset) => (
-                    <button key={preset.label} type="button" aria-label={`Set time ${preset.label}`} onClick={() => setTime(preset.value)}>
+                    <button key={preset.label} type="button" aria-label={`Set time ${preset.label}`} onClick={() => {
+                      const scheduledAt = getScheduleDateTimeAfter(preset.minutes);
+                      setDate(scheduledAt.date);
+                      setTime(scheduledAt.time);
+                    }}>
                       {preset.label}
                     </button>
                   ))}
@@ -758,6 +783,8 @@ export function WorkspaceTextStage({
             {filteredChats.length > 0 ? filteredChats.map((chat) => {
             const selected = visibleSelectedChats.some((item) => item.id === chat.id);
             const favorite = favoriteChatIds.includes(chat.id);
+            const avatarSource = chat.avatarDataUrl || '';
+            const avatarFailed = Boolean(avatarSource && failedAvatarSources.has(avatarSource));
             return (
               <div
                 key={chat.id}
@@ -773,8 +800,14 @@ export function WorkspaceTextStage({
                   }
                 }}
               >
-                <span className="workspace-page-chat-stage-avatar" aria-hidden="true">
-                  {chat.avatarDataUrl ? <img src={chat.avatarDataUrl} alt="" /> : <MessageCircle size={15} strokeWidth={1.8} />}
+                <span className={`workspace-page-chat-stage-avatar ${avatarFailed ? 'is-broken' : ''}`} aria-hidden="true">
+                  {avatarSource && !avatarFailed ? (
+                    <img
+                      src={avatarSource}
+                      alt=""
+                      onError={() => setFailedAvatarSources((current) => new Set(current).add(avatarSource))}
+                    />
+                  ) : avatarFailed ? chat.name.slice(0, 1).toUpperCase() : <MessageCircle size={15} strokeWidth={1.8} />}
                 </span>
                 <span className="workspace-page-chat-stage-copy">
                   <strong>{chat.name}</strong>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
-import { Eraser } from 'lucide-react';
+import { Eraser, ImagePlus } from 'lucide-react';
 import editorLogo from '@/assets/logo.png';
 import type { RichTextEntity } from '@/types';
 import { editorHtmlToRichText, normalizeEditorText, richTextToHtml, sanitizeEditorDom, sliceRichText } from '@/lib/richText';
@@ -10,6 +10,7 @@ interface Props {
   text: string;
   entities: RichTextEntity[];
   onChange: (text: string, entities: RichTextEntity[]) => void;
+  onPasteImages?: (files: File[]) => void;
   inputRef?: MutableRefObject<HTMLDivElement | null>;
   stageContent?: ReactNode;
   stageMode?: 'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons';
@@ -18,8 +19,9 @@ interface Props {
 
 type FormatCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough' | 'insertUnorderedList' | 'insertOrderedList' | 'removeFormat';
 
-export function RichTextEditor({ text, entities, onChange, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
+export function RichTextEditor({ text, entities, onChange, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
   const logoImageRef = useRef<HTMLImageElement | null>(null);
@@ -290,6 +292,21 @@ export function RichTextEditor({ text, entities, onChange, inputRef, stageConten
 
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
+
+    const clipboardFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    const pastedImages = clipboardFiles.map((file) => {
+      if (file.name) return file;
+      const extension = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+      return new File([file], `pasted-image-${Date.now()}.${extension}`, {
+        type: file.type,
+        lastModified: file.lastModified,
+      });
+    });
+
+    if (pastedImages.length > 0) onPasteImages?.(pastedImages);
 
     const readyText = normalizeEditorText(event.clipboardData.getData('text/plain') || '')
       .replace(/\r\n/g, '\n')
@@ -822,6 +839,18 @@ export function RichTextEditor({ text, entities, onChange, inputRef, stageConten
         )}
       </div>
       <div className="workspace-page-rich-text-toolbar" aria-label="Link tools">
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.currentTarget.files ?? []);
+            if (files.length > 0) onPasteImages?.(files);
+            event.currentTarget.value = '';
+          }}
+        />
         <span
           className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
           aria-live="polite"
@@ -829,6 +858,16 @@ export function RichTextEditor({ text, entities, onChange, inputRef, stageConten
           {remainingCharacters}
         </span>
         <div className="workspace-page-rich-text-toolbar-actions">
+          <button
+            type="button"
+            className="workspace-page-rich-text-link-trigger"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => imageInputRef.current?.click()}
+            aria-label="Add photo"
+            title="Add photo"
+          >
+            <ImagePlus size={17} strokeWidth={1.8} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className={`workspace-page-rich-text-link-trigger ${linkPopoverOpen ? 'is-open' : ''}`}

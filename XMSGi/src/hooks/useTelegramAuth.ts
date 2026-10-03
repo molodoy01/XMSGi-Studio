@@ -97,6 +97,11 @@ export function useTelegramAuth({
     setAuthError('');
 
     try {
+      if (typeof window.telegram?.login !== 'function') {
+        setAuthError(t('auth.desktopBridgeRequired'));
+        return;
+      }
+
       const result = await window.telegram.login({
         phoneNumber,
         phoneCode: authStep === 'phone' ? undefined : phoneCode,

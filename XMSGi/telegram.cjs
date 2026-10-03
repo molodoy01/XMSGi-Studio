@@ -34,6 +34,8 @@ const {
 } = require('./telegram-search.cjs');
 const { findDialogByTitle } = require('./telegram-dialog-search.cjs');
 const { deriveChatPermissions, isPermissionError } = require('./telegram-permissions.cjs');
+const { applyTelegramIdempotency } = require('./telegram-idempotency.cjs');
+const { findRecentSentMessage } = require('./schedule-history.cjs');
 
 function normalizeSessionString(value) {
   return typeof value === 'string'
@@ -2011,11 +2013,12 @@ function logTelegramMarkupDiagnostics(label, sendOptions, clientAtStart) {
   }
 }
 
-async function withTelegramInvokeDiagnostics(clientAtStart, label, operation) {
+async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, idempotencyKey) {
   const originalInvoke = clientAtStart.invoke;
   const hadOwnInvoke = Object.prototype.hasOwnProperty.call(clientAtStart, 'invoke');
 
   clientAtStart.invoke = async function invokeWithDiagnostics(request, ...args) {
+    applyTelegramIdempotency(request, idempotencyKey);
     console.log(`[Telegram ${label}] final client.invoke request:`);
     console.dir(request, { depth: null });
     console.log(`[Telegram ${label}] final request summary:`, {
@@ -2048,7 +2051,8 @@ async function sendMessageInternal(
   entities = [],
   replyMarkup,
   silent = false,
-  effect
+  effect,
+  idempotencyKey
 ) {
 
   if (!client) {
@@ -2135,7 +2139,7 @@ async function sendMessageInternal(
         sendOperation(),
         REQUEST_TIMEOUT,
         'Sending Telegram message'
-      )));
+      )), idempotencyKey);
 
     if (client !== clientAtStart) {
       throw new Error('Telegram send was cancelled.');
@@ -2151,8 +2155,8 @@ async function sendMessageInternal(
   }
 }
 
-function sendMessage(chatId, message, attachments, entities, replyMarkup, silent, effect) {
-  return trackTelegramOperation('send', () => sendMessageInternal(chatId, message, attachments, entities, replyMarkup, silent, effect));
+function sendMessage(chatId, message, attachments, entities, replyMarkup, silent, effect, idempotencyKey) {
+  return trackTelegramOperation('send', () => sendMessageInternal(chatId, message, attachments, entities, replyMarkup, silent, effect, idempotencyKey));
 }
 
 // =========================================================
@@ -2385,8 +2389,7 @@ async function cancelScheduledMessageInternal(
   chatId,
   messageId,
   message,
-  date,
-  time
+  targetTimestamp
 ) {
 
   if (!client) {
@@ -2403,6 +2406,26 @@ async function cancelScheduledMessageInternal(
   let telegramMessageId =
     messageId;
 
+  const findAlreadySentMessage = async () => {
+    if (!message || !Number.isFinite(targetTimestamp)) return null;
+    try {
+      const entity = await telegramRequest(() => withTimeout(
+        clientAtStart.getEntity(target),
+        REQUEST_TIMEOUT,
+        'Resolving Telegram chat to reconcile a scheduled message'
+      ));
+      const recentMessages = await telegramRequest(() => withTimeout(
+        clientAtStart.getMessages(entity, { limit: 50 }),
+        REQUEST_TIMEOUT,
+        'Checking whether Telegram already sent a scheduled message'
+      ));
+      if (client !== clientAtStart) return null;
+      return findRecentSentMessage(recentMessages, message, targetTimestamp);
+    } catch {
+      return null;
+    }
+  };
+
   if (!telegramMessageId) {
     const scheduledMessages =
       await telegramRequest(() => clientAtStart.getScheduledMessages(
@@ -2412,13 +2435,6 @@ async function cancelScheduledMessageInternal(
     if (client !== clientAtStart) {
       throw new Error('Telegram cancel was cancelled.');
     }
-
-    const targetTimestamp =
-      Math.floor(
-        new Date(
-          date + 'T' + time
-        ).getTime() / 1000
-      );
 
     const foundMessage =
       scheduledMessages.find(
@@ -2443,7 +2459,17 @@ async function cancelScheduledMessageInternal(
       );
 
     if (!foundMessage) {
-
+      const sentMessage = await findAlreadySentMessage();
+      if (sentMessage) {
+        return {
+          success: true,
+          alreadySent: true,
+          telegramMessageId: String(sentMessage.id),
+          sentAt: sentMessage.date instanceof Date
+            ? sentMessage.date.toISOString()
+            : new Date(Number(sentMessage.date) * 1000).toISOString(),
+        };
+      }
       throw new Error(
         'Scheduled message was not found in Telegram.'
       );
@@ -2454,12 +2480,25 @@ async function cancelScheduledMessageInternal(
 
   }
 
-  await telegramRequest(() => clientAtStart.deleteScheduledMessages(
-    target,
-    [
-      Number(telegramMessageId)
-    ]
-  ));
+  try {
+    await telegramRequest(() => clientAtStart.deleteScheduledMessages(
+      target,
+      [Number(telegramMessageId)]
+    ));
+  } catch (error) {
+    const sentMessage = await findAlreadySentMessage();
+    if (sentMessage) {
+      return {
+        success: true,
+        alreadySent: true,
+        telegramMessageId: String(sentMessage.id),
+        sentAt: sentMessage.date instanceof Date
+          ? sentMessage.date.toISOString()
+          : new Date(Number(sentMessage.date) * 1000).toISOString(),
+      };
+    }
+    throw error;
+  }
 
   if (client !== clientAtStart) {
     throw new Error('Telegram cancel was cancelled.');
@@ -2469,16 +2508,15 @@ async function cancelScheduledMessageInternal(
     'Scheduled message cancelled successfully'
   );
 
-  return true;
+  return { success: true, alreadySent: false };
 }
 
-function cancelScheduledMessage(chatId, messageId, message, date, time) {
+function cancelScheduledMessage(chatId, messageId, message, targetTimestamp) {
   return trackTelegramOperation('cancel', () => cancelScheduledMessageInternal(
     chatId,
     messageId,
     message,
-    date,
-    time
+    targetTimestamp
   ));
 }
 

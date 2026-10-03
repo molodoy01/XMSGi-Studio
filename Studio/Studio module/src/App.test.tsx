@@ -36,6 +36,18 @@ async function attachImage() {
   });
 }
 
+function getTomorrowLocalDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+}
+
+function getYesterdayLocalDate() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+}
+
 describe('App media publishing', () => {
   beforeEach(() => {
     (globalThis as typeof globalThis & { ResizeObserver?: { new (): { observe: (node: Element) => void; unobserve: (node: Element) => void; disconnect: () => void } } }).ResizeObserver = class {
@@ -52,7 +64,7 @@ describe('App media publishing', () => {
       entities: [],
       attachments: [],
       savedAt: '12:00',
-      date: '2026-09-24',
+      date: getTomorrowLocalDate(),
       time: '18:30',
       repeatMode: 'none',
       repeatDays: [],
@@ -131,6 +143,63 @@ describe('App media publishing', () => {
       attachments: ['/managed/photo.png'],
     }));
     unmount();
+  });
+
+  it('blocks scheduling when the selected date is in the past', async () => {
+    localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
+      body: 'Media post',
+      entities: [],
+      attachments: [],
+      savedAt: '12:00',
+      date: getYesterdayLocalDate(),
+      time: '12:00',
+      repeatMode: 'none',
+      repeatDays: [],
+      repeatOccurrences: 1,
+    }));
+    const { unmount } = await renderApp();
+
+    const menuToggle = document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement;
+    await act(async () => {
+      menuToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const scheduleOption = document.querySelector('.workspace-page-publish-option.is-scheduled') as HTMLButtonElement;
+    await act(async () => {
+      scheduleOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const primaryButton = document.querySelector('.workspace-page-publish-main') as HTMLButtonElement;
+    await act(async () => {
+      primaryButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(window.telegram.schedule).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Укажите дату и время в будущем');
+    unmount();
+  });
+
+  it('keeps the live preview chat list closed until opened from its settings', async () => {
+    const { unmount } = await renderApp();
+
+    try {
+      const preview = document.querySelector('.chat-preview-stand') as HTMLElement;
+      expect(preview.classList.contains('is-chat-list-open')).toBe(false);
+      expect(preview.querySelector('.chat-preview-chat-list')).toBeNull();
+
+      await act(async () => {
+        (preview.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      await act(async () => {
+        (preview.querySelector('[aria-label="Show chats"]') as HTMLButtonElement).click();
+      });
+
+      expect(preview.classList.contains('is-chat-list-open')).toBe(true);
+      expect(preview.querySelector('.chat-preview-chat-list')).not.toBeNull();
+    } finally {
+      unmount();
+    }
   });
 
   it('passes attachments to Telegram when sending', async () => {

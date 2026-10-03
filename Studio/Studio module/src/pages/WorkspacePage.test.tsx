@@ -118,6 +118,26 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('shows prominent eyelashes when the preview is hidden', async () => {
+    localStorage.setItem('xmsgi-preview-layout', JSON.stringify({ visible: true }));
+    const { unmount } = await renderWorkspacePage();
+    const toggle = document.querySelector<HTMLButtonElement>('button[aria-label="Hide preview"]');
+
+    try {
+      expect(toggle?.getAttribute('aria-label')).toBe('Hide preview');
+      await act(async () => {
+        toggle?.click();
+      });
+
+      expect(toggle?.getAttribute('aria-label')).toBe('Show preview');
+      const sideLashes = toggle?.querySelector('.workspace-page-preview-eyelashes path');
+      expect(sideLashes?.getAttribute('d')).toBe('M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8');
+      expect(sideLashes?.getAttribute('stroke')).toBe('#c2d8e5');
+    } finally {
+      unmount();
+    }
+  });
+
   it('registers the existing draft editor for History Drawer draft actions', async () => {
     const registerDraftOpener = vi.fn();
     const { unmount } = await renderWorkspacePage({ onRegisterHistoryDraftOpener: registerDraftOpener });
@@ -624,6 +644,12 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('keeps legacy data untouched when file-store migration fails', async () => {
+    localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
+      body: 'Draft text remains available',
+      entities: [],
+      attachments: [],
+      savedAt: '18:00',
+    }));
     const legacyWorkspace = localStorage.getItem('awaitmsg-workspace-draft');
     vi.mocked(window.draftStorage.migrate).mockResolvedValueOnce({
       success: false,
@@ -635,6 +661,20 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(localStorage.getItem('awaitmsg-workspace-draft')).toBe(legacyWorkspace);
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('Disk unavailable');
+
+    await act(async () => {
+      (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
+    });
+    const saveDraftOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Save draft') as HTMLButtonElement;
+    await act(async () => {
+      saveDraftOption.click();
+    });
+    await act(async () => {
+      (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
+    });
+
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-warning')?.textContent).toContain('Disk unavailable');
     unmount();
   });
 

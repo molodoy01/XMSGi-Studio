@@ -33,6 +33,8 @@ describe('production packaging', () => {
       'telegram-search.cjs',
       'telegram-dialog-search.cjs',
       'telegram-permissions.cjs',
+      'telegram-idempotency.cjs',
+      'schedule-history.cjs',
       'ipc-security.cjs',
       'package.json'
     ];

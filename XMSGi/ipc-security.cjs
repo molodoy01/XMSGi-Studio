@@ -195,13 +195,24 @@ function validateCancelPayload(value) {
     invalidInput('telegramMessageId has an invalid format');
   }
 
-  return { chatId, telegramMessageId };
+  const message = value.message === undefined
+    ? undefined
+    : validateMessage(value.message);
+  const targetTimestamp = value.targetTimestamp === undefined
+    ? undefined
+    : validateTimestamp(value.targetTimestamp);
+
+  return { chatId, telegramMessageId, message, targetTimestamp };
 }
 
 function validateSendPayload(value) {
   if (!isPlainObject(value)) {
     invalidInput('send payload must be an object');
   }
+
+  const idempotencyKey = value.idempotencyKey === undefined
+    ? undefined
+    : validateString(value.idempotencyKey, 'idempotencyKey', { max: 128 });
 
   return {
     chatId: validateChatId(value.chatId),
@@ -210,7 +221,8 @@ function validateSendPayload(value) {
     attachments: validateAttachments(value.attachments),
     replyMarkup: validateReplyMarkup(value.replyMarkup),
     silent: value.silent === true,
-    effect: validateEffect(value.effect)
+    effect: validateEffect(value.effect),
+    idempotencyKey
   };
 }
 

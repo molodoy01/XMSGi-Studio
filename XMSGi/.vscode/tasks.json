@@ -1,0 +1,57 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Launch XMSGi Studio",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"start"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run current application",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Test orange menu indicator",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"..\\Studio\\Studio module",
+				"run",
+				"test",
+				"--",
+				"src/App.test.tsx",
+				"src/components/WorkspaceTextStage.test.tsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build orange menu indicator",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"..\\Studio\\Studio module",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			]
+		}
+	]
+}

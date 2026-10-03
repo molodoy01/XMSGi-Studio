@@ -88,7 +88,10 @@ describe('Upcoming storage', () => {
     restartedStorage.setItem(UPCOMING_STORAGE_KEY, persistedValue || '');
     vi.stubGlobal('localStorage', restartedStorage);
 
-    expect(loadUpcoming()).toEqual(messages);
+    expect(loadUpcoming()).toMatchObject([
+      { id: 'pending-1', status: 'failed', retryAction: 'schedule' },
+      { id: 'scheduled-1', status: 'scheduled' },
+    ]);
   });
 
   it('returns an empty list when storage is missing or empty', () => {
@@ -99,7 +102,7 @@ describe('Upcoming storage', () => {
     expect(loadUpcoming()).toEqual([]);
   });
 
-  it('preserves pending and scheduled statuses', () => {
+  it('migrates legacy pending to Failed and preserves Scheduled', () => {
     const messages = [
       createMessage('pending-1', 'pending'),
       createMessage('scheduled-1', 'scheduled'),
@@ -108,8 +111,25 @@ describe('Upcoming storage', () => {
     saveUpcoming(messages);
 
     expect(loadUpcoming().map((message) => message.status)).toEqual([
-      'pending',
+      'failed',
       'scheduled',
+    ]);
+  });
+
+  it('migrates legacy and interrupted statuses without dropping records', () => {
+    const records = [
+      { ...createMessage('confirmed-1', 'confirmed'), status: 'confirmed' },
+      { ...createMessage('sending-1', 'scheduled'), status: 'sending', sendAttemptId: '1736962920000:attempt' },
+      { ...createMessage('pending-1', 'scheduled'), status: 'pending' },
+      { ...createMessage('unknown-1', 'scheduled'), status: 'future-status' },
+    ];
+    storage.setItem(UPCOMING_STORAGE_KEY, JSON.stringify(records));
+
+    expect(loadUpcoming()).toMatchObject([
+      { id: 'confirmed-1', status: 'scheduled' },
+      { id: 'sending-1', status: 'failed', retryAction: 'send', sendAttemptId: '1736962920000:attempt' },
+      { id: 'pending-1', status: 'failed', retryAction: 'schedule' },
+      { id: 'unknown-1', status: 'failed', retryAction: 'send' },
     ]);
   });
 

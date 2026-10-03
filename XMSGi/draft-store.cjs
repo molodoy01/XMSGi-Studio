@@ -95,7 +95,16 @@ function createDraftStore({ directory } = {}) {
 
       const destination = path.join(storeDirectory, path.basename(sourcePath));
       fs.copyFileSync(sourcePath, destination);
-      return { success: true, sourcePath, destinationPath: destination };
+      return {
+        success: true,
+        sourcePath,
+        destinationPath: destination,
+        attachment: {
+          name: path.basename(destination),
+          path: destination,
+          size: fs.statSync(destination).size,
+        },
+      };
     },
 
     exportTo(filePath) {

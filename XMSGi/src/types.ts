@@ -47,7 +47,11 @@ export interface ScheduledMessage {
   text: string;
   when: string;
   createdAt: string;
-  status: 'pending' | 'scheduled' | 'confirmed' | 'sent';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'sending' | 'sent' | 'failed';
+  lastError?: string;
+  retryAction?: 'schedule' | 'send' | 'cancel';
+  lastAttemptAt?: string;
+  sendAttemptId?: string;
   attachments?: string[];
   entities?: RichTextEntity[];
   replyMarkup?: import('./lib/inlineKeyboard').InlineKeyboardMarkup;

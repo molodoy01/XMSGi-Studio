@@ -1,4 +1,4 @@
-import { ImagePlus, MessageCircle, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, BatteryFull, ImagePlus, MessageCircle, Mic, Paperclip, Search, Send, Signal, SlidersHorizontal, Smartphone, Smile, Wifi, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
@@ -10,9 +10,11 @@ import './ChatPreviewStand.css';
 type PreviewAttachment = {
   name: string;
   path: string;
+  previewUrl?: string;
 };
 
 type WallpaperTheme = 'telegram' | 'graphite' | 'custom';
+type PreviewDevice = 'web' | 'mobile';
 
 export type ChatWallpaper = {
   theme: WallpaperTheme;
@@ -127,6 +129,8 @@ function readImageAccent(dataUrl: string): Promise<string> {
 }
 
 function toFileUrl(filePath: string) {
+  if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
+
   const normalizedPath = filePath.replace(/\\/g, '/');
   const encodedPath = normalizedPath
     .split('/')
@@ -144,7 +148,7 @@ function formatDuration(duration?: number) {
 }
 
 function isImageAttachment(attachment: PreviewAttachment) {
-  return Boolean(attachment.path) && /\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name);
+  return Boolean(attachment.path || attachment.previewUrl) && /\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name);
 }
 
 function renderHistoryMedia(message: PreviewChatHistory['messages'][number]) {
@@ -227,6 +231,7 @@ export function ChatPreviewStand({
   onWallpaperChange,
 }: ChatPreviewStandProps) {
   const savedWallpaper = useMemo(loadSavedWallpaper, []);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('web');
   const [wallpaperTheme, setWallpaperTheme] = useState<WallpaperTheme>(savedWallpaper.theme);
   const [customWallpaperImage, setCustomWallpaperImage] = useState(savedWallpaper.image);
   const [lastUploadedWallpaper, setLastUploadedWallpaper] = useState(savedWallpaper.image);
@@ -238,6 +243,7 @@ export function ChatPreviewStand({
   const previewScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
   const [previewOptionsOpen, setPreviewOptionsOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [previewScrollDragging, setPreviewScrollDragging] = useState(false);
   const [previewScrollMetrics, setPreviewScrollMetrics] = useState<PreviewScrollMetrics>({
     scrollTop: 0,
@@ -367,6 +373,11 @@ export function ChatPreviewStand({
   const imageAttachments = attachments.filter(isImageAttachment);
   const documentAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
   const linkEntities = draftEntities.filter((entity) => entity.type === 'text_url' && entity.url);
+  const normalizedChatSearch = chatSearchQuery.trim().toLocaleLowerCase();
+  const visibleChats = chats.filter((chat) => (
+    !normalizedChatSearch
+    || `${chat.name} ${chat.username ?? ''} ${chat.type ?? ''}`.toLocaleLowerCase().includes(normalizedChatSearch)
+  ));
   const hasDraft = Boolean(draftText.trim() || attachments.length);
   const wallpaperImage = customWallpaperImage;
   const wallpaperStyle = wallpaperTheme === 'custom' && wallpaperImage
@@ -417,6 +428,11 @@ export function ChatPreviewStand({
     ? previewScrollMetrics.scrollTop / (previewScrollMetrics.scrollHeight - previewScrollMetrics.clientHeight)
       * (100 - previewScrollbarThumbHeight)
     : 0;
+
+  const handlePreviewDeviceChange = (nextDevice: PreviewDevice) => {
+    if (nextDevice === previewDevice) return;
+    setPreviewDevice(nextDevice);
+  };
 
   const handlePreviewScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const feed = previewFeedRef.current;
@@ -472,14 +488,8 @@ export function ChatPreviewStand({
     feed.scrollTop = nextScrollTop;
   };
 
-  const draftBubbleColor = wallpaperTheme === 'graphite'
-    ? 'rgba(36, 42, 46, 0.28)'
-    : wallpaperTheme === 'custom' && wallpaperAccent
-      ? 'rgba(20, 34, 38, 0.28)'
-      : 'rgba(35, 76, 82, 0.28)';
-
   return (
-    <div className={`chat-preview-stand ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''}`}>
+    <div className={`chat-preview-stand is-${previewDevice} ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''}`}>
       <div className="chat-preview-toolbar">
         <span className="chat-preview-toolbar-label">Live chat preview</span>
         {wallpaperPickerOpen && (
@@ -544,11 +554,19 @@ export function ChatPreviewStand({
 
       <div className="chat-preview-window-shell">
       <div className={`chat-preview-window theme-${wallpaperTheme} ${chatListOpen ? 'is-chat-list-open' : ''}`} style={wallpaperStyle}>
+        <div className="chat-preview-mobile-system-bar" aria-hidden="true">
+          <span>9:41</span>
+          <span className="chat-preview-mobile-system-icons">
+            <Signal size={12} strokeWidth={2} />
+            <Wifi size={13} strokeWidth={2} />
+            <BatteryFull size={15} strokeWidth={2} />
+          </span>
+        </div>
         {chatListOpen && (
           <aside className="chat-preview-chat-list" aria-label="Chats">
             <div className="chat-preview-chat-list-heading">Chats</div>
             <div className="chat-preview-chat-list-items">
-              {chats.map((chat) => (
+              {visibleChats.map((chat) => (
                 <button
                   type="button"
                   key={chat.id}
@@ -564,10 +582,29 @@ export function ChatPreviewStand({
                   </span>
                 </button>
               ))}
+              {visibleChats.length === 0 && <span className="chat-preview-chat-list-empty">No chats found</span>}
             </div>
+            {previewDevice === 'web' && (
+              <label className="chat-preview-chat-search">
+                <Search size={14} strokeWidth={1.8} aria-hidden="true" />
+                <input
+                  type="text"
+                  value={chatSearchQuery}
+                  onChange={(event) => setChatSearchQuery(event.target.value)}
+                  aria-label="Search chats"
+                  placeholder="Search"
+                  autoComplete="off"
+                />
+              </label>
+            )}
           </aside>
         )}
         <header className="chat-preview-header">
+          {previewDevice === 'mobile' && (
+            <button type="button" className="chat-preview-mobile-back" onClick={onToggleChatList} aria-label="Back to chats" title="Back to chats">
+              <ArrowLeft size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
           {activePreviewHistory?.chat.avatarDataUrl ? (
             <img className="chat-preview-avatar" src={activePreviewHistory.chat.avatarDataUrl} alt="" />
           ) : (
@@ -581,7 +618,11 @@ export function ChatPreviewStand({
             <button
               type="button"
               className="chat-preview-expand"
-              onClick={() => setPreviewOptionsOpen((current) => !current)}
+              onClick={() => {
+                const nextOpen = !previewOptionsOpen;
+                if (nextOpen && chatListOpen) onToggleChatList();
+                setPreviewOptionsOpen(nextOpen);
+              }}
               aria-label="Preview settings"
               aria-expanded={previewOptionsOpen}
               aria-controls="chat-preview-options-menu"
@@ -591,6 +632,19 @@ export function ChatPreviewStand({
             </button>
             {previewOptionsOpen && (
               <div className="chat-preview-options-menu" id="chat-preview-options-menu" role="group" aria-label="Preview settings">
+                <button
+                  type="button"
+                  className="chat-preview-expand"
+                  onClick={() => {
+                    handlePreviewDeviceChange(previewDevice === 'mobile' ? 'web' : 'mobile');
+                    setPreviewOptionsOpen(false);
+                  }}
+                  aria-label={previewDevice === 'mobile' ? 'Switch to Web preview' : 'Switch to Mobile preview'}
+                  aria-pressed={previewDevice === 'mobile'}
+                  title={previewDevice === 'mobile' ? 'Switch to Web preview' : 'Switch to Mobile preview'}
+                >
+                  <Smartphone size={17} strokeWidth={1.8} aria-hidden="true" />
+                </button>
                 <button
                   type="button"
                   className={`chat-preview-expand ${chatListOpen ? 'is-active' : ''}`}
@@ -616,18 +670,25 @@ export function ChatPreviewStand({
 
         {!collapsed && (
           <div className="chat-preview-wallpaper">
-            <div className="chat-preview-service-date">Today</div>
             <div className="chat-preview-feed" id="chat-preview-feed" ref={previewFeedRef}>
+              <button
+                type="button"
+                className="chat-preview-service-date"
+                onClick={onToggleChatList}
+                aria-label={chatListOpen ? 'Close chat list' : 'Open chat list'}
+                title={chatListOpen ? 'Close chat list' : 'Open chat list'}
+              >
+                Today
+              </button>
               {previewHistoryLoading && <div className="chat-preview-state">Loading history…</div>}
               {historyGroups.map((group) => {
                 const firstMessage = group.messages[0];
                 const hasMedia = group.messages.some((message) => message.media);
                 return (
                   <article className={`chat-preview-history-entry ${firstMessage.outgoing ? 'is-outgoing' : 'is-incoming'} ${hasMedia ? 'has-media' : ''}`} key={group.key}>
-                    <div className="chat-preview-history-entry-head">
-                      <strong>{firstMessage.outgoing ? 'You' : firstMessage.senderName || previewTitle}</strong>
-                      <time>{new Date(firstMessage.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-                    </div>
+                    {!firstMessage.outgoing && selectedChat?.type !== 'private' && firstMessage.senderName && (
+                      <span className="chat-preview-sender">{firstMessage.senderName}</span>
+                    )}
                     {hasMedia && (
                       <div className={`chat-preview-history-grid ${group.messages.length > 1 ? 'is-album' : ''}`}>
                         {group.messages.map((message) => <div key={message.id}>{renderHistoryMedia(message)}</div>)}
@@ -641,6 +702,10 @@ export function ChatPreviewStand({
                       />
                     ))}
                     <InlineKeyboardPreview markup={group.messages.find((message) => message.replyMarkup)?.replyMarkup} />
+                    <div className="chat-preview-meta">
+                      <time>{new Date(firstMessage.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                      {firstMessage.outgoing && <span aria-label="Sent">✓✓</span>}
+                    </div>
                   </article>
                 );
               })}
@@ -648,12 +713,11 @@ export function ChatPreviewStand({
               {hasDraft ? (
                 <article
                   className="chat-preview-bubble is-outgoing chat-preview-draft-bubble"
-                  style={{ '--draft-bubble-color': draftBubbleColor } as React.CSSProperties}
                 >
                   {imageAttachments.length > 0 && (
                     <div className={`chat-preview-attachment-grid ${imageAttachments.length > 1 ? 'is-album' : ''}`}>
                       {imageAttachments.map((attachment) => (
-                        <img key={attachment.name} src={toFileUrl(attachment.path)} alt={attachment.name} />
+                        <img key={attachment.name} src={attachment.previewUrl || toFileUrl(attachment.path)} alt={attachment.name} />
                       ))}
                     </div>
                   )}
@@ -670,7 +734,7 @@ export function ChatPreviewStand({
                   {draftText.trim() && (
                     <div className="chat-preview-message" dangerouslySetInnerHTML={{ __html: richTextToHtml(draftText, draftEntities) }} />
                   )}
-                  <div className="chat-preview-meta"><span>{previewTime}</span><span>edited</span><span>✓✓</span><span aria-label="24 views">◉ 24</span></div>
+                  <div className="chat-preview-meta"><time>{previewTime}</time><span aria-label="Sent">✓✓</span></div>
                   <InlineKeyboardPreview markup={toInlineKeyboardMarkup(inlineButtons)} />
                   {linkEntities.length > 0 && (
                     <div className="chat-preview-inline-keyboard">
@@ -684,6 +748,19 @@ export function ChatPreviewStand({
             </div>
           </div>
         )}
+        {!collapsed && (
+          <div className="chat-preview-composer" aria-hidden="true">
+            <span className="chat-preview-composer-action"><Paperclip size={19} strokeWidth={1.8} /></span>
+            <span className="chat-preview-composer-input">Message</span>
+            <span className="chat-preview-composer-action"><Smile size={19} strokeWidth={1.8} /></span>
+            <span className="chat-preview-composer-action">
+              {hasDraft
+                ? <Send size={18} strokeWidth={1.9} />
+                : <Mic size={19} strokeWidth={1.8} />}
+            </span>
+          </div>
+        )}
+        <div className="chat-preview-mobile-home-indicator" aria-hidden="true"><span /></div>
       </div>
       <div
         className={`chat-preview-scrollbar-track ${previewFeedCanScroll && !collapsed ? '' : 'is-hidden'} ${previewScrollDragging ? 'is-dragging' : ''}`}

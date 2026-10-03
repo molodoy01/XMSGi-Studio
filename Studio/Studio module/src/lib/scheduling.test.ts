@@ -1,8 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduledMessage } from '@/types';
-import { applyScheduleResult, formatScheduleSummary, getScheduleOccurrences } from './scheduling';
+import { applyScheduleResult, formatScheduleSummary, getScheduleDateTimeAfter, getScheduleOccurrences, isFutureSchedule } from './scheduling';
 
 describe('schedule lifecycle', () => {
+  it('accepts only valid schedule times strictly in the future', () => {
+    const now = new Date(2026, 9, 3, 15, 47);
+
+    expect(isFutureSchedule('2026-10-03', '15:48', now)).toBe(true);
+    expect(isFutureSchedule('2026-10-03', '15:47', now)).toBe(false);
+    expect(isFutureSchedule('2026-10-03', '12:00', now)).toBe(false);
+    expect(isFutureSchedule('2026-02-30', '16:00', now)).toBe(false);
+    expect(isFutureSchedule('2026-10-03', '25:00', now)).toBe(false);
+  });
+
+  it('rounds quick schedule presets up to a valid future minute and advances the date', () => {
+    expect(getScheduleDateTimeAfter(0, new Date(2026, 9, 3, 23, 59, 30))).toEqual({
+      date: '2026-10-04',
+      time: '00:00',
+    });
+    expect(getScheduleDateTimeAfter(0, new Date(2026, 9, 3, 23, 59, 0))).toEqual({
+      date: '2026-10-04',
+      time: '00:00',
+    });
+    expect(getScheduleDateTimeAfter(15, new Date(2026, 9, 3, 23, 50, 30))).toEqual({
+      date: '2026-10-04',
+      time: '00:06',
+    });
+  });
+
   it('formats a plain schedule summary', () => {
     expect(formatScheduleSummary('2026-09-24', '18:30', {
       mode: 'none',

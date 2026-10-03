@@ -17,7 +17,7 @@ import { appendPreviewMessage } from '@/lib/preview';
 import { toInlineKeyboardMarkup } from '@/lib/inlineKeyboard';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
 import { loadSavedDrafts, loadTemplates, saveTemplates } from '@/lib/storage';
-import { formatScheduleSummary, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
+import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
 import type {
   Chat,
   DraftColor,
@@ -304,6 +304,7 @@ type WorkspaceAttachment = {
   name: string;
   path: string;
   size?: number;
+  previewUrl?: string;
 };
 
 const WORKSPACE_DRAFT_KEY = 'xmsgi-workspace-draft';
@@ -474,6 +475,8 @@ function isImageAttachment(attachment: WorkspaceAttachment) {
 }
 
 function toFileUrl(filePath: string) {
+  if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
+
   const normalizedPath = filePath.replace(/\\/g, '/');
   const encodedPath = normalizedPath
     .split('/')
@@ -510,6 +513,7 @@ export function WorkspacePage({
   onRegisterHistoryRescheduleHandler,
 }: WorkspacePageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentPreviewUrlsRef = useRef(new Set<string>());
   const bodyInputRef = useRef<HTMLDivElement | null>(null);
   const historyDraftOpenerRef = useRef<(draft: SavedDraft) => void>(() => undefined);
   const historyRescheduleHandlerRef = useRef<(message: ScheduledMessage) => void>(() => undefined);
@@ -640,6 +644,8 @@ export function WorkspacePage({
     if (attachmentPreviewTimerRef.current !== null) {
       window.clearTimeout(attachmentPreviewTimerRef.current);
     }
+    attachmentPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    attachmentPreviewUrlsRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -672,7 +678,9 @@ export function WorkspacePage({
   const createWorkspaceDraftSnapshot = (): WorkspaceDraft | null => draftBody.trim() ? {
     body: draftBody,
     entities: draftEntities,
-    attachments,
+    attachments: attachments
+      .filter((attachment) => attachment.path)
+      .map(({ previewUrl: _previewUrl, ...attachment }) => attachment),
     selectedChat,
     inlineButtons,
     date,
@@ -981,6 +989,8 @@ export function WorkspacePage({
 
   useEffect(() => {
     if (successPulse) {
+      attachmentPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      attachmentPreviewUrlsRef.current.clear();
       setDraftBody('');
       setDraftEntities([]);
       setAttachments([]);
@@ -1106,7 +1116,8 @@ export function WorkspacePage({
   const hasDraftContent = Boolean(draftBody.trim());
   const hasSelectedTarget = Boolean(selectedChat);
   const hasValidScheduleDate = Boolean(date && !Number.isNaN(new Date(`${date}T12:00:00`).getTime()));
-  const hasValidScheduleTime = Boolean(time && /^\d{2}:\d{2}$/.test(time));
+  const hasValidScheduleTime = Boolean(time && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time));
+  const hasFutureSchedule = isFutureSchedule(date, time);
   const hasValidRepeatConfig = repeatMode === 'none'
     || (repeatMode === 'weekly' || repeatMode === 'biweekly'
       ? repeatDays.length > 0
@@ -1115,12 +1126,12 @@ export function WorkspacePage({
     && repeatOccurrences <= MAX_SCHEDULE_OCCURRENCES;
   const canSendNow = hasSelectedTarget && hasDraftContent && !attachmentError && !publishingDraft && !sendInFlight && !scheduling;
   const canSaveDraft = hasDraftContent && !publishingDraft;
-  const canSchedule = hasSelectedTarget && hasDraftContent && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig;
+  const canSchedule = hasSelectedTarget && hasDraftContent && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && hasFutureSchedule;
   const publishActionBlocker = publishAction === 'draft'
     ? !hasDraftContent
       ? 'Введите текст сообщения'
       : !draftStoreReady
-        ? 'Подождите загрузки хранилища черновиков'
+        ? draftStoreError || 'Подождите загрузки хранилища черновиков'
         : ''
     : publishAction === 'schedule'
       ? !hasDraftContent
@@ -1129,6 +1140,12 @@ export function WorkspacePage({
           ? 'Выберите чат'
           : !hasValidScheduleDate
             ? 'Укажите корректную дату'
+            : !hasValidScheduleTime
+              ? 'Укажите корректное время'
+              : !hasValidRepeatConfig
+                ? 'Проверьте параметры повтора'
+                : !hasFutureSchedule
+                  ? 'Укажите дату и время в будущем'
             : ''
       : !hasDraftContent
         ? 'Введите текст сообщения'
@@ -1640,10 +1657,7 @@ export function WorkspacePage({
     closeTemplateEditor();
   };
 
-  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const files = Array.from(input.files ?? []);
-
+  const handleAddFiles = async (files: File[]) => {
     if (!files.length) return;
 
     setAttachmentError('');
@@ -1677,8 +1691,9 @@ export function WorkspacePage({
       try {
         const draftStorage = getDraftStorageApi();
         if (!draftStorage) {
-          const electronFile = file as File & { path?: string };
-          return { name: file.name, path: electronFile.path || file.name, size: file.size };
+          const previewUrl = URL.createObjectURL(file);
+          attachmentPreviewUrlsRef.current.add(previewUrl);
+          return { name: file.name, path: '', size: file.size, previewUrl };
         }
 
         const result = await draftStorage.copyAttachment(file);
@@ -1694,11 +1709,20 @@ export function WorkspacePage({
     if (storedAttachments.length) setAttachments((current) => [...current, ...storedAttachments]);
 
     setAttachmentError([nextError, ...copyErrors.map((item) => item.error)].filter(Boolean).join(' '));
+  };
 
+  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const files = Array.from(input.files ?? []);
+    await handleAddFiles(files);
     input.value = '';
   };
 
   const handleRemoveAttachment = (index: number) => {
+    const previewUrl = attachments[index]?.previewUrl;
+    if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setAttachments((current) => current.filter((_, attachmentIndex) => attachmentIndex !== index));
   };
 
@@ -1824,6 +1848,7 @@ export function WorkspacePage({
                     entities={draftEntities}
                     maxLength={maxDraftLength}
                     stageMode={stageMode}
+                    onPasteImages={(files) => void handleAddFiles(files)}
                     onChange={(nextText, nextEntities) => {
                       const limited = nextText.length > maxDraftLength
                         ? sliceRichText(nextText, nextEntities, 0, maxDraftLength)
@@ -1921,9 +1946,9 @@ export function WorkspacePage({
                 <div className="workspace-page-media-items">
                   {attachments.map((file, index) => (
                     <div key={`${file.name}-${index}`} className="workspace-page-attachment-card">
-                      {isImageAttachment(file) && file.path ? (
+                      {isImageAttachment(file) && (file.path || file.previewUrl) ? (
                         <img
-                          src={toFileUrl(file.path)}
+                          src={file.previewUrl || toFileUrl(file.path)}
                           alt=""
                           className="workspace-page-attachment-thumbnail"
                           tabIndex={0}
@@ -1935,7 +1960,7 @@ export function WorkspacePage({
                             const image = event.currentTarget;
                             attachmentPreviewTimerRef.current = window.setTimeout(() => {
                               attachmentPreviewTimerRef.current = null;
-                              showAttachmentPreview(image, file.name, toFileUrl(file.path));
+                              showAttachmentPreview(image, file.name, file.previewUrl || toFileUrl(file.path));
                             }, 1000);
                           }}
                           onMouseLeave={() => {
@@ -1945,7 +1970,7 @@ export function WorkspacePage({
                             }
                             setAttachmentPreview(null);
                           }}
-                          onFocus={(event) => showAttachmentPreview(event.currentTarget, file.name, toFileUrl(file.path))}
+                          onFocus={(event) => showAttachmentPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
                           onBlur={() => setAttachmentPreview(null)}
                         />
                       ) : (
@@ -2022,6 +2047,9 @@ export function WorkspacePage({
                         <path d="M1.8 12s3.4 5.8 10.2 5.8S22.2 12 22.2 12" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="4.2" strokeLinecap="round" />
                         <path d="M1.8 12s3.4 5.8 10.2 5.8S22.2 12 22.2 12" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="3.1" strokeLinecap="round" />
                         <path d="M6.2 18.8 5.3 20.1M12 19.1v1.5M17.8 18.8l.9 1.3" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.75" strokeLinecap="round" />
+                        <g className="workspace-page-preview-eyelashes" fill="none" strokeLinecap="round">
+                          <path d="M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8" stroke="#c2d8e5" strokeWidth="1.75" />
+                        </g>
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

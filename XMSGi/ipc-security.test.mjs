@@ -83,6 +83,17 @@ describe('IPC security validation', () => {
       message: 'link',
       entities: [{ type: 'text_url', offset: 0, length: 4, url: 'javascript:bad' }]
     })).toThrow('url');
+
+    expect(validateSendPayload({
+      chatId: 'me',
+      message: 'Retry safely',
+      idempotencyKey: '1736962920000:send-attempt'
+    }).idempotencyKey).toBe('1736962920000:send-attempt');
+    expect(() => validateSendPayload({
+      chatId: 'me',
+      message: 'Retry safely',
+      idempotencyKey: 'x'.repeat(129)
+    })).toThrow('idempotencyKey');
   });
 
   it('rejects invalid timestamps and scheduling payloads', () => {
@@ -100,6 +111,12 @@ describe('IPC security validation', () => {
     });
     expect(() => validateLoginPayload({ phoneNumber: '+1', password: 42 })).toThrow('password');
     expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: 'bad' })).toThrow('telegramMessageId');
+    expect(validateCancelPayload({
+      chatId: 'me',
+      telegramMessageId: '42',
+      message: 'Scheduled text',
+      targetTimestamp: 2052547200,
+    })).toMatchObject({ message: 'Scheduled text', targetTimestamp: 2052547200 });
 
     const mainSource = fs.readFileSync(
       path.join(path.dirname(fileURLToPath(import.meta.url)), 'main.cjs'),

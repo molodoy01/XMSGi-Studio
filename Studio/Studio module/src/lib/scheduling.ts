@@ -35,6 +35,42 @@ export type ScheduleRepeatOptions = {
 
 export const MAX_SCHEDULE_OCCURRENCES = 15;
 
+export function getScheduleDateTimeAfter(minutes: number, now = new Date()): { date: string; time: string } {
+  const offset = Math.max(0, Math.floor(minutes));
+  const requestedTime = now.getTime() + offset * 60_000;
+  const scheduledAt = new Date(requestedTime);
+  scheduledAt.setSeconds(0, 0);
+  if (scheduledAt.getTime() <= requestedTime) scheduledAt.setMinutes(scheduledAt.getMinutes() + 1);
+
+  return {
+    date: `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`,
+    time: `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`,
+  };
+}
+
+export function isFutureSchedule(date: string, time: string, now = new Date()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    return false;
+  }
+
+  const scheduledAt = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(scheduledAt.getTime())) return false;
+
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  if (
+    scheduledAt.getFullYear() !== year
+    || scheduledAt.getMonth() !== month - 1
+    || scheduledAt.getDate() !== day
+    || scheduledAt.getHours() !== hours
+    || scheduledAt.getMinutes() !== minutes
+  ) {
+    return false;
+  }
+
+  return scheduledAt.getTime() > now.getTime();
+}
+
 const russianWeekdays: Record<string, string> = {
   Mon: 'Пн',
   Tue: 'Вт',

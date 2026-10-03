@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { CalendarDays, Clock, Menu, Paperclip, X } from 'lucide-react';
+import { CalendarDays, Clock, Menu, Paperclip, Smile, X } from 'lucide-react';
 import xmsgiLogoWhite from '@/assets/xmsgi-logo-white.svg';
 import { Notification } from '@/components/Notification';
 import { ChatPicker } from '@/components/ChatPicker';
@@ -9,9 +9,48 @@ import { getMessageMaxLength, insertMessageText, limitMessageText } from '@/lib/
 import { getNextDateTimeKeyboardField, isValidDateTimeKeyboardField, type DateTimeKeyboardField } from '@/lib/dateTimeKeyboard';
 import { resetMessageOptionsForNewMessage } from '@/lib/messageComposer';
 import type { AssistantIntent } from '@/hooks/useAssistant';
-import type { Chat, ChatPermissions, NotificationState, ScheduledMessage } from '@/types';
+import type { Chat, ChatPermissions, NotificationState } from '@/types';
 import { useLocale } from '@/lib/i18n';
 import { getMessageEffectPayload, isEffectSelectionIncomplete } from '@/lib/messageEffects';
+
+const COMMON_EMOJIS = ['😀', '😂', '🥹', '😍', '😎', '🤔', '😭', '😴', '👋', '👍', '👏', '🙏', '💪', '🔥', '❤️', '💔', '✨', '🎉', '✅', '💯', '🚀', '☕', '🌸', '🐱'];
+const MORE_EMOJIS = ['😃', '😄', '🤣', '😊', '🥰', '😘', '😉', '🙃', '😇', '🤩', '😏', '😌', '🤗', '🤭', '🤫', '😶', '🙄', '😬', '😮', '😢', '😡', '🤯', '🥳', '🤝', '💐', '🌹', '🍀', '🌈', '🌙', '⭐', '🎁', '🎂', '🍕', '🐶', '🦊', '🐻'];
+const RECENT_EMOJIS_STORAGE_PREFIX = 'xmsgi:planner:recent-emojis:';
+
+function getRecentEmojisStorageKey(chatId?: string) {
+  return `${RECENT_EMOJIS_STORAGE_PREFIX}${chatId ?? 'no-chat'}`;
+}
+
+function getMessageOptionsPosition(anchor: DOMRect) {
+  const width = 132;
+  const height = 128;
+  const gap = 8;
+  const edge = 12;
+  const left = Math.max(edge, Math.min(anchor.right - width, window.innerWidth - width - edge));
+  const below = anchor.bottom + gap;
+  const top = below + height <= window.innerHeight - edge
+    ? below
+    : Math.max(edge, anchor.top - height - gap);
+  return { top, left };
+}
+
+function getMessageEffectsPosition(anchor: DOMRect) {
+  const width = Math.min(176, window.innerWidth - 24);
+  const height = Math.max(48, Math.min(270, window.innerHeight - 24));
+  const gap = 8;
+  const edge = 12;
+  const rightPosition = anchor.right + gap;
+  const left = rightPosition + width <= window.innerWidth - edge
+    ? rightPosition
+    : anchor.left - width - gap >= edge
+      ? anchor.left - width - gap
+      : window.innerWidth - width - edge;
+  const below = anchor.bottom + gap;
+  const top = below + height <= window.innerHeight - edge
+    ? below
+    : Math.max(edge, anchor.top - height - gap);
+  return { top, left, width };
+}
 
 type SchedulePageProps = {
   message: string;
@@ -68,24 +107,12 @@ type SchedulePageProps = {
   handleAssistantSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   date: string;
   time: string;
-  upcoming: ScheduledMessage[];
-  sent: ScheduledMessage[];
-  activeTab: 'upcoming' | 'sent';
   scheduling: boolean;
   successPulse: boolean;
-  revealingId: string | null;
-  cancelingIds: Set<string>;
-  sendingIds: Set<string>;
   dateEditedRef: MutableRefObject<boolean>;
   timeEditedRef: MutableRefObject<boolean>;
   openPickerRef: MutableRefObject<'date' | 'time' | null>;
   handleSchedule: (payload?: { chatId: string; message: string; date: string; time: string; attachments?: string[]; silent?: boolean; effect?: string }) => void;
-  handleCancelMessage: (message: ScheduledMessage) => void;
-  handleSendNow: (message: ScheduledMessage) => void;
-  handleDeleteMessage: (message: ScheduledMessage) => void;
-  handleClearSent: () => void;
-  handleClearAll: () => void;
-  setActiveTab: Dispatch<SetStateAction<'upcoming' | 'sent'>>;
   setDate: Dispatch<SetStateAction<string>>;
   setTime: Dispatch<SetStateAction<string>>;
   showNotification: (message: string, type: 'error' | 'warning' | 'success' | 'info', title: string) => void;
@@ -151,6 +178,9 @@ export function SchedulePage(props: SchedulePageProps) {
   const { locale, setLocale, t } = useLocale();
 
   const datePickerRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingPasteCaretRef = useRef<number | null>(null);
+  const pendingEmojiFocusRef = useRef(false);
   const dateDayRef = useRef<HTMLInputElement>(null);
   const dateMonthRef = useRef<HTMLInputElement>(null);
   const dateYearRef = useRef<HTMLInputElement>(null);
@@ -163,7 +193,12 @@ export function SchedulePage(props: SchedulePageProps) {
   const effectMenuRef = useRef<HTMLDivElement>(null);
   const messageOptionsButtonRef = useRef<HTMLButtonElement>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
+  const [showMoreEmojis, setShowMoreEmojis] = useState(false);
   const [messageOptionsOpen, setMessageOptionsOpen] = useState(false);
+  const [messageOptionsPosition, setMessageOptionsPosition] = useState({ top: 0, left: 0 });
+  const [messageEffectsPosition, setMessageEffectsPosition] = useState({ top: 0, left: 0, width: 176 });
   const [selectedMessageOption, setSelectedMessageOption] = useState<'silent' | 'effect' | null>(null);
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
   const [availableEffects, setAvailableEffects] = useState<Array<{ id: string; emoticon: string; premiumRequired: boolean }>>([]);
@@ -191,9 +226,28 @@ export function SchedulePage(props: SchedulePageProps) {
   const hasPlannerNotification = connected && notification.visible && notification.message.trim().length > 0;
   const isShortPlannerNotification = notification.message.trim().length <= 32;
 
+  useLayoutEffect(() => {
+    const caretPosition = pendingPasteCaretRef.current;
+    if (caretPosition === null) return;
+    pendingPasteCaretRef.current = null;
+    if (pendingEmojiFocusRef.current) {
+      pendingEmojiFocusRef.current = false;
+      messageInputRef.current?.focus();
+    }
+    messageInputRef.current?.setSelectionRange(caretPosition, caretPosition);
+  }, [message, emojiPickerOpen]);
+
   useEffect(() => {
-    setMessage((current) => limitMessageText(current, messageMaxLength));
-  }, [messageMaxLength, setMessage]);
+    try {
+      const stored = window.localStorage.getItem(getRecentEmojisStorageKey(selectedChat?.id));
+      const parsed = stored ? JSON.parse(stored) : [];
+      setRecentEmojis(Array.isArray(parsed)
+        ? parsed.filter((emoji): emoji is string => typeof emoji === 'string').slice(0, 5)
+        : []);
+    } catch {
+      setRecentEmojis([]);
+    }
+  }, [selectedChat?.id]);
 
   useEffect(() => {
     if (successPulse && !message.trim()) {
@@ -255,6 +309,30 @@ export function SchedulePage(props: SchedulePageProps) {
       resetMessageOptionsRef.current = false;
     }
     setMessage(nextMessage);
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setRecentEmojis((current) => {
+      const next = [emoji, ...current.filter((recentEmoji) => recentEmoji !== emoji)].slice(0, 5);
+      try {
+        window.localStorage.setItem(getRecentEmojisStorageKey(selectedChat?.id), JSON.stringify(next));
+      } catch {
+        // Recent emojis are optional when storage is unavailable.
+      }
+      return next;
+    });
+
+    const textarea = messageInputRef.current;
+    const selectionStart = textarea?.selectionStart ?? message.length;
+    const selectionEnd = textarea?.selectionEnd ?? message.length;
+    const nextMessage = limitMessageText(
+      insertMessageText(message, emoji, selectionStart, selectionEnd),
+      messageMaxLength,
+    );
+    pendingPasteCaretRef.current = Math.min(selectionStart + emoji.length, nextMessage.length);
+    pendingEmojiFocusRef.current = true;
+    handleComposerMessageChange(nextMessage);
+    setEmojiPickerOpen(false);
   };
 
   const dateTimeKeyboardRefs: Record<DateTimeKeyboardField, MutableRefObject<HTMLInputElement | null>> = {
@@ -330,9 +408,6 @@ export function SchedulePage(props: SchedulePageProps) {
       ...current,
       ...acceptedFiles.map((file) => ({ name: file.name, path: window.telegram.getFilePath(file) })),
     ]);
-    if (attachments.length === 0) {
-      setMessage((current) => limitMessageText(current, getMessageMaxLength(true)));
-    }
     event.target.value = '';
   };
 
@@ -741,28 +816,43 @@ export function SchedulePage(props: SchedulePageProps) {
               </div>
 
               <div className="field message-field">
-                <label className="composer-field-label">{t('composer.messageLabel')}</label>
+                <div className="message-label-row">
+                  <label className="composer-field-label">{t('composer.messageLabel')}</label>
+                  {message && (
+                    <button
+                      type="button"
+                      className="message-clear-button"
+                      aria-label={t('composer.clearMessage')}
+                      title={t('composer.clearMessage')}
+                      onClick={() => handleComposerMessageChange('')}
+                    >
+                      <X size={16} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
 
                 <div className="message-input-wrap">
                   {!message && <span className="message-placeholder" aria-hidden="true">{t('composer.messagePlaceholder')}</span>}
                   <textarea
+                    ref={messageInputRef}
                     value={message}
                     disabled={selectedChatPermissions?.canSend === false}
                     title={selectedChatPermissions?.canSend === false ? t('chat.cannotSendReason') : undefined}
-                    onChange={(event) => handleComposerMessageChange(limitMessageText(event.target.value, messageMaxLength))}
+                    onChange={(event) => handleComposerMessageChange(event.target.value)}
                     onPaste={(event) => {
                       event.preventDefault();
                       const textarea = event.currentTarget;
-                      handleComposerMessageChange(insertMessageText(
+                      const pastedText = event.clipboardData.getData('text/plain');
+                      const nextMessage = insertMessageText(
                         message,
-                        event.clipboardData.getData('text'),
+                        pastedText,
                         textarea.selectionStart,
                         textarea.selectionEnd,
-                        messageMaxLength,
-                      ));
+                      );
+                      pendingPasteCaretRef.current = textarea.selectionStart + pastedText.length;
+                      handleComposerMessageChange(nextMessage);
                     }}
                     aria-label={t('composer.messageLabel')}
-                    maxLength={messageMaxLength}
                     lang="ru"
                     spellCheck={false}
                   />
@@ -778,6 +868,87 @@ export function SchedulePage(props: SchedulePageProps) {
                     >
                       <Paperclip size={17} strokeWidth={1.8} aria-hidden="true" />
                     </button>
+                    <div className="message-emoji-control">
+                      <button
+                        type="button"
+                        className="message-emoji-button"
+                        aria-label={t('composer.emoji')}
+                        aria-expanded={emojiPickerOpen}
+                        aria-haspopup="dialog"
+                        title={t('composer.emoji')}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setShowMoreEmojis(false);
+                          setEmojiPickerOpen((current) => !current);
+                        }}
+                      >
+                        <Smile size={17} strokeWidth={1.8} aria-hidden="true" />
+                      </button>
+                      {emojiPickerOpen && (
+                        <div
+                          className="message-emoji-picker"
+                          role="dialog"
+                          aria-label={t('composer.emojiPicker')}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') setEmojiPickerOpen(false);
+                          }}
+                        >
+                          <div className="message-emoji-picker-header">
+                            <span>{t('composer.emojiPicker')}</span>
+                            <button
+                              type="button"
+                              className="message-emoji-close"
+                              aria-label={t('composer.closeEmojiPicker')}
+                              title={t('composer.closeEmojiPicker')}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => setEmojiPickerOpen(false)}
+                            >
+                              <X size={15} aria-hidden="true" />
+                            </button>
+                          </div>
+                          {recentEmojis.length > 0 && (
+                            <div className="message-emoji-recent" role="group" aria-label={t('composer.recentEmojis')}>
+                              {recentEmojis.map((emoji) => (
+                                <button
+                                  type="button"
+                                  className="message-emoji-option is-recent"
+                                  key={`recent-${emoji}`}
+                                  aria-label={`Insert ${emoji}`}
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onClick={() => handleEmojiSelect(emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="message-emoji-grid">
+                            {(showMoreEmojis ? [...COMMON_EMOJIS, ...MORE_EMOJIS] : COMMON_EMOJIS)
+                              .filter((emoji) => !recentEmojis.includes(emoji))
+                              .map((emoji) => (
+                                <button
+                                  type="button"
+                                  className="message-emoji-option"
+                                  key={emoji}
+                                  aria-label={`Insert ${emoji}`}
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onClick={() => handleEmojiSelect(emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                          </div>
+                          <button
+                            type="button"
+                            className="message-emoji-more"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => setShowMoreEmojis((current) => !current)}
+                          >
+                            {showMoreEmojis ? t('composer.showFewerEmojis') : t('composer.showMoreEmojis')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={`message-attachments ${attachments.length ? 'has-attachments' : ''}`}>
@@ -877,13 +1048,30 @@ export function SchedulePage(props: SchedulePageProps) {
                       aria-expanded={messageOptionsOpen}
                       aria-haspopup="menu"
                       title={t('composer.messageOptions')}
-                      onClick={() => setMessageOptionsOpen((current) => !current)}
+                      onClick={(event) => {
+                        if (!messageOptionsOpen) {
+                          setMessageOptionsPosition(getMessageOptionsPosition(event.currentTarget.getBoundingClientRect()));
+                        }
+                        setMessageOptionsOpen((current) => !current);
+                      }}
                     >
                       <Menu size={17} strokeWidth={1.8} aria-hidden="true" />
                     </button>
 
-                    {messageOptionsOpen && (
-                      <div className="message-options-menu" ref={messageOptionsRef} role="menu" aria-label={t('composer.messageOptions')}>
+                    {messageOptionsOpen && createPortal(
+                      <div
+                        className="message-options-menu"
+                        ref={messageOptionsRef}
+                        role="menu"
+                        aria-label={t('composer.messageOptions')}
+                        style={{
+                          position: 'fixed',
+                          top: messageOptionsPosition.top,
+                          left: messageOptionsPosition.left,
+                          right: 'auto',
+                          zIndex: 1300,
+                        }}
+                      >
                         <button
                           type="button"
                           className={selectedMessageOption === 'silent' ? 'is-selected' : ''}
@@ -903,6 +1091,8 @@ export function SchedulePage(props: SchedulePageProps) {
                           role="menuitemradio"
                           aria-checked={selectedMessageOption === 'effect'}
                           onClick={() => {
+                            const anchor = messageOptionsButtonRef.current?.getBoundingClientRect();
+                            if (anchor) setMessageEffectsPosition(getMessageEffectsPosition(anchor));
                             if (selectedMessageOption === 'effect') {
                               setSelectedMessageOption(null);
                               setEffectMenuOpen(false);
@@ -916,10 +1106,24 @@ export function SchedulePage(props: SchedulePageProps) {
                           <span className="message-option-icon" aria-hidden="true">✨</span>
                           <span className="message-option-label">{t('composer.effect')}</span>
                         </button>
-                      </div>
+                      </div>,
+                      document.body,
                     )}
-                    {messageOptionsOpen && selectedMessageOption === 'effect' && effectMenuOpen && (
-                      <div ref={effectMenuRef} className="message-effect-menu" role="menu" aria-label={t('composer.effects')}>
+                    {messageOptionsOpen && selectedMessageOption === 'effect' && effectMenuOpen && createPortal(
+                      <div
+                        ref={effectMenuRef}
+                        className="message-effect-menu"
+                        role="menu"
+                        aria-label={t('composer.effects')}
+                        style={{
+                          position: 'fixed',
+                          top: messageEffectsPosition.top,
+                          left: messageEffectsPosition.left,
+                          right: 'auto',
+                          width: messageEffectsPosition.width,
+                          zIndex: 1301,
+                        }}
+                      >
                         <div className="message-effect-menu-header">
                           <span>{t('composer.effect')}</span>
                           <span>{availableEffects.length}</span>
@@ -1001,7 +1205,8 @@ export function SchedulePage(props: SchedulePageProps) {
                             )}
                           </>
                         )}
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                 </div>
@@ -1135,7 +1340,7 @@ export function SchedulePage(props: SchedulePageProps) {
                     effect: getMessageEffectPayload(selectedMessageOption, selectedEffectId),
                   });
                 }}
-                disabled={scheduling || selectedChatPermissions?.canSend === false || selectedChatPermissions?.canSchedule === false}
+                disabled={emojiPickerOpen || scheduling || selectedChatPermissions?.canSend === false || selectedChatPermissions?.canSchedule === false}
               >
                 {scheduling ? t('composer.scheduling') : successPulse ? t('composer.sealed') : t('composer.seal')}
               </button>

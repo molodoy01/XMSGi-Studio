@@ -152,7 +152,7 @@
   min-width: 0;
   max-width: none;
   background: transparent;
-  order: 2;
+  order: 1;
   align-items: center;
 }
 
@@ -166,7 +166,7 @@
   max-width: 360px;
   background: transparent;
   transform: none;
-  order: 1;
+  order: 2;
 }
 
 .workspace-page-preview-panel[data-visible='false'] {
@@ -359,15 +359,52 @@
 
 .workspace-page-editor-shell {
   display: flex;
+  position: relative;
+  isolation: isolate;
   flex-direction: column;
   flex: 1;
   width: min(100%, 760px);
   min-height: 0;
-  border: 1px solid rgba(154, 168, 184, 0.1);
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
-  background: rgba(17, 19, 22, 0.22);
+  border: 1px solid rgba(154, 168, 184, 0.32);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.016), transparent 38%), rgba(17, 19, 22, 0.22);
+  box-shadow: inset 0 1px 0 rgba(226, 230, 235, 0.035), 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 16px rgba(71, 167, 187, 0.035);
   overflow: visible;
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.workspace-page-editor-shell::after {
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  padding: 1px;
+  border-radius: 13px;
+  background: conic-gradient(
+    from 210deg,
+    rgba(49, 215, 232, 0.34),
+    rgba(49, 215, 232, 0.88) 25%,
+    rgba(174, 243, 250, 0.42) 50%,
+    rgba(42, 190, 229, 0.72) 75%,
+    rgba(49, 215, 232, 0.34)
+  );
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 3px rgba(49, 215, 232, 0.78)) drop-shadow(0 0 12px rgba(49, 215, 232, 0.38));
+  transition: opacity 220ms ease;
+}
+
+.workspace-page-editor-shell:focus-within::after {
+  opacity: 1;
+}
+
+.workspace-page-editor-shell:focus-within {
+  border-color: rgba(49, 215, 232, 0.42);
+  box-shadow: 0 0 0 1px rgba(49, 215, 232, 0.12), 0 0 24px rgba(49, 215, 232, 0.12);
 }
 
 .workspace-page-queue-drawer {
@@ -941,7 +978,6 @@
 }
 
 .workspace-page-rich-text-stage::after {
-  content: '';
   position: absolute;
   left: 0;
   right: 0;
@@ -949,8 +985,9 @@
   height: 2px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(255, 118, 43, 0.94), rgba(255, 118, 43, 0.36));
+  content: '';
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
 }
 
 .workspace-page-rich-text-clear {
@@ -1327,12 +1364,10 @@
   grid-template-columns: 18px minmax(0, 1fr);
   background: linear-gradient(180deg, rgba(30, 34, 39, 0.98), rgba(17, 19, 22, 0.92));
   border-color: rgba(154, 168, 184, 0.2);
-  opacity: 0;
   animation: none;
 }
 
 .workspace-page-schedule-inline-time {
-  border: 2px solid rgba(225, 238, 246, 0.78) !important;
   grid-template-columns: 18px minmax(0, 1fr);
 }
 
@@ -2573,6 +2608,11 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-chat-stage-avatar {
   width: 34px;
   height: 34px;
+}
+
+.workspace-page-chat-stage-avatar.is-broken {
+  background: #2aabee;
+  color: #ffffff;
 }
 
 .workspace-page-chat-stage-copy {
@@ -7107,12 +7147,20 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-main {
   min-height: 0;
-  overflow: visible;
+  gap: 4px;
+  padding-bottom: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-quick-panel {
   gap: 3px;
   padding-top: 0;
+}
+
+.workspace-page-rich-text-schedule-stage .workspace-page-schedule-options-heading {
+  padding: 0 4px;
+  line-height: 1.2;
 }
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-quick-row button {
@@ -7137,10 +7185,11 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 }
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-footer {
-  position: static;
+  position: sticky;
+  bottom: 0;
   min-height: 0;
   min-height: 37px;
-  margin-top: 0;
+  margin-top: auto;
   gap: 5px;
   padding-top: 3px;
   padding-bottom: 2px;
@@ -7271,6 +7320,21 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   justify-content: end;
 }
 
+.workspace-page-rich-text-schedule-stage {
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.workspace-page-rich-text-schedule-stage .workspace-page-schedule-main {
+  flex: 1 1 auto;
+}
+
+.workspace-page-rich-text-schedule-stage .workspace-page-schedule-footer {
+  flex: 0 0 auto;
+}
+
 .workspace-page-schedule-occurrences select {
   min-height: 34px;
   padding: 0 10px;
@@ -7281,6 +7345,25 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   color-scheme: dark;
   font: inherit;
   font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .workspace-page-rich-text-schedule-stage .workspace-page-schedule-inline-date {
+    flex: 1.2;
+  }
+
+  .workspace-page-rich-text-schedule-stage .workspace-page-schedule-date-value {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.5fr);
+    column-gap: 2px;
+  }
+
+  .workspace-page-rich-text-schedule-stage .workspace-page-schedule-segment {
+    font-size: 13px;
+  }
+
+  .workspace-page-rich-text-schedule-stage .workspace-page-schedule-segment-year {
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 700px) {
@@ -7302,3 +7385,161 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   }
 }
 
+.workspace-page-rich-text-schedule-stage button:focus-visible,
+.workspace-page-rich-text-template-stage button:focus-visible,
+.workspace-page-rich-text-buttons-stage button:focus-visible,
+.workspace-page-rich-text-chat-stage button:focus-visible,
+.workspace-page-rich-text-chat-stage [role='option']:focus-visible {
+  outline: 2px solid rgba(111, 155, 124, 0.76);
+  outline-offset: 2px;
+}
+
+@media (max-width: 840px) {
+  .workspace-page-main {
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 28px;
+    padding: 88px 20px 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .workspace-page-editor-panel {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 440px;
+    max-width: none;
+    flex: 0 0 auto;
+    align-items: stretch;
+  }
+
+  .workspace-page-preview-panel {
+    width: 100%;
+    height: min(560px, 72vh);
+    min-width: 0;
+    min-height: 380px;
+    max-width: none;
+    max-height: none;
+    flex: 0 0 auto;
+  }
+
+  .workspace-page-preview-panel[data-collapsed='true'] {
+    height: 48px;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 600px) {
+  .workspace-page-main {
+    gap: 20px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .workspace-page-editor-panel {
+    min-height: 420px;
+  }
+
+  .workspace-page-preview-panel {
+    height: min(520px, 70vh);
+    min-height: 340px;
+  }
+
+  .workspace-page-preview-panel[data-collapsed='true'] {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .topbar-identity {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 2px;
+  }
+
+  .topbar-actions .settings-action,
+  .topbar-actions .account-action,
+  .product-mode-switch {
+    padding-right: 6px;
+    padding-left: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .workspace-page-action-row.workspace-page-schedule-row {
+    gap: 4px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .workspace-page-schedule-row > .workspace-page-action-left-group,
+  .workspace-page-schedule-row > .workspace-page-mode-trigger-wrap {
+    gap: 4px;
+  }
+
+  .workspace-page-schedule-row > .workspace-page-action-left-group .workspace-page-mode-button,
+  .workspace-page-schedule-row > .workspace-page-mode-trigger-wrap,
+  .workspace-page-schedule-row > .workspace-page-mode-trigger-wrap .workspace-page-schedule-menu-trigger {
+    width: 76px !important;
+    min-width: 76px !important;
+    max-width: 76px !important;
+    flex-basis: 76px !important;
+  }
+
+  .workspace-page-action-left-group .workspace-page-mode-button-template,
+  .workspace-page-action-left-group .workspace-page-mode-button-template:hover,
+  .workspace-page-action-left-group .workspace-page-mode-button-template:focus,
+  .workspace-page-action-left-group .workspace-page-mode-button-template:focus-visible,
+  .workspace-page-action-left-group .workspace-page-mode-button-template.is-active,
+  .workspace-page-action-left-group .workspace-page-mode-button-history,
+  .workspace-page-action-left-group .workspace-page-mode-button-history:hover,
+  .workspace-page-action-left-group .workspace-page-mode-button-history:focus,
+  .workspace-page-action-left-group .workspace-page-mode-button-history:focus-visible,
+  .workspace-page-action-left-group .workspace-page-mode-button-history.is-active {
+    width: 76px !important;
+    min-width: 76px !important;
+    max-width: 76px !important;
+    flex-basis: 76px !important;
+    padding-right: 5px !important;
+    padding-left: 5px !important;
+    font-size: 9px !important;
+  }
+
+  .workspace-page-schedule-row .workspace-page-media-row .workspace-page-attachment-toggle,
+  .workspace-page-schedule-row > .workspace-page-action-left-group .workspace-page-preview-toggle {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    flex-basis: 34px;
+  }
+
+  .workspace-page-submit-actions .workspace-page-publish-main {
+    width: 90px;
+    min-width: 90px;
+  }
+
+  .workspace-page-submit-actions .workspace-page-publish-menu-toggle {
+    width: 30px;
+    min-width: 30px;
+  }
+}
+
+.workspace-page .workspace-page-rich-text-schedule-stage button:focus-visible,
+.workspace-page .workspace-page-rich-text-template-stage button:focus-visible,
+.workspace-page .workspace-page-rich-text-buttons-stage button:focus-visible,
+.workspace-page .workspace-page-rich-text-chat-stage button:focus-visible,
+.workspace-page .workspace-page-rich-text-chat-stage [role='option']:focus-visible {
+  outline: 2px solid rgba(111, 155, 124, 0.76) !important;
+  outline-offset: 2px;
+}

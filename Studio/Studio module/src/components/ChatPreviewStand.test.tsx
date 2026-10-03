@@ -131,6 +131,56 @@ describe('ChatPreviewStand wallpaper picker', () => {
     }
   });
 
+  it('keeps the external scrollbar active beside the phone preview', () => {
+    const { container, previewFeedRef, unmount } = renderChatPreviewStand();
+    const feed = previewFeedRef.current as HTMLDivElement;
+    Object.defineProperty(feed, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(feed, 'clientHeight', { configurable: true, value: 200 });
+    const scrollbar = container.querySelector('[role="scrollbar"]') as HTMLDivElement;
+
+    try {
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      act(() => {
+        (container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click();
+      });
+      act(() => feed.dispatchEvent(new Event('scroll')));
+
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-mobile')).toBe(true);
+      expect(scrollbar.classList.contains('is-hidden')).toBe(false);
+      expect(scrollbar.getAttribute('aria-hidden')).toBe('false');
+      expect(scrollbar.parentElement?.classList.contains('chat-preview-window-shell')).toBe(true);
+      expect(container.querySelector('.chat-preview-window')?.contains(scrollbar)).toBe(false);
+
+      act(() => scrollbar.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })));
+      act(() => feed.dispatchEvent(new Event('scroll')));
+      expect(scrollbar.getAttribute('aria-valuenow')).toBe('100');
+    } finally {
+      unmount();
+    }
+  });
+
+  it('does not automatically open the chat list when switching preview devices', () => {
+    const { container, unmount } = renderChatPreviewStand();
+
+    try {
+      const openSettings = container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement;
+      act(() => openSettings.click());
+      act(() => (container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click());
+
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-chat-list-open')).toBe(false);
+
+      act(() => openSettings.click());
+      act(() => (container.querySelector('[aria-label="Switch to Web preview"]') as HTMLButtonElement).click());
+
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-chat-list-open')).toBe(false);
+      expect(container.querySelector('.chat-preview-chat-list')).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
   it('limits the picker to five backgrounds including its two built-ins', () => {
     const uploadedWallpapers = [1, 2, 3, 4].map((index) => `data:image/png;base64,${index}`);
     window.localStorage.setItem(wallpaperStorageKey, JSON.stringify({

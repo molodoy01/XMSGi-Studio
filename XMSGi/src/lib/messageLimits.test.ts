@@ -41,12 +41,22 @@ describe('message limits', () => {
     expect(limitMessageText('a'.repeat(4097), getMessageMaxLength(false))).toHaveLength(4096);
   });
 
+  it('does not split a surrogate pair at the message limit', () => {
+    const text = `${'a'.repeat(4095)}😀tail`;
+
+    expect(limitMessageText(text, getMessageMaxLength(false))).toBe('a'.repeat(4095));
+  });
+
   it('limits input to 1024 UTF-16 code units with an attachment', () => {
     expect(limitMessageText('a'.repeat(1025), getMessageMaxLength(true))).toHaveLength(1024);
   });
 
-  it('limits pasted text after replacing the current selection', () => {
-    expect(insertMessageText('a'.repeat(1020), 'bcdef', 1020, 1020, 1024)).toBe('a'.repeat(1020) + 'bcde');
+  it('inserts pasted text at the selection without applying an editing limit', () => {
+    expect(insertMessageText('Hello world', 'brave ', 6, 6)).toBe('Hello brave world');
+  });
+
+  it('preserves line breaks in pasted text', () => {
+    expect(insertMessageText('first last', 'middle\nline ', 6, 6)).toBe('first middle\nline last');
   });
 
   it('trims existing text when an attachment lowers the limit', () => {

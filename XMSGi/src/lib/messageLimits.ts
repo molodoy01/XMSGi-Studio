@@ -8,7 +8,16 @@ export function getMessageMaxLength(hasAttachment: boolean) {
 }
 
 export function limitMessageText(text: string, maxLength: number) {
-  return text.length > maxLength ? text.slice(0, maxLength) : text;
+  if (text.length <= maxLength) return text;
+
+  let limitedText = '';
+  let limitedLength = 0;
+  for (const character of text) {
+    if (limitedLength + character.length > maxLength) break;
+    limitedText += character;
+    limitedLength += character.length;
+  }
+  return limitedText;
 }
 
 export function insertMessageText(
@@ -16,10 +25,8 @@ export function insertMessageText(
   insertedText: string,
   selectionStart: number,
   selectionEnd: number,
-  maxLength: number,
 ) {
-  const nextText = text.slice(0, selectionStart) + insertedText + text.slice(selectionEnd);
-  return limitMessageText(nextText, maxLength);
+  return text.slice(0, selectionStart) + insertedText + text.slice(selectionEnd);
 }
 
 export function getRemainingMessageLength(textLength: number, maxLength: number) {

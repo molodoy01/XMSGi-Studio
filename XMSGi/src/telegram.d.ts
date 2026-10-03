@@ -125,6 +125,13 @@ declare global {
         scope: 'personal' | 'workspace';
         field: 'upcoming' | 'sent';
         messages: import('@/types').ScheduledMessage[];
+      } | {
+        scope: 'personal' | 'workspace';
+        field: 'snapshot';
+        messages: {
+          upcoming: import('@/types').ScheduledMessage[];
+          sent: import('@/types').ScheduledMessage[];
+        };
       }) => Promise<{ success: boolean; error?: string }>;
       getChatAvatar: (chatId: string) => Promise<{ success: boolean; avatarDataUrl?: string; error?: string }>;
       findChat: (query: string) => Promise<{
@@ -142,7 +149,7 @@ declare global {
         effects?: TelegramAvailableEffect[];
         error?: string;
       }>;
-      send: (chatId: string, message: string, attachments?: string[], entities?: TelegramFormattingEntity[], replyMarkup?: { inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> }, silent?: boolean, effect?: string, accountId?: string) => Promise<{
+      send: (chatId: string, message: string, attachments?: string[], entities?: TelegramFormattingEntity[], replyMarkup?: { inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> }, silent?: boolean, effect?: string, accountId?: string, idempotencyKey?: string) => Promise<{
         success: boolean;
         error?: string;
         code?: string;
@@ -208,8 +215,13 @@ declare global {
       cancel: (data: {
         chatId: string;
         telegramMessageId: string | number;
+        message?: string;
+        targetTimestamp?: number;
       }) => Promise<{
         success: boolean;
+        alreadySent?: boolean;
+        telegramMessageId?: string | number;
+        sentAt?: string;
         error?: string;
       }>;
       onStatus: (callback: (status: unknown) => void) => void;

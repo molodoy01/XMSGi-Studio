@@ -31,6 +31,7 @@ const {
   assertTrustedRenderer
 } = require('./ipc-security.cjs');
 const { readChats, writeChats, readJsonFile, writeJsonFile } = require('./chat-storage.cjs');
+const { normalizeScheduleMessages } = require('./schedule-history.cjs');
 const draftStoreModulePath = (() => {
   const candidates = [
     app.isPackaged ? path.join(process.resourcesPath, 'draft-store.cjs') : null,
@@ -497,35 +498,60 @@ function assertDraftStorageRenderer(event) {
   );
 }
 
-const SCHEDULE_HISTORY_SCOPES = new Set(['personal', 'workspace']);
-const SCHEDULE_HISTORY_FIELDS = new Set(['upcoming', 'sent']);
-const SCHEDULE_STATUSES = new Set(['pending', 'scheduled', 'confirmed', 'sent']);
+const DRAFT_STORE_SCHEMA_VERSION = 2;
 
-function validateStoredScheduleMessages(messages) {
-  if (!Array.isArray(messages) || messages.length > 2000) {
-    throw new Error('Schedule history has an invalid message list.');
-  }
-
-  const serialized = JSON.stringify(messages);
-  if (Buffer.byteLength(serialized, 'utf8') > 8 * 1024 * 1024) {
-    throw new Error('Schedule history exceeds the supported size.');
-  }
-
-  return messages.map((message) => {
-    if (!message || typeof message !== 'object' || Array.isArray(message)
-      || typeof message.id !== 'string'
-      || typeof message.chatId !== 'string'
-      || typeof message.chatName !== 'string'
-      || typeof message.text !== 'string'
-      || typeof message.when !== 'string'
-      || !Number.isFinite(Date.parse(message.when))
-      || typeof message.createdAt !== 'string'
-      || !SCHEDULE_STATUSES.has(message.status)) {
-      throw new Error('Schedule history contains an invalid message.');
-    }
-    return message;
-  });
+function isPersistedSavedDraft(value) {
+  return Boolean(value && typeof value === 'object'
+    && typeof value.id === 'string'
+    && typeof value.name === 'string'
+    && typeof value.body === 'string'
+    && typeof value.createdAt === 'string'
+    && typeof value.updatedAt === 'string');
 }
+
+function normalizeDraftStoreResult(value, { migrationVersionFallback = 0, migrated = false } = {}) {
+  const response = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const raw = response.store && typeof response.store === 'object' && !Array.isArray(response.store)
+    ? response.store
+    : response;
+  const savedDraftSource = Array.isArray(raw.savedDrafts)
+    ? raw.savedDrafts
+    : Array.isArray(raw.drafts)
+      ? raw.drafts
+      : [];
+  const savedDrafts = savedDraftSource.filter(isPersistedSavedDraft);
+  const migrationVersion = Number.isInteger(raw.migrationVersion)
+    ? raw.migrationVersion
+    : Array.isArray(raw.savedDrafts)
+      ? 1
+      : migrationVersionFallback;
+  const store = {
+    schemaVersion: Number.isInteger(raw.schemaVersion) ? raw.schemaVersion : DRAFT_STORE_SCHEMA_VERSION,
+    migrationVersion,
+    savedDrafts,
+    workspaceDraft: raw.workspaceDraft && typeof raw.workspaceDraft === 'object' && !Array.isArray(raw.workspaceDraft)
+      ? raw.workspaceDraft
+      : null,
+  };
+
+  return {
+    success: response.success !== false,
+    store,
+    needsMigration: response.needsMigration ?? (!migrated && migrationVersion < 1),
+    migrated: response.migrated ?? migrated,
+    recovered: response.recovered ?? false,
+    backupIndexes: Array.isArray(response.backupIndexes)
+      ? response.backupIndexes
+      : Array.isArray(raw.backups)
+        ? raw.backups.map((_, index) => index)
+        : [],
+    ...(response.cancelled === true ? { cancelled: true } : {}),
+    ...(typeof response.error === 'string' ? { error: response.error } : {}),
+  };
+}
+
+const SCHEDULE_HISTORY_SCOPES = new Set(['personal', 'workspace']);
+const SCHEDULE_HISTORY_FIELDS = new Set(['upcoming', 'sent', 'snapshot']);
 
 ipcMain.handle('schedule-history:load', (event, scope) => {
   assertDraftStorageRenderer(event);
@@ -540,8 +566,8 @@ ipcMain.handle('schedule-history:load', (event, scope) => {
   try {
     const scopeStore = store?.[scope];
     const history = {
-      upcoming: validateStoredScheduleMessages(scopeStore?.upcoming ?? []),
-      sent: validateStoredScheduleMessages(scopeStore?.sent ?? []),
+      upcoming: normalizeScheduleMessages(scopeStore?.upcoming ?? [], { recoverInterrupted: true }),
+      sent: normalizeScheduleMessages(scopeStore?.sent ?? [], { recoverInterrupted: true }),
     };
     return { success: true, history, needsMigration: !scopeStore };
   } catch (error) {
@@ -562,14 +588,24 @@ ipcMain.handle('schedule-history:save', (event, data = {}) => {
     if (exists && (!current || typeof current !== 'object' || Array.isArray(current))) {
       throw new Error('Existing schedule history could not be read.');
     }
-    const validatedMessages = validateStoredScheduleMessages(messages);
+    const validatedMessages = field === 'snapshot'
+      ? {
+        upcoming: normalizeScheduleMessages(messages?.upcoming),
+        sent: normalizeScheduleMessages(messages?.sent),
+      }
+      : normalizeScheduleMessages(messages);
+    if (Buffer.byteLength(JSON.stringify(validatedMessages), 'utf8') > 8 * 1024 * 1024) {
+      throw new Error('Schedule history exceeds the supported size.');
+    }
     const scopeHistory = current?.[scope] && typeof current[scope] === 'object'
       ? current[scope]
       : { upcoming: [], sent: [] };
     writeJsonFile(SCHEDULE_HISTORY_PATH, {
       schemaVersion: 1,
       ...(current ?? {}),
-      [scope]: { ...scopeHistory, [field]: validatedMessages },
+      [scope]: field === 'snapshot'
+        ? validatedMessages
+        : { ...scopeHistory, [field]: validatedMessages },
     });
     return { success: true };
   } catch (error) {
@@ -579,12 +615,47 @@ ipcMain.handle('schedule-history:save', (event, data = {}) => {
 
 ipcMain.handle('draft-store:load', (event) => {
   assertDraftStorageRenderer(event);
-  return draftStore.load();
+  try {
+    return normalizeDraftStoreResult(draftStore.load());
+  } catch (error) {
+    return {
+      success: false,
+      backupIndexes: [],
+      error: error instanceof Error ? error.message : 'Saved drafts could not be loaded.',
+    };
+  }
 });
 
 ipcMain.handle('draft-store:migrate', (event, legacy) => {
   assertDraftStorageRenderer(event);
-  return draftStore.migrate(legacy);
+  try {
+    const existing = draftStore.load();
+    const savedDrafts = new Map();
+    const existingDrafts = Array.isArray(existing.savedDrafts)
+      ? existing.savedDrafts
+      : Array.isArray(existing.drafts)
+        ? existing.drafts
+        : [];
+    [...existingDrafts, ...(Array.isArray(legacy?.savedDrafts) ? legacy.savedDrafts : [])]
+      .filter(isPersistedSavedDraft)
+      .forEach((draft) => savedDrafts.set(draft.id, draft));
+    const data = draftStore.migrate({
+      ...existing,
+      ...(legacy && typeof legacy === 'object' ? legacy : {}),
+      schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
+      migrationVersion: 1,
+      savedDrafts: [...savedDrafts.values()],
+      workspaceDraft: legacy?.workspaceDraft ?? existing.workspaceDraft ?? null,
+    });
+
+    return normalizeDraftStoreResult(data, { migrationVersionFallback: 1, migrated: true });
+  } catch (error) {
+    return {
+      success: false,
+      backupIndexes: [],
+      error: error instanceof Error ? error.message : 'Saved drafts could not be migrated.',
+    };
+  }
 });
 
 ipcMain.handle('draft-store:save', async (event, data) => {
@@ -607,7 +678,14 @@ ipcMain.on('draft-store:flush', (event, data) => {
 
 ipcMain.handle('draft-store:restore-backup', (event, index) => {
   assertDraftStorageRenderer(event);
-  return draftStore.restoreBackup(index);
+  try {
+    return normalizeDraftStoreResult(draftStore.restoreBackup(index));
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'The draft backup could not be restored.',
+    };
+  }
 });
 
 ipcMain.handle('draft-store:copy-attachment', (event, sourcePath) => {
@@ -647,7 +725,8 @@ ipcMain.handle('draft-store:import', async (event) => {
     cancelId: 2,
   });
   if (choice.response === 2) return { success: false, cancelled: true };
-  return draftStore.importFrom(selection.filePaths[0], choice.response === 0 ? 'merge' : 'replace');
+  const result = draftStore.importFrom(selection.filePaths[0], choice.response === 0 ? 'merge' : 'replace');
+  return normalizeDraftStoreResult(result);
 });
 
 ipcMain.handle('editor-text:export', async (event, text) => {
@@ -1041,7 +1120,8 @@ ipcMain.handle('telegram-send', async (event, data) => {
       validated.entities,
       validated.replyMarkup,
       validated.silent,
-      validated.effect
+      validated.effect,
+      validated.idempotencyKey
     );
 
     return {
@@ -1118,13 +1198,16 @@ ipcMain.handle('telegram-cancel', async (event, data) => {
   const validated = validateCancelPayload(data);
 
   try {
-    await cancelScheduledMessage(
+    const result = await cancelScheduledMessage(
       validated.chatId,
-      validated.telegramMessageId
+      validated.telegramMessageId,
+      validated.message,
+      validated.targetTimestamp
     );
 
     return {
-      success: true
+      success: true,
+      ...(result && typeof result === 'object' ? result : {})
     };
 
   } catch (error) {
