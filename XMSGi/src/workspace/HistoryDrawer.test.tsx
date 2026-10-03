@@ -52,7 +52,7 @@ function renderHistory(
   onClearAll = vi.fn(),
 ) {
   const onClose = vi.fn();
-  render(
+  const view = render(
     <HistoryDrawer
       isOpen
       onClose={onClose}
@@ -66,7 +66,7 @@ function renderHistory(
       onClearAll={onClearAll}
     />,
   );
-  return { onClose, onCancel, onDelete, onSendNow, onOpenDraft, onReschedule, onClearSent, onClearAll };
+  return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onReschedule, onClearSent, onClearAll };
 }
 
 function searchHistory(query: string) {
@@ -74,6 +74,28 @@ function searchHistory(query: string) {
   fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по истории' }), {
     target: { value: query },
   });
+}
+
+function mockHistoryRecordScroll(container: HTMLElement, recordBounds = { top: 350, height: 100 }) {
+  const list = container.querySelector('.history-record-list') as HTMLDivElement;
+  const record = list.querySelector('.history-record') as HTMLElement;
+  const dateHeading = list.querySelector('.history-date-heading') as HTMLElement;
+  const scrollTo = vi.fn();
+  Object.defineProperties(list, {
+    clientHeight: { configurable: true, value: 300 },
+    scrollTop: { configurable: true, writable: true, value: 20 },
+    getBoundingClientRect: { configurable: true, value: () => new DOMRect(0, 100, 400, 300) },
+    scrollTo: { configurable: true, value: scrollTo },
+  });
+  Object.defineProperty(record, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => new DOMRect(0, recordBounds.top, 400, recordBounds.height),
+  });
+  Object.defineProperty(dateHeading, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => new DOMRect(0, 100, 400, 34),
+  });
+  return scrollTo;
 }
 
 function stubDownloads() {
@@ -163,6 +185,37 @@ describe('HistoryDrawer search', () => {
     ], 'scheduled').map((record) => record.status)).toEqual(['scheduled', 'cancelled', 'failed']);
   });
 
+  it('keeps drafts in a dedicated section instead of mixing them into the queue UI', async () => {
+    const draft = normalizeSavedDraft({
+      id: 'draft-queue-separate-1',
+      name: 'Draft note',
+      body: 'Draft body for separate history section',
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+    });
+    Object.defineProperty(window, 'draftStorage', {
+      configurable: true,
+      value: {
+        load: async () => ({
+          success: true,
+          store: {
+            schemaVersion: 1,
+            migrationVersion: 1,
+            savedDrafts: [draft],
+            workspaceDraft: null,
+          },
+        }),
+      },
+    });
+
+    renderHistory([upcomingRecord]);
+    fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
+
+    expect(await screen.findByText(/Черновики вынесены отдельно/i)).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Черновики' }).textContent).toContain('1');
+    delete (window as { draftStorage?: unknown }).draftStorage;
+  });
+
   it('opens the records list at the top', () => {
     const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
@@ -215,6 +268,54 @@ describe('HistoryDrawer search', () => {
 
     expect(screen.getByText('XMSGi Updates')).toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(1);
+  });
+
+  it('shows matching totals and clears an empty search', () => {
+    renderHistory([upcomingRecord, personalUpcomingRecord]);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по истории' }), {
+      target: { value: 'нет такого сообщения' },
+    });
+
+    expect(screen.getByText('Найдено 0 из 2')).toBeInTheDocument();
+    expect(screen.getByText('Ничего не найдено')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByText('2 записи')).toBeInTheDocument();
+  });
+
+  it('groups a long history list by calendar day', () => {
+    const nextDayRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'scheduled-next-day',
+      when: '2026-09-30T17:30:00.000Z',
+    }], 'workspace', 'upcoming', [channel])[0];
+    renderHistory([upcomingRecord, nextDayRecord]);
+
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2);
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+  });
+
+  it('shows attachment and failure details in compact rows', () => {
+    const failedRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'failed-compact-row',
+      attachments: [],
+      status: 'failed' as ScheduledMessage['status'],
+      lastError: 'Telegram не подтвердил отправку.',
+      retryAction: 'send',
+    }], 'workspace', 'upcoming', [channel])[0];
+    const cancelledRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'cancelled-compact-row',
+      attachments: [],
+      status: 'cancelled' as ScheduledMessage['status'],
+    }], 'personal', 'upcoming', [])[0];
+    renderHistory([upcomingRecord, failedRecord, cancelledRecord]);
+
+    expect(screen.getByLabelText('1 вложение')).toBeInTheDocument();
+    expect(screen.getByText('Telegram не подтвердил отправку.')).toBeInTheDocument();
+    expect(screen.getAllByRole('article')[2]).toHaveTextContent('Отменено');
   });
 
   it('filters the single list across All, Studio, and Personal sources', () => {
@@ -383,30 +484,42 @@ describe('HistoryDrawer search', () => {
   it('offers text and JSON export options', () => {
     renderHistory();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Экспортировать записи' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
 
-    expect(screen.getByRole('menuitem', { name: 'Запланированные — текстовый файл (.txt)' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Запланированные — резервная копия (.json)' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Завершённые — текстовый файл (.txt)' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Завершённые — резервная копия (.json)' })).toBeInTheDocument();
+    expect(screen.getByText('Текущая категория: Запланировано')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как TXT (.txt)' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как JSON (.json)' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как TXT (.txt)' }))
+      .toHaveAttribute('title', 'Лучше для чтения, печати и отправки человеку.');
+    expect(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как JSON (.json)' }))
+      .toHaveAttribute('title', 'Лучше для резервной копии и переноса данных.');
+    expect(screen.queryByText('Завершённые')).not.toBeInTheDocument();
   });
 
-  it('exports all upcoming records regardless of active source and status filters', async () => {
+  it('exports only the currently selected source, status, and search results', async () => {
     const downloads = stubDownloads();
 
     try {
       renderHistory([upcomingRecord, personalUpcomingRecord, completedRecord]);
       fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
       fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать записи' }));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Запланированные — резервная копия (.json)' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по истории' }), {
+        target: { value: 'подтвердить' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
 
-      expect(downloads.blobs).toHaveLength(1);
-      expect(downloads.blobs[0].type).toBe('application/json;charset=utf-8');
-      expect(downloads.filenames[0]).toMatch(/\.json$/);
-      const payload = JSON.parse(await readBlob(downloads.blobs[0])) as { messages: ScheduledMessage[] };
-      expect(payload.messages.map((message) => message.id)).toEqual(['scheduled-studio-1', 'scheduled-personal-1']);
-      expect(downloads.anchorClick).toHaveBeenCalledOnce();
+      expect(screen.getByText('Текущая категория: Отправлено')).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как JSON (.json)' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Экспортировать текущую категорию' })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как JSON (.json)' }));
+
+      const payload = JSON.parse(await readBlob(downloads.blobs[0])) as {
+        filters: { source: string; status: string; query: string };
+        records: Array<{ id: string }>;
+      };
+      expect(payload.filters).toEqual({ source: 'personal', status: 'sent', query: 'подтвердить' });
+      expect(payload.records.map((record) => record.id)).toEqual([completedRecord.id]);
     } finally {
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
@@ -418,12 +531,13 @@ describe('HistoryDrawer search', () => {
 
     try {
       renderHistory();
-      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать записи' }));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Запланированные — текстовый файл (.txt)' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как TXT (.txt)' }));
 
       expect(downloads.blobs[0].type).toBe('text/plain;charset=utf-8');
-      expect(downloads.filenames[0]).toMatch(/\.txt$/);
+      expect(downloads.filenames[0]).toMatch(/xmsgi-scheduled-.*\.txt$/);
       const text = await readBlob(downloads.blobs[0]);
+      expect(text).toContain('XMSGi — Запланировано');
       expect(text).toContain('Источник: Studio');
       expect(text).toContain('Чат: XMSGi Updates (@xmsgi_updates)');
       expect(text).toContain('Релиз нового набора шаблонов для Telegram-канала');
@@ -434,17 +548,63 @@ describe('HistoryDrawer search', () => {
     }
   });
 
+  it('exports saved drafts from the selected drafts category', async () => {
+    const originalDraftStorage = Object.getOwnPropertyDescriptor(window, 'draftStorage');
+    const draft = {
+      id: 'exported-studio-draft',
+      name: 'Идея для следующего поста',
+      body: 'Собрать заметки по обновлению.',
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+    };
+    Object.defineProperty(window, 'draftStorage', {
+      configurable: true,
+      value: {
+        load: vi.fn().mockResolvedValue({
+          success: true,
+          store: { schemaVersion: 1, migrationVersion: 1, savedDrafts: [draft], workspaceDraft: null },
+        }),
+      },
+    });
+
+    try {
+      renderHistory([]);
+      fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
+      await screen.findByRole('article');
+      const downloads = stubDownloads();
+      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как JSON (.json)' }));
+
+      const payload = JSON.parse(await readBlob(downloads.blobs[0])) as {
+        filters: { source: string; status: string };
+        records: Array<{ status: string; text: string; title: string }>;
+      };
+      expect(payload.filters).toEqual({ source: 'all', status: 'drafts', query: '' });
+      expect(payload.records).toMatchObject([{ status: 'draft', title: draft.name, text: draft.body }]);
+      expect(downloads.filenames[0]).toMatch(/xmsgi-drafts-.*\.json$/);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+      if (originalDraftStorage) {
+        Object.defineProperty(window, 'draftStorage', originalDraftStorage);
+      } else {
+        Reflect.deleteProperty(window, 'draftStorage');
+      }
+    }
+  });
+
   it('exports completed records separately in a readable text file', async () => {
     const downloads = stubDownloads();
 
     try {
       renderHistory([upcomingRecord, completedRecord]);
-      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать записи' }));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Завершённые — текстовый файл (.txt)' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Экспортировать текущий список как TXT (.txt)' }));
 
-      expect(downloads.filenames[0]).toMatch(/xmsgi-completed-.*\.txt$/);
+      expect(downloads.filenames[0]).toMatch(/xmsgi-sent-.*\.txt$/);
       const text = await readBlob(downloads.blobs[0]);
-      expect(text).toContain('XMSGi — Завершённые сообщения');
+      expect(text).toContain('XMSGi — Отправлено');
       expect(text).toContain('Статус: Отправлено');
       expect(text).toContain('Подтвердить встречу');
       expect(text).not.toContain('Релиз нового набора шаблонов');
@@ -483,37 +643,78 @@ describe('HistoryDrawer search', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2);
   });
 
-  it('scrolls to the message text end only from the full-view action', () => {
-    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
-    let scrollTarget: HTMLElement | null = null;
-    const scrollIntoView = vi.fn(function (this: HTMLElement) {
-      scrollTarget = this;
-    });
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: scrollIntoView,
-    });
+  it.each([
+    {
+      name: 'summary row',
+      record: upcomingRecord,
+      status: null,
+      trigger: 'Открыть публикацию: XMSGi Updates',
+      bounds: { top: 350, height: 100 },
+      expectedScrollTop: 70,
+    },
+    {
+      name: 'summary row for a sent message',
+      record: completedRecord,
+      status: 'Отправлено',
+      trigger: 'Открыть публикацию: Личные заметки',
+      bounds: { top: 350, height: 100 },
+      expectedScrollTop: 70,
+    },
+    {
+      name: 'full-view action for a sent message',
+      record: completedRecord,
+      status: 'Отправлено',
+      trigger: 'Открыть полностью: Личные заметки',
+      bounds: { top: 350, height: 100 },
+      expectedScrollTop: 70,
+    },
+    {
+      name: 'full-view action for a message taller than the viewport',
+      record: completedRecord,
+      status: 'Отправлено',
+      trigger: 'Открыть полностью: Личные заметки',
+      bounds: { top: 250, height: 480 },
+      expectedScrollTop: 136,
+    },
+  ])('keeps $name visible by scrolling only the history list', ({ record, status, trigger, bounds, expectedScrollTop }) => {
+    const view = renderHistory([record]);
+    if (status) fireEvent.click(screen.getByRole('tab', { name: status }));
+    const scrollTo = mockHistoryRecordScroll(view.container, bounds);
 
-    try {
-      renderHistory();
-      expect(scrollIntoView).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: trigger }));
 
-      fireEvent.click(screen.getByRole('button', { name: 'Открыть публикацию: XMSGi Updates' }));
-      expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalledWith({ top: expectedScrollTop, behavior: 'smooth' });
+  });
 
-      fireEvent.click(screen.getByRole('button', { name: 'Свернуть публикацию: XMSGi Updates' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Открыть полностью: XMSGi Updates' }));
+  it('re-aligns an expanded sent message when its image attachment loads', () => {
+    const sentImageRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'sent-image-1',
+      status: 'sent',
+      sentAt: '2026-09-29T18:00:00.000Z',
+      attachments: ['C:\\files\\sent-image.png'],
+    }], 'personal', 'sent', [channel])[0];
+    const view = renderHistory([sentImageRecord]);
+    fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
+    const scrollTo = mockHistoryRecordScroll(view.container, { top: 350, height: 100 });
 
-      expect(scrollIntoView).toHaveBeenCalledOnce();
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'end' });
-      expect(scrollTarget).toBe(screen.getByText(scheduledMessage.text).closest('.history-post-text'));
-    } finally {
-      if (originalScrollIntoView) {
-        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
-      } else {
-        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
-      }
-    }
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть полностью: XMSGi Updates' }));
+    expect(scrollTo).toHaveBeenCalledOnce();
+
+    fireEvent.load(screen.getByRole('img', { name: 'sent-image.png' }));
+
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+  });
+
+  it('collapses an expanded message when switching to a category that hides it', () => {
+    renderHistory([upcomingRecord, completedRecord]);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть публикацию: XMSGi Updates' }));
+    expect(screen.getByRole('article')).toHaveClass('is-expanded');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
+
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.getByRole('article')).not.toHaveClass('is-expanded');
   });
 
   it('shows image attachments in the full post view', () => {
