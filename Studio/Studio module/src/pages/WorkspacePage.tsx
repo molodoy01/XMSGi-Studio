@@ -975,11 +975,11 @@ export function WorkspacePage({
         });
         if (result.success) return;
         event.preventDefault();
-        event.returnValue = '';
+        event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
         setDraftStoreError(result.error || 'The latest draft could not be saved. Keep this window open and retry.');
       } catch (error) {
         event.preventDefault();
-        event.returnValue = '';
+        event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
         setDraftStoreError(error instanceof Error ? error.message : 'The latest draft could not be saved. Keep this window open and retry.');
       }
     };
@@ -1119,41 +1119,41 @@ export function WorkspacePage({
   const hasValidScheduleTime = Boolean(time && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time));
   const hasFutureSchedule = isFutureSchedule(date, time);
   const hasValidRepeatConfig = repeatMode === 'none'
-    || (repeatMode === 'weekly' || repeatMode === 'biweekly'
-      ? repeatDays.length > 0
-      : true)
+    || ((repeatMode === 'weekly' || repeatMode === 'biweekly') ? repeatDays.length > 0 : true)
     && repeatOccurrences > 0
     && repeatOccurrences <= MAX_SCHEDULE_OCCURRENCES;
   const canSendNow = hasSelectedTarget && hasDraftContent && !attachmentError && !publishingDraft && !sendInFlight && !scheduling;
   const canSaveDraft = hasDraftContent && !publishingDraft;
   const canSchedule = hasSelectedTarget && hasDraftContent && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && hasFutureSchedule;
-  const publishActionBlocker = publishAction === 'draft'
-    ? !hasDraftContent
-      ? 'Введите текст сообщения'
-      : !draftStoreReady
-        ? draftStoreError || 'Подождите загрузки хранилища черновиков'
-        : ''
-    : publishAction === 'schedule'
-      ? !hasDraftContent
-        ? 'Введите текст сообщения'
-        : !hasSelectedTarget
-          ? 'Выберите чат'
-          : !hasValidScheduleDate
-            ? 'Укажите корректную дату'
-            : !hasValidScheduleTime
-              ? 'Укажите корректное время'
-              : !hasValidRepeatConfig
-                ? 'Проверьте параметры повтора'
-                : !hasFutureSchedule
-                  ? 'Укажите дату и время в будущем'
-            : ''
-      : !hasDraftContent
-        ? 'Введите текст сообщения'
-        : !hasSelectedTarget
-          ? 'Выберите чат'
-          : attachmentError
-            ? 'Исправьте ошибку во вложении'
-            : '';
+
+  let publishActionBlocker = '';
+  if (publishAction === 'draft') {
+    if (!hasDraftContent) {
+      publishActionBlocker = 'Введите текст сообщения';
+    } else if (!draftStoreReady) {
+      publishActionBlocker = draftStoreError || 'Подождите загрузки хранилища черновиков';
+    }
+  } else if (publishAction === 'schedule') {
+    if (!hasDraftContent) {
+      publishActionBlocker = 'Введите текст сообщения';
+    } else if (!hasSelectedTarget) {
+      publishActionBlocker = 'Выберите чат';
+    } else if (!hasValidScheduleDate) {
+      publishActionBlocker = 'Укажите корректную дату';
+    } else if (!hasValidScheduleTime) {
+      publishActionBlocker = 'Укажите корректное время';
+    } else if (!hasValidRepeatConfig) {
+      publishActionBlocker = 'Проверьте параметры повтора';
+    } else if (!hasFutureSchedule) {
+      publishActionBlocker = 'Укажите дату и время в будущем';
+    }
+  } else if (!hasDraftContent) {
+    publishActionBlocker = 'Введите текст сообщения';
+  } else if (!hasSelectedTarget) {
+    publishActionBlocker = 'Выберите чат';
+  } else if (attachmentError) {
+    publishActionBlocker = 'Исправьте ошибку во вложении';
+  }
   const publishScheduleSummary = formatScheduleSummary(date, time, {
     mode: repeatMode,
     days: repeatDays,
@@ -1303,18 +1303,34 @@ export function WorkspacePage({
   };
 
   const handlePrimaryPublish = () => {
-    if (publishActionBlocker) {
-      showPublishFeedback(publishActionBlocker);
-      return;
-    }
-
     if (publishAction === 'schedule') {
-      if (!canSchedule) return;
+      if (!hasDraftContent) {
+        showPublishFeedback('Введите текст сообщения');
+        return;
+      }
+      if (!hasSelectedTarget) {
+        showPublishFeedback('Выберите чат');
+        return;
+      }
+      if (!canSchedule) {
+        if (stageMode !== 'schedule') {
+          openScheduleStage();
+        }
+        if (hasDraftContent && hasSelectedTarget && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && !hasFutureSchedule) {
+          showPublishFeedback('Укажите дату и время в будущем');
+        }
+        return;
+      }
       if (stageMode === 'schedule') {
         scheduleDraft();
       } else {
         openScheduleStage();
       }
+      return;
+    }
+
+    if (publishActionBlocker) {
+      showPublishFeedback(publishActionBlocker);
       return;
     }
 
