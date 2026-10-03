@@ -396,6 +396,10 @@ export function HistoryDrawer({
   }, [draftItems, query, records, sourceFilter, statusFilter]);
 
   useEffect(() => {
+    if (filteredRecords.length === 0) setIsExportMenuOpen(false);
+  }, [filteredRecords.length]);
+
+  useEffect(() => {
     if (selectedRecord && !filteredRecords.some((record) => record.id === selectedRecord.id)) {
       setSelectedRecord(null);
     }
@@ -484,32 +488,6 @@ export function HistoryDrawer({
             ))}
           </div>
 
-          <div className="history-search" role="search">
-            <Search size={18} strokeWidth={1.7} aria-hidden="true" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Поиск по истории"
-              aria-label="Поиск по истории"
-            />
-            {query && (
-              <button type="button" className="history-search-clear" onClick={() => setQuery('')} aria-label="Очистить поиск">
-                <X size={15} strokeWidth={1.8} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-
-          <div className="history-result-count" role="status" aria-live="polite">
-            {query.trim()
-              ? `Найдено ${filteredRecords.length} из ${historyCounts.status[statusFilter]}`
-              : formatHistoryCount(filteredRecords.length)}
-          </div>
-
-          {statusFilter === 'drafts' && (
-            <div className="history-section-note" aria-live="polite">
-              Черновики вынесены отдельно от очереди: здесь только сохранённые черновики, а запланированные и отправленные записи находятся в других вкладках.
-            </div>
-          )}
         </div>
 
         <div className="history-record-list" ref={historyRecordListRef}>
@@ -714,6 +692,32 @@ export function HistoryDrawer({
               );
             })
           )}
+        </div>
+
+        <div className="history-search-dock">
+          <div className="history-search" role="search">
+            <Search size={18} strokeWidth={1.7} aria-hidden="true" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Поиск по истории"
+              aria-label="Поиск по истории"
+            />
+            <div className="history-result-count" role="status" aria-live="polite">
+              {query.trim()
+                ? `Найдено ${filteredRecords.length} из ${historyCounts.status[statusFilter]}`
+                : formatHistoryCount(filteredRecords.length)}
+            </div>
+            <button
+              type="button"
+              className={`history-search-clear${query ? '' : ' is-reserved'}`}
+              onClick={() => setQuery('')}
+              disabled={!query}
+              aria-label="Очистить поиск"
+            >
+              <X size={15} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div className="history-drawer-footer" aria-label="Панель действий истории">

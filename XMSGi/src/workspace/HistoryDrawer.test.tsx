@@ -128,6 +128,17 @@ function readBlob(blob: Blob) {
 }
 
 describe('HistoryDrawer search', () => {
+  it('places the search capsule below the records and above the navigation dock', () => {
+    const { container } = renderHistory();
+    const recordList = container.querySelector('.history-record-list')!;
+    const searchDock = container.querySelector('.history-search-dock')!;
+    const navigationDock = container.querySelector('.history-drawer-footer')!;
+
+    expect(recordList.compareDocumentPosition(searchDock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(searchDock.compareDocumentPosition(navigationDock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('search')).toBeInTheDocument();
+  });
+
   it('normalizes both sources without colliding on matching IDs', () => {
     const duplicateIdMessage = { ...scheduledMessage, id: '123' };
     const personal = normalizeScheduledMessages([duplicateIdMessage], 'personal', 'upcoming', []);
@@ -186,13 +197,13 @@ describe('HistoryDrawer search', () => {
   });
 
   it('keeps drafts in a dedicated section instead of mixing them into the queue UI', async () => {
-    const draft = normalizeSavedDraft({
+    const draft = {
       id: 'draft-queue-separate-1',
       name: 'Draft note',
       body: 'Draft body for separate history section',
       createdAt: '2026-09-28T10:00:00.000Z',
       updatedAt: '2026-09-29T18:35:00.000Z',
-    });
+    };
     Object.defineProperty(window, 'draftStorage', {
       configurable: true,
       value: {
@@ -211,7 +222,8 @@ describe('HistoryDrawer search', () => {
     renderHistory([upcomingRecord]);
     fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
 
-    expect(await screen.findByText(/Черновики вынесены отдельно/i)).toBeTruthy();
+    expect(await screen.findByText('Draft note')).toBeInTheDocument();
+    expect(screen.queryByText(/Черновики вынесены отдельно/i)).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Черновики' }).textContent).toContain('1');
     delete (window as { draftStorage?: unknown }).draftStorage;
   });
@@ -272,16 +284,32 @@ describe('HistoryDrawer search', () => {
 
   it('shows matching totals and clears an empty search', () => {
     renderHistory([upcomingRecord, personalUpcomingRecord]);
+    fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
+    expect(screen.getByRole('menu', { name: 'Формат экспорта' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по истории' }), {
       target: { value: 'нет такого сообщения' },
     });
 
     expect(screen.getByText('Найдено 0 из 2')).toBeInTheDocument();
     expect(screen.getByText('Ничего не найдено')).toBeInTheDocument();
+    expect(screen.queryByRole('menu', { name: 'Формат экспорта' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
 
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText('2 записи')).toBeInTheDocument();
+  });
+
+  it('reserves the clear-button slot while the search is empty', () => {
+    const { container } = renderHistory();
+    const clearButton = container.querySelector<HTMLButtonElement>('.history-search-clear')!;
+
+    expect(clearButton).toBeDisabled();
+    expect(clearButton).toHaveClass('is-reserved');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по истории' }), {
+      target: { value: 'Studio' },
+    });
+    expect(clearButton).toBeEnabled();
+    expect(clearButton).not.toHaveClass('is-reserved');
   });
 
   it('groups a long history list by calendar day', () => {
