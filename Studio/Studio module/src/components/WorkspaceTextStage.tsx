@@ -216,6 +216,10 @@ export function WorkspaceTextStage({
   }, [mode]);
 
   useEffect(() => {
+    setScheduleDateDraft(null);
+  }, [date, mode]);
+
+  useEffect(() => {
     const serialized = JSON.stringify(favoriteChatIds);
     window.localStorage.setItem(FAVORITE_CHATS_STORAGE_KEY, serialized);
     window.localStorage.setItem(LEGACY_FAVORITE_CHATS_STORAGE_KEY, serialized);

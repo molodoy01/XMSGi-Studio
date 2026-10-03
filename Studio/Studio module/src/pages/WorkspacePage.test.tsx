@@ -62,6 +62,9 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
 
   return {
     root,
+    rerender: (nextOverrides: Partial<React.ComponentProps<typeof WorkspacePage>> = {}) => act(() => {
+      root.render(<WorkspacePage {...defaults} {...overrides} {...nextOverrides} />);
+    }),
     unmount: () => {
       act(() => {
         root.unmount();
@@ -158,7 +161,7 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('registers the legacy Studio reschedule flow and restores the scheduled post in the editor', async () => {
+  it('restores a scheduled post in the editor without canceling it immediately', async () => {
     const registerRescheduler = vi.fn();
     const handleCancelMessage = vi.fn();
     const setSelectedChat = vi.fn();
@@ -176,12 +179,31 @@ describe('WorkspacePage main-screen flows', () => {
       attachments: ['C:\\files\\brief.pdf'],
       entities: [{ type: 'bold', offset: 0, length: 7 }],
     };
-    const { unmount } = await renderWorkspacePage({
+    const { rerender, unmount } = await renderWorkspacePage({
       onRegisterHistoryRescheduleHandler: registerRescheduler,
       handleCancelMessage,
       setSelectedChat,
       setDate,
       setTime,
+    });
+    const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
+    await act(async () => {
+      menuToggle.click();
+    });
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => {
+      scheduleOption.click();
+    });
+    const timeButton = Array.from(document.querySelectorAll('.workspace-page-schedule-compact-button'))
+      .find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement;
+    await act(async () => {
+      timeButton.click();
+    });
+    const dayInput = document.querySelector<HTMLInputElement>('[aria-label="Day"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(dayInput, '99');
+      dayInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     expect(registerRescheduler).toHaveBeenCalledWith(expect.any(Function));
@@ -189,11 +211,22 @@ describe('WorkspacePage main-screen flows', () => {
       registerRescheduler.mock.calls[0][0](message);
     });
 
+    const expectedDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
+    const expectedTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
+    rerender({
+      date: expectedDate,
+      time: expectedTime,
+    });
+
     expect(setSelectedChat).toHaveBeenCalledWith(chatA);
-    expect(setDate).toHaveBeenCalledWith(`${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`);
-    expect(setTime).toHaveBeenCalledWith(`${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`);
-    expect(handleCancelMessage).toHaveBeenCalledWith(message);
+    expect(setDate).toHaveBeenCalledWith(expectedDate);
+    expect(setTime).toHaveBeenCalledWith(expectedTime);
+    expect(handleCancelMessage).not.toHaveBeenCalled();
     expect(document.querySelector('.workspace-page-rich-text-input.is-active')?.textContent).toContain(message.text);
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Day"]')?.value).toBe(String(scheduledAt.getDate()));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Month"]')?.value).toBe(String(scheduledAt.getMonth() + 1).padStart(2, '0'));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Year"]')?.value).toBe(String(scheduledAt.getFullYear()));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Schedule time"]')?.value).toBe(expectedTime);
 
     unmount();
   });

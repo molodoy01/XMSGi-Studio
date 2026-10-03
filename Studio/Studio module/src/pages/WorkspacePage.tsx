@@ -1463,7 +1463,8 @@ export function WorkspacePage({
     setRepeatMode('none');
     setRepeatDays([]);
     setRepeatOccurrences(1);
-    handleCancelMessage(message);
+    // Keep the original scheduled post intact until the user explicitly saves a replacement.
+    // Canceling it here would remove the record before the reschedule flow is confirmed.
     changeStageMode('editor');
   };
 

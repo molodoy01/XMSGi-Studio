@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { Chat, NotificationState } from '@/types';
+import type { Chat, NotificationState, ScheduledMessage } from '@/types';
 import type { StudioSchedulerRuntime } from '$studio';
 import { AppShell, StudioMount } from './workspace';
+import { normalizeSavedDraft, normalizeScheduledMessages } from './workspace/historyModel';
 import { DRAFT_STORE_SCHEMA_VERSION } from '../../Studio/Studio module/src/lib/draftStoreVersion';
 
 const demoChats: Chat[] = [
@@ -9,6 +10,85 @@ const demoChats: Chat[] = [
   { id: 'dev-group', name: 'Studio Team', username: 'studio_team', type: 'group' },
   { id: 'dev-channel', name: 'XMSGi Updates', username: 'xmsgi_updates', type: 'channel' },
 ];
+
+const demoHistoryMessages: ScheduledMessage[] = [
+  {
+    id: 'history-launch-1',
+    chatId: 'dev-channel',
+    chatName: 'XMSGi Updates',
+    text: 'Короткий анонс: подготовили обновление редактора и новые шаблоны публикаций.',
+    attachments: ['C:\\demo\\release-notes.pdf'],
+    when: '2026-10-04T09:30:00.000Z',
+    createdAt: '2026-10-03T12:00:00.000Z',
+    status: 'confirmed',
+  },
+  {
+    id: 'history-team-1',
+    chatId: 'dev-group',
+    chatName: 'Studio Team',
+    text: 'Собираемся на короткий созвон по плану публикаций. Добавьте заметки к задачам заранее.',
+    attachments: [],
+    when: '2026-10-04T11:00:00.000Z',
+    createdAt: '2026-10-03T12:15:00.000Z',
+    status: 'confirmed',
+  },
+  {
+    id: 'history-saved-1',
+    chatId: 'dev-saved',
+    chatName: 'Saved Messages',
+    text: 'Проверить финальные ссылки и подготовить изображение для следующего поста.',
+    attachments: [],
+    when: '2026-10-05T08:15:00.000Z',
+    createdAt: '2026-10-03T12:30:00.000Z',
+    status: 'confirmed',
+  },
+  {
+    id: 'history-team-2',
+    chatId: 'dev-group',
+    chatName: 'Studio Team',
+    text: 'Итоги недели и список тем на следующую неделю.',
+    attachments: [],
+    when: '2026-10-05T14:00:00.000Z',
+    createdAt: '2026-10-03T12:45:00.000Z',
+    status: 'confirmed',
+  },
+];
+const demoHistoryRecords = [
+  ...normalizeScheduledMessages(demoHistoryMessages, 'workspace', 'upcoming', demoChats),
+  ...normalizeScheduledMessages([{
+    id: 'history-failed-1',
+    chatId: 'dev-channel',
+    chatName: 'XMSGi Updates',
+    text: 'Повторить публикацию после проверки доступа к каналу.',
+    attachments: [],
+    when: '2026-10-06T10:00:00.000Z',
+    createdAt: '2026-10-03T13:00:00.000Z',
+    status: 'failed' as ScheduledMessage['status'],
+    lastError: 'Telegram не подтвердил отправку.',
+    retryAction: 'send',
+  }], 'workspace', 'upcoming', demoChats),
+  ...normalizeScheduledMessages([{
+    id: 'history-sent-1',
+    chatId: 'dev-group',
+    chatName: 'Studio Team',
+    text: Array.from({ length: 12 }, (_, index) => `Итоги публикации, раздел ${index + 1}: команда согласовала результат, проверила ссылки и сохранила заметки для следующего цикла. Подробности доступны в приложенном файле.`).join('\n\n'),
+    attachments: ['C:\\demo\\weekly-summary.pdf'],
+    when: '2026-10-02T15:45:00.000Z',
+    sentAt: '2026-10-02T15:45:00.000Z',
+    createdAt: '2026-10-02T10:00:00.000Z',
+    status: 'sent',
+  }], 'personal', 'sent', demoChats),
+  normalizeSavedDraft({
+    id: 'history-draft-1',
+    name: 'Идея для следующего поста',
+    body: 'Собрать заметки о новых возможностях Studio и добавить короткий пример.',
+    color: 'teal',
+    createdAt: '2026-10-01T09:00:00.000Z',
+    updatedAt: '2026-10-03T13:20:00.000Z',
+    selectedChat: demoChats[2],
+  }),
+];
+const showHistoryPreview = new URLSearchParams(window.location.search).get('historyPreview') === '1';
 
 const DEV_DRAFT_STORE_KEY = 'xmsgi-draft-store-fallback';
 const emptyNotification: NotificationState = { message: '', title: '', type: 'info', visible: false };
@@ -65,7 +145,7 @@ export default function DevPreviewHarness() {
       handleDisconnect={async () => {}}
       handleForgetAccount={async () => {}}
       onOpenSettings={noOperation}
-      historyRecords={[]}
+      historyRecords={showHistoryPreview ? demoHistoryRecords : []}
       onHistoryCancel={noOperation}
       onHistoryReschedule={noOperation}
       onHistorySendNow={noOperation}
