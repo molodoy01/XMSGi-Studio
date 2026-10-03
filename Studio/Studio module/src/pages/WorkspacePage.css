@@ -156,6 +156,12 @@
   align-items: center;
 }
 
+.workspace-page .workspace-page-editor-panel {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+}
+
 .workspace-page-preview-panel {
   display: flex;
   flex-direction: column;
@@ -167,6 +173,13 @@
   background: transparent;
   transform: none;
   order: 2;
+}
+
+.workspace-page .workspace-page-preview-panel {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  align-self: stretch;
 }
 
 .workspace-page-preview-panel[data-visible='false'] {
@@ -348,13 +361,59 @@
 
 .workspace-page-editor-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 16px;
   width: min(100%, 760px);
-  height: 28px;
+  height: 64px;
   padding-bottom: 10px;
   border-bottom: none;
+}
+
+.workspace-page-editor-heading .workspace-page-editor-title {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 22px;
+  padding: 0;
+}
+
+.workspace-page-mode-summary {
+  display: flex;
+  flex: 0 1 520px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(100%, 520px);
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--dim);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.workspace-page-mode-summary-label {
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace-page-mode-summary strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .workspace-page-editor-shell {
@@ -371,6 +430,24 @@
   box-shadow: inset 0 1px 0 rgba(226, 230, 235, 0.035), 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 16px rgba(71, 167, 187, 0.035);
   overflow: visible;
   transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.workspace-page .workspace-page-editor-canvas {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-page .workspace-page-form-row-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.workspace-page .workspace-page-form-row-body .workspace-page-rich-text-input {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .workspace-page-editor-shell::after {

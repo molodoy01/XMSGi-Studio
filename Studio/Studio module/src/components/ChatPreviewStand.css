@@ -9,6 +9,11 @@
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+.chat-preview-stand > .chat-preview-toolbar {
+  flex: 0 0 56px;
+  min-height: 56px;
+}
+
 .chat-preview-chat-list {
   display: none;
 }
@@ -462,7 +467,6 @@
   min-height: 0;
   align-items: stretch;
   gap: 7px;
-  transform: translateY(-7px);
 }
 
 .chat-preview-window {

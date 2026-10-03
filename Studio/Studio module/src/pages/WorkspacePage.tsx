@@ -1159,6 +1159,13 @@ export function WorkspacePage({
     days: repeatDays,
     occurrences: repeatOccurrences,
   });
+  const currentModeSummary = publishAction === 'schedule'
+    ? (date && time ? publishScheduleSummary : 'Choose date and time')
+    : publishAction === 'draft'
+      ? `Draft • ${savedAt}`
+      : selectedChat
+        ? `Send now • ${selectedChat.name}`
+        : 'Send now • Choose a chat';
   const publishFooterStatus = sendError
     ? { message: sendError, kind: 'error', transient: false, dismissible: false, duration: FOOTER_STATUS_DURATION_MS.sendError }
     : sendInFlight || publishingDraft
@@ -1827,6 +1834,11 @@ export function WorkspacePage({
                 <div className="workspace-page-editor-heading">
                   <div className="workspace-page-editor-title">
                     <span className="workspace-page-editor-title-text">Create Post</span>
+                  </div>
+
+                  <div className="workspace-page-mode-summary" aria-live="polite">
+                    <span className="workspace-page-mode-summary-label">Current action</span>
+                    <strong>{currentModeSummary}</strong>
                   </div>
                 </div>
 
