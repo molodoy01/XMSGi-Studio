@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText, Maximize2, Minimize2, Paperclip, Search, Trash2, X } from 'lucide-react';
+import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
 import { richTextToHtml } from '@/lib/richText';
 import type { PersistedDraftStore } from '../../../Studio/Studio module/src/types';
 import { normalizePersistedStudioDrafts, normalizeSavedDraft, sortHistoryItems } from './historyModel';
 import type { HistoryItem } from './historyModel';
 
 type HistorySourceFilter = 'all' | 'workspace' | 'personal';
-type HistoryBulkActionSource = Exclude<HistorySourceFilter, 'all'>;
+type HistoryBulkActionSource = HistorySourceFilter;
 type HistoryStatusFilter = 'scheduled' | 'sent' | 'drafts';
 type HistoryExportFormat = 'txt' | 'json';
 
@@ -286,7 +287,6 @@ export function HistoryDrawer({
   onDelete,
   onOpenDraft,
   onClearSent,
-  onClearAll,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -297,7 +297,6 @@ export function HistoryDrawer({
   onDelete: (record: HistoryItem) => void;
   onOpenDraft: (record: HistoryItem) => void;
   onClearSent: (source: HistoryBulkActionSource) => void;
-  onClearAll: (source: HistoryBulkActionSource) => void;
 }) {
   const [sourceFilter, setSourceFilter] = useState<HistorySourceFilter>('all');
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>('scheduled');
@@ -435,9 +434,9 @@ export function HistoryDrawer({
     ? filteredRecords.slice(0, selectedRecordIndex + 1)
     : filteredRecords;
   const selectedSource = sourceFilter === 'all' ? null : sourceFilter;
-  const hasSentInSelectedSource = selectedSource !== null && records.some((record) =>
-    record.source === selectedSource && record.original.kind === 'scheduled' && record.status === 'sent',
-  );
+  const hasSentInSelectedSource = sourceFilter === 'all'
+    ? filteredRecords.some((record) => record.status === 'sent')
+    : filteredRecords.some((record) => record.source === sourceFilter && record.status === 'sent');
   const hasUpcomingInSelectedSource = selectedSource !== null && records.some((record) =>
     record.source === selectedSource && record.original.kind === 'scheduled' && record.status !== 'sent',
   );
@@ -530,7 +529,7 @@ export function HistoryDrawer({
                     <span className={`history-record-source is-${record.source === 'workspace' ? 'studio' : 'personal'}`}>
                       {record.source === 'workspace' ? 'Studio' : 'Личное'}
                     </span>
-                    <span className="history-record-date">{getHistoryStatusLabel(record.status)} · {formatDateLabel(timestamp)}</span>
+                    {!isExpanded && <span className="history-record-date">{getHistoryStatusLabel(record.status)} · {formatDateLabel(timestamp)}</span>}
                     {record.attachments.length > 0 && (
                       <span className="history-record-attachments" aria-label={formatAttachmentCount(record.attachments.length)} title={formatAttachmentCount(record.attachments.length)}>
                         <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" />
@@ -549,7 +548,7 @@ export function HistoryDrawer({
 
                   <span className="history-record-heading">
                     <strong>{record.title}</strong>
-                    <time dateTime={timestamp}>{formatTime(timestamp)}</time>
+                    {!isExpanded && <time dateTime={timestamp}>{formatTime(timestamp)}</time>}
                   </span>
 
                   {(record.channelLabel || record.channelName) && <span className="history-record-chat">{record.channelLabel || record.channelName}</span>}
@@ -563,35 +562,38 @@ export function HistoryDrawer({
                       <span>{getHistoryStatusLabel(record.status)}</span>
                     </div>
                     {record.lastError && <p className="history-record-error" role="alert">{record.lastError}</p>}
-                    <div
-                      className="history-post-text"
-                      dangerouslySetInnerHTML={{
-                        __html: richTextToHtml(record.text, entities),
-                      }}
-                    />
-                    {Boolean(record.attachments.length) && (
-                      <div className="history-post-attachments" aria-label="Вложения">
-                        {record.attachments.map((attachment) => (
-                          isImageAttachment(attachment) ? (
-                            <img
-                              key={attachment}
-                              src={toAttachmentUrl(attachment)}
-                              alt={getAttachmentName(attachment)}
-                              onLoad={() => {
-                                const list = historyRecordListRef.current;
-                                const expandedRecord = expandedRecordRef.current;
-                                if (list && expandedRecord) scrollHistoryRecordIntoView(list, expandedRecord);
-                              }}
-                            />
-                          ) : (
-                            <a key={attachment} href={toAttachmentUrl(attachment)} download={getAttachmentName(attachment)}>
-                              <FileText size={17} strokeWidth={1.7} aria-hidden="true" />
-                              <span>{getAttachmentName(attachment)}</span>
-                            </a>
-                          )
-                        ))}
-                      </div>
-                    )}
+                    <div className="history-post-bubble">
+                      {Boolean(record.attachments.length) && (
+                        <div className="history-post-attachments" aria-label="Вложения">
+                          {record.attachments.map((attachment) => (
+                            isImageAttachment(attachment) ? (
+                              <img
+                                key={attachment}
+                                src={toAttachmentUrl(attachment)}
+                                alt={getAttachmentName(attachment)}
+                                onLoad={() => {
+                                  const list = historyRecordListRef.current;
+                                  const expandedRecord = expandedRecordRef.current;
+                                  if (list && expandedRecord) scrollHistoryRecordIntoView(list, expandedRecord);
+                                }}
+                              />
+                            ) : (
+                              <a key={attachment} href={toAttachmentUrl(attachment)} download={getAttachmentName(attachment)}>
+                                <FileText size={17} strokeWidth={1.7} aria-hidden="true" />
+                                <span>{getAttachmentName(attachment)}</span>
+                              </a>
+                            )
+                          ))}
+                        </div>
+                      )}
+                      <div
+                        className="history-post-text"
+                        dangerouslySetInnerHTML={{
+                          __html: richTextToHtml(record.text, entities),
+                        }}
+                      />
+                      <InlineKeyboardPreview markup={scheduleMessage?.replyMarkup} />
+                    </div>
                     {(record.silent || record.effect) && (
                       <div className="history-post-options">
                         {record.silent && <span>Без звука</span>}
@@ -694,7 +696,8 @@ export function HistoryDrawer({
           )}
         </div>
 
-        <div className="history-search-dock">
+        <div className="history-drawer-tools">
+          <div className="history-search-dock">
           <div className="history-search" role="search">
             <Search size={18} strokeWidth={1.7} aria-hidden="true" />
             <input
@@ -703,11 +706,6 @@ export function HistoryDrawer({
               placeholder="Поиск по истории"
               aria-label="Поиск по истории"
             />
-            <div className="history-result-count" role="status" aria-live="polite">
-              {query.trim()
-                ? `Найдено ${filteredRecords.length} из ${historyCounts.status[statusFilter]}`
-                : formatHistoryCount(filteredRecords.length)}
-            </div>
             <button
               type="button"
               className={`history-search-clear${query ? '' : ' is-reserved'}`}
@@ -717,11 +715,16 @@ export function HistoryDrawer({
             >
               <X size={15} strokeWidth={1.8} aria-hidden="true" />
             </button>
+            <div className="history-result-count" role="status" aria-live="polite">
+              {query.trim()
+                ? `Найдено ${filteredRecords.length} из ${historyCounts.status[statusFilter]}`
+                : formatHistoryCount(filteredRecords.length)}
+            </div>
           </div>
-        </div>
+          </div>
 
-        <div className="history-drawer-footer" aria-label="Панель действий истории">
-          <div className="history-status-row">
+          <div className="history-drawer-footer" aria-label="Панель действий истории">
+            <div className="history-status-row">
             <div className="history-status-filters" role="tablist" aria-label="Статус записей">
               {(['scheduled', 'sent', 'drafts'] as const).map((item) => (
                 <button
@@ -748,22 +751,11 @@ export function HistoryDrawer({
                 <button
                   type="button"
                   className="clear-history"
-                  disabled={!selectedSource || !hasSentInSelectedSource}
-                  onClick={() => { if (selectedSource) onClearSent(selectedSource); }}
+                  disabled={!hasSentInSelectedSource}
+                  onClick={() => { onClearSent(sourceFilter === 'all' ? 'all' : selectedSource ?? 'all'); }}
                   title="Очистить историю отправленных сообщений"
                 >
                   Очистить отправленные
-                </button>
-              )}
-              {statusFilter === 'scheduled' && (
-                <button
-                  type="button"
-                  className="clear-history"
-                  disabled={!selectedSource || !hasUpcomingInSelectedSource}
-                  onClick={() => { if (selectedSource) onClearAll(selectedSource); }}
-                  title="Отменить все запланированные сообщения"
-                >
-                  Очистить всё
                 </button>
               )}
             </div>
@@ -807,6 +799,7 @@ export function HistoryDrawer({
                   </button>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>

@@ -25,8 +25,7 @@ type AppShellProps = PropsWithChildren<{
   onHistorySendNow: (record: HistoryItem) => void;
   onHistoryDelete: (record: HistoryItem) => void;
   onHistoryOpenDraft: (record: HistoryItem) => void;
-  onHistoryClearSent: (source: HistorySource) => void;
-  onHistoryClearAll: (source: HistorySource) => void;
+  onHistoryClearSent: (source: HistorySource | 'all') => void;
 }>;
 
 export function AppShell({
@@ -48,7 +47,6 @@ export function AppShell({
   onHistoryDelete,
   onHistoryOpenDraft,
   onHistoryClearSent,
-  onHistoryClearAll,
 }: AppShellProps) {
   const { t } = useLocale();
   const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
@@ -151,7 +149,6 @@ export function AppShell({
         onDelete={onHistoryDelete}
         onOpenDraft={onHistoryOpenDraft}
         onClearSent={onHistoryClearSent}
-        onClearAll={onHistoryClearAll}
       />
     </div>
   );

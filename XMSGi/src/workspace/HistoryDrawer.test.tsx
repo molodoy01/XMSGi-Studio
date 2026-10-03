@@ -49,7 +49,6 @@ function renderHistory(
   onOpenDraft = vi.fn(),
   onReschedule = vi.fn(),
   onClearSent = vi.fn(),
-  onClearAll = vi.fn(),
 ) {
   const onClose = vi.fn();
   const view = render(
@@ -63,10 +62,9 @@ function renderHistory(
       onDelete={onDelete}
       onOpenDraft={onOpenDraft}
       onClearSent={onClearSent}
-      onClearAll={onClearAll}
     />,
   );
-  return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onReschedule, onClearSent, onClearAll };
+  return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onReschedule, onClearSent };
 }
 
 function searchHistory(query: string) {
@@ -128,14 +126,17 @@ function readBlob(blob: Blob) {
 }
 
 describe('HistoryDrawer search', () => {
-  it('places the search capsule below the records and above the navigation dock', () => {
+  it('groups search and navigation controls in one dock below the records', () => {
     const { container } = renderHistory();
     const recordList = container.querySelector('.history-record-list')!;
     const searchDock = container.querySelector('.history-search-dock')!;
     const navigationDock = container.querySelector('.history-drawer-footer')!;
+    const toolsDock = container.querySelector('.history-drawer-tools')!;
 
     expect(recordList.compareDocumentPosition(searchDock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(searchDock.compareDocumentPosition(navigationDock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(searchDock.parentElement).toBe(toolsDock);
+    expect(navigationDock.parentElement).toBe(toolsDock);
     expect(screen.getByRole('search')).toBeInTheDocument();
   });
 
@@ -245,7 +246,6 @@ describe('HistoryDrawer search', () => {
         onDelete: vi.fn(),
         onOpenDraft: vi.fn(),
         onClearSent: vi.fn(),
-        onClearAll: vi.fn(),
       };
       const view = render(<HistoryDrawer {...props} isOpen={false} />);
 
@@ -310,6 +310,16 @@ describe('HistoryDrawer search', () => {
     });
     expect(clearButton).toBeEnabled();
     expect(clearButton).not.toHaveClass('is-reserved');
+  });
+
+  it('places the clear button beside the input and keeps the result count last', () => {
+    const { container } = renderHistory();
+    const input = screen.getByRole('textbox', { name: 'Поиск по истории' });
+    const clearButton = screen.getByRole('button', { name: 'Очистить поиск' });
+    const resultCount = container.querySelector('.history-result-count')!;
+
+    expect(input.compareDocumentPosition(clearButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(clearButton.compareDocumentPosition(resultCount) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('groups a long history list by calendar day', () => {
@@ -399,7 +409,7 @@ describe('HistoryDrawer search', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
     const clearButton = screen.getByRole('button', { name: 'Очистить отправленные' });
 
-    expect(clearButton).toBeDisabled();
+    expect(clearButton).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: label }));
     expect(clearButton).toBeEnabled();
     fireEvent.click(clearButton);
@@ -408,21 +418,23 @@ describe('HistoryDrawer search', () => {
     expect(onClearSent).toHaveBeenCalledWith(source);
   });
 
-  it.each([
-    { source: 'personal' as const, label: 'Личное', record: personalUpcomingRecord },
-    { source: 'workspace' as const, label: 'Studio', record: upcomingRecord },
-  ])('clears upcoming records for the explicitly selected $source source', ({ source, label, record }) => {
-    const onClearAll = vi.fn();
-    renderHistory([upcomingRecord, personalUpcomingRecord], undefined, undefined, undefined, undefined, undefined, undefined, onClearAll);
-    const clearButton = screen.getByRole('button', { name: 'Очистить всё' });
+  it('clears sent records across both sources when the All filter is active', () => {
+    const onClearSent = vi.fn();
+    renderHistory([completedRecord, workspaceSentRecord], undefined, undefined, undefined, undefined, undefined, onClearSent);
+    fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
 
-    expect(clearButton).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: label }));
+    const clearButton = screen.getByRole('button', { name: 'Очистить отправленные' });
     expect(clearButton).toBeEnabled();
+
     fireEvent.click(clearButton);
 
-    expect(record.source).toBe(source);
-    expect(onClearAll).toHaveBeenCalledWith(source);
+    expect(onClearSent).toHaveBeenCalledWith('all');
+  });
+
+  it('does not offer bulk cancellation for upcoming records', () => {
+    renderHistory([upcomingRecord, personalUpcomingRecord]);
+
+    expect(screen.queryByRole('button', { name: 'Отменить все запланированные' })).not.toBeInTheDocument();
   });
 
   it('keeps Failed and cancelled records visible without an Errors tab', () => {
@@ -747,12 +759,36 @@ describe('HistoryDrawer search', () => {
 
   it('shows image attachments in the full post view', () => {
     const imageRecord = normalizeScheduledMessages([
-      { ...scheduledMessage, attachments: ['C:\\files\\launch-image.png'] },
+      {
+        ...scheduledMessage,
+        text: 'A caption below the photo',
+        attachments: ['C:\\files\\launch-image.png'],
+        replyMarkup: { inline_keyboard: [[{ text: 'Open details', url: 'https://example.com' }]] },
+      },
     ], 'workspace', 'upcoming', [channel])[0];
-    renderHistory([imageRecord]);
+    const view = renderHistory([imageRecord]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Открыть публикацию: XMSGi Updates' }));
 
     expect(screen.getByRole('img', { name: 'launch-image.png' })).toHaveAttribute('src', 'file:///C:/files/launch-image.png');
+    const bubble = view.container.querySelector('.history-post-bubble');
+    expect(bubble?.firstElementChild).toHaveClass('history-post-attachments');
+    expect(bubble?.querySelector('.history-post-text')).toHaveTextContent('A caption below the photo');
+    expect(screen.getByLabelText('Inline keyboard preview')).toContainElement(screen.getByRole('button', { name: 'Open details' }));
+  });
+
+  it('shows schedule time and status only once the post is expanded', () => {
+    const view = renderHistory([upcomingRecord]);
+    const openButton = screen.getByRole('button', { name: 'Открыть публикацию: XMSGi Updates' });
+
+    expect(openButton.querySelector('.history-record-date')).not.toBeNull();
+    expect(openButton.querySelector('.history-record-heading time')).not.toBeNull();
+
+    fireEvent.click(openButton);
+
+    expect(openButton.querySelector('.history-record-date')).toBeNull();
+    expect(openButton.querySelector('.history-record-heading time')).toBeNull();
+    expect(view.container.querySelector('.history-post-time-row time')).toBeVisible();
+    expect(view.container.querySelector('.history-post-time-row')).toHaveTextContent('Запланировано');
   });
 });

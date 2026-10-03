@@ -30,6 +30,16 @@ function App() {
   const [route, setRoute] = useState<AppRoute>(getCurrentHashPath());
   const [productView, setProductView] = useState<ProductView>('studio');
   const [activeAccountId, setActiveAccountId] = useState<'account-1' | 'account-2'>(() => 'account-1');
+  const [telegramApiId, setTelegramApiId] = useState('');
+  const [telegramApiHash, setTelegramApiHash] = useState('');
+  const [telegramCredentialsBusy, setTelegramCredentialsBusy] = useState(false);
+  const [telegramCredentialsError, setTelegramCredentialsError] = useState('');
+  const [telegramCredentials, setTelegramCredentials] = useState({
+    hasCredentials: false,
+    hasSession: false,
+    connected: false,
+    signedOut: false,
+  });
 
   const {
     notification,
@@ -150,7 +160,6 @@ function App() {
     handleSendNow: handlePersonalSendNow,
     handleDeleteMessage: handlePersonalDeleteMessage,
     handleClearSent: handlePersonalClearSent,
-    handleClearAll: handlePersonalClearAll,
     setDate: setPersonalDate,
     setTime: setPersonalTime,
   } = useScheduler({
@@ -213,14 +222,14 @@ function App() {
     studioHistoryReschedulerRef.current?.({ ...record.original.message, status: 'scheduled' });
   };
 
-  const clearHistorySent = (source: HistorySource) => {
+  const clearHistorySent = (source: HistorySource | 'all') => {
+    if (source === 'all') {
+      studioScheduler.handleClearSent();
+      handlePersonalClearSent();
+      return;
+    }
     if (source === 'workspace') studioScheduler.handleClearSent();
     else handlePersonalClearSent();
-  };
-
-  const clearHistoryAll = (source: HistorySource) => {
-    if (source === 'workspace') studioScheduler.handleClearAll();
-    else handlePersonalClearAll();
   };
 
   const deleteHistoryRecord = (record: HistoryItem) => {
@@ -315,8 +324,55 @@ function App() {
       onSaveGeminiKey={handleSaveGeminiKey}
       onRemoveGeminiKey={handleRemoveGeminiKey}
       onToggleAssistant={handleToggleAssistant}
+      telegramCredentials={telegramCredentials}
+      telegramApiId={telegramApiId}
+      telegramApiHash={telegramApiHash}
+      telegramCredentialsBusy={telegramCredentialsBusy}
+      telegramCredentialsError={telegramCredentialsError}
+      onTelegramApiIdChange={setTelegramApiId}
+      onTelegramApiHashChange={setTelegramApiHash}
+      onSaveTelegramCredentials={async () => {
+        setTelegramCredentialsBusy(true);
+        setTelegramCredentialsError('');
+        try {
+          const result = await window.telegram.saveCredentials({
+            API_ID: telegramApiId.trim(),
+            API_HASH: telegramApiHash.trim(),
+          });
+          if (!result.success || !result.config) {
+            throw new Error(result.error || 'Telegram API credentials could not be saved.');
+          }
+          setTelegramCredentials({
+            hasCredentials: Boolean(result.config.hasCredentials),
+            hasSession: Boolean(result.config.hasSession),
+            connected: Boolean(result.config.connected),
+            signedOut: Boolean(result.config.signedOut),
+          });
+          setTelegramApiId('');
+          setTelegramApiHash('');
+        } catch (error) {
+          setTelegramCredentialsError(error instanceof Error ? error.message : 'Telegram API credentials could not be saved.');
+        } finally {
+          setTelegramCredentialsBusy(false);
+        }
+      }}
     />
   );
+
+  useEffect(() => {
+    let active = true;
+    if (typeof window.telegram?.getConfig !== 'function') return;
+    window.telegram.getConfig().then((result) => {
+      if (!active || !result.success || !result.config) return;
+      setTelegramCredentials({
+        hasCredentials: Boolean(result.config.hasCredentials),
+        hasSession: Boolean(result.config.hasSession),
+        connected: Boolean(result.config.connected),
+        signedOut: Boolean(result.config.signedOut),
+      });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [connected, signedOut]);
 
   return (
     <AppShell
@@ -351,7 +407,6 @@ function App() {
       onHistoryDelete={deleteHistoryRecord}
       onHistoryOpenDraft={openHistoryDraft}
       onHistoryClearSent={clearHistorySent}
-      onHistoryClearAll={clearHistoryAll}
     >
       <div className={`product-view ${productView === 'studio' ? 'is-active' : ''}`} aria-hidden={productView !== 'studio'}>
         <StudioMount
