@@ -190,13 +190,27 @@ function validateCancelPayload(value) {
 
   const chatId = validateChatId(value.chatId);
   const telegramMessageId = value.telegramMessageId;
+  const isValidTelegramMessageId = (id) => (
+    (typeof id === 'number' && Number.isSafeInteger(id))
+    || (typeof id === 'string' && /^\d{1,20}$/.test(id))
+  );
+  const hasTelegramMessageId = isValidTelegramMessageId(telegramMessageId);
+  let telegramMessageIds;
 
-  if (
-    !(
-      (typeof telegramMessageId === 'number' && Number.isSafeInteger(telegramMessageId)) ||
-      (typeof telegramMessageId === 'string' && /^\d{1,20}$/.test(telegramMessageId))
-    )
-  ) {
+  if (value.telegramMessageIds !== undefined) {
+    if (!Array.isArray(value.telegramMessageIds)
+      || value.telegramMessageIds.length < 1
+      || value.telegramMessageIds.length > MAX_ATTACHMENTS
+      || !value.telegramMessageIds.every(isValidTelegramMessageId)) {
+      invalidInput('telegramMessageIds has an invalid format');
+    }
+    telegramMessageIds = value.telegramMessageIds;
+    if (hasTelegramMessageId && String(telegramMessageId) !== String(telegramMessageIds[0])) {
+      invalidInput('telegramMessageId does not match the first Telegram message ID');
+    }
+  }
+
+  if (!hasTelegramMessageId && !telegramMessageIds) {
     invalidInput('telegramMessageId has an invalid format');
   }
 
@@ -207,7 +221,13 @@ function validateCancelPayload(value) {
     ? undefined
     : validateTimestamp(value.targetTimestamp);
 
-  return { chatId, telegramMessageId, message, targetTimestamp };
+  return {
+    chatId,
+    ...(hasTelegramMessageId ? { telegramMessageId } : {}),
+    ...(telegramMessageIds ? { telegramMessageIds } : {}),
+    message,
+    targetTimestamp,
+  };
 }
 
 function validateSendPayload(value) {

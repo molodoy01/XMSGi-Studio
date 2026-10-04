@@ -1138,7 +1138,9 @@ ipcMain.handle('telegram-send', async (event, data) => {
       success: false,
       error: error.message,
       code: error.code,
-      waitSeconds: error.waitSeconds
+      waitSeconds: error.waitSeconds,
+      telegramMessageId: error.telegramMessageId,
+      telegramMessageIds: error.telegramMessageIds,
     };
   }
 });
@@ -1199,6 +1201,7 @@ ipcMain.handle('telegram-schedule', async (event, data) => {
     return {
       success: true,
       telegramMessageId: result.telegramMessageId ?? result.id,
+      telegramMessageIds: result.telegramMessageIds,
       confirmed: result.confirmed === true,
       operationIdentity: result.operationIdentity,
     };
@@ -1230,7 +1233,7 @@ ipcMain.handle('telegram-cancel', async (event, data) => {
   try {
     const result = await cancelScheduledMessage(
       validated.chatId,
-      validated.telegramMessageId,
+      validated.telegramMessageIds ?? validated.telegramMessageId,
       validated.message,
       validated.targetTimestamp
     );

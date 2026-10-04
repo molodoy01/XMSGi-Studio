@@ -26,6 +26,7 @@ import {
 import { useLocale } from '@/lib/i18n';
 
 const REPEAT_SCHEDULE_DELAY_MS = 1500;
+const MAX_SCHEDULE_FUTURE_DAYS = 367;
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -268,11 +269,16 @@ export function useScheduler({
           const updated = current.map((message) => {
             if (message.operationId !== pendingMessage.operationId) return message;
             if (!scheduleConfirmed) {
+              const partialIds = result.telegramMessageIds ?? [];
               return {
                 ...message,
+                ...(partialIds.length ? {
+                  telegramMessageId: result.telegramMessageId ?? partialIds[0],
+                  telegramMessageIds: partialIds,
+                } : {}),
                 status: 'failed' as const,
                 lastError: result.error || 'Telegram did not confirm that this replacement was saved.',
-                retryAction: 'schedule' as const,
+                retryAction: partialIds.length ? 'cancel' as const : 'schedule' as const,
               };
             }
             return applyScheduleResult(current, pendingMessage.operationId!, result)
@@ -396,9 +402,10 @@ export function useScheduler({
       return;
     }
 
+    const scheduleNow = Date.now();
     const isCurrentTime = scheduleDate === getTodayStr() && scheduleTime === getCurrentTimeStr();
 
-    if (whenDate.getTime() <= Date.now() && !isCurrentTime) {
+    if (whenDate.getTime() <= scheduleNow && !isCurrentTime) {
       showNotification(
         t('schedule.futureTime'),
         'warning',
@@ -445,6 +452,15 @@ export function useScheduler({
     const silent = assistantSchedule?.silent === true;
     const effect = assistantSchedule?.effect;
     const occurrenceDates = getScheduleOccurrences(whenDate, repeatOptions);
+    const maximumScheduleTime = scheduleNow + MAX_SCHEDULE_FUTURE_DAYS * 24 * 60 * 60 * 1000;
+    if (occurrenceDates.some((occurrenceDate) => occurrenceDate.getTime() > maximumScheduleTime)) {
+      showNotification(
+        t('schedule.tooFarFuture'),
+        'warning',
+        t('schedule.tooFarFutureTitle'),
+      );
+      return;
+    }
     if (replaceMessage && occurrenceDates.length !== 1) {
       showNotification(
         t('schedule.repeatRange', { count: 1 }),
@@ -637,6 +653,7 @@ export function useScheduler({
           }], operationId, {
             success: true,
             telegramMessageId: result.telegramMessageId ?? result.id,
+            telegramMessageIds: result.telegramMessageIds,
             confirmed: true,
           });
         });
@@ -646,16 +663,22 @@ export function useScheduler({
             const resultEntry = results.find(({ operationId }) => operationId === message.operationId);
             if (!resultEntry) return message;
             if (!resultEntry.result.success || resultEntry.result.confirmed !== true) {
+              const partialIds = resultEntry.result.telegramMessageIds ?? [];
               return {
                 ...message,
+                ...(partialIds.length ? {
+                  telegramMessageId: resultEntry.result.telegramMessageId ?? partialIds[0],
+                  telegramMessageIds: partialIds,
+                } : {}),
                 status: 'failed' as const,
                 lastError: resultEntry.result.error || 'Telegram did not confirm that this schedule was saved.',
-                retryAction: 'schedule' as const,
+                retryAction: partialIds.length ? 'cancel' as const : 'schedule' as const,
               };
             }
             const scheduledMessage = applyScheduleResult(current, message.operationId!, {
               success: true,
               telegramMessageId: resultEntry.result.telegramMessageId ?? resultEntry.result.id,
+              telegramMessageIds: resultEntry.result.telegramMessageIds,
               confirmed: true,
             }).find((item) => item.operationId === message.operationId) ?? message;
             return {
@@ -781,6 +804,7 @@ export function useScheduler({
         const result = await window.telegram.cancel({
           chatId: attempt.chatId,
           telegramMessageId: attempt.telegramMessageId!,
+          telegramMessageIds: attempt.telegramMessageIds,
           message: attempt.text,
           targetTimestamp: Math.floor(new Date(attempt.when).getTime() / 1000),
         });
@@ -808,6 +832,7 @@ export function useScheduler({
               const replacementCancelResult = await window.telegram.cancel({
                 chatId: replacementMessage.chatId,
                 telegramMessageId: replacementMessage.telegramMessageId,
+                telegramMessageIds: replacementMessage.telegramMessageIds,
                 message: replacementMessage.text,
                 targetTimestamp: Math.floor(new Date(replacementMessage.when).getTime() / 1000),
               });
@@ -966,6 +991,7 @@ export function useScheduler({
         const cancelResult = await window.telegram.cancel({
           chatId: sendingMessage.chatId,
           telegramMessageId: sendingMessage.telegramMessageId,
+          telegramMessageIds: sendingMessage.telegramMessageIds,
           message: sendingMessage.text,
           targetTimestamp: Math.floor(new Date(sendingMessage.when).getTime() / 1000),
         });
@@ -1071,6 +1097,7 @@ export function useScheduler({
     const sendingUpcoming = upcoming.map((item) => item.id === msg.id ? attempt : item);
     setUpcoming(sendingUpcoming);
 
+    let failedScheduleResult: Awaited<ReturnType<typeof window.telegram.schedule>> | null = null;
     try {
       if (!await persistScheduleHistoryAndWait(historyScope, 'upcoming', sendingUpcoming)) {
         throw new Error('The retry state could not be saved. Telegram was not contacted.');
@@ -1087,6 +1114,7 @@ export function useScheduler({
         silent: attempt.silent,
         effect: attempt.effect,
       });
+      failedScheduleResult = result;
       if (!result.success || result.confirmed !== true) {
         throw new Error(result.error || 'Telegram did not confirm that this schedule was saved.');
       }
@@ -1095,6 +1123,7 @@ export function useScheduler({
         ...attempt,
         status: 'scheduled',
         telegramMessageId: result.telegramMessageId ?? result.id,
+        telegramMessageIds: result.telegramMessageIds,
         operationIdentity: result.operationIdentity ?? attempt.operationIdentity,
         lastError: undefined,
         retryAction: undefined,
@@ -1109,11 +1138,16 @@ export function useScheduler({
       showNotification(t('schedule.scheduledOne'), 'success', t('schedule.scheduledTitle'));
     } catch (error) {
       const lastError = error instanceof Error ? error.message : t('schedule.networkScheduling');
+      const partialIds = failedScheduleResult?.telegramMessageIds ?? [];
       const failedMessage: ScheduledMessage = {
         ...attempt,
+        ...(partialIds.length ? {
+          telegramMessageId: failedScheduleResult?.telegramMessageId ?? partialIds[0],
+          telegramMessageIds: partialIds,
+        } : {}),
         status: 'failed',
         lastError,
-        retryAction: 'schedule',
+        retryAction: partialIds.length ? 'cancel' : 'schedule',
       };
       const failedUpcoming = upcoming.map((item) => item.id === msg.id ? failedMessage : item);
       setUpcoming(failedUpcoming);

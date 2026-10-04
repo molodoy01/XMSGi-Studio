@@ -124,6 +124,44 @@ describe('Pending scheduling recovery', () => {
     });
   });
 
+  it('persists every Telegram message ID for a scheduled media fallback', () => {
+    const pending = createPending('operation-media-fallback');
+    const scheduled = applyScheduleResult(
+      [pending],
+      'operation-media-fallback',
+      { success: true, telegramMessageId: 42, telegramMessageIds: [42, 43, 44] }
+    );
+
+    saveUpcoming(scheduled);
+
+    expect(loadUpcoming()[0]).toMatchObject({
+      telegramMessageId: 42,
+      telegramMessageIds: [42, 43, 44],
+      status: 'scheduled',
+    });
+  });
+
+  it('keeps partial Telegram IDs on a failed schedule for manual cancellation', () => {
+    const pending = createPending('operation-partial-fallback');
+    const failed = applyScheduleResult(
+      [pending],
+      'operation-partial-fallback',
+      {
+        success: false,
+        error: 'Some attachments could not be scheduled.',
+        telegramMessageId: 42,
+        telegramMessageIds: [42, 43],
+      }
+    );
+
+    expect(failed[0]).toMatchObject({
+      status: 'failed',
+      telegramMessageId: 42,
+      telegramMessageIds: [42, 43],
+      retryAction: 'cancel',
+    });
+  });
+
   it('recovers an interrupted Sending record as Failed after a restart', () => {
     const sending = createPending('operation-1');
     saveUpcoming([sending]);

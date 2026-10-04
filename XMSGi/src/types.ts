@@ -62,6 +62,7 @@ export interface ScheduledMessage {
   replacementOfId?: string;
   sentAt?: string;
   telegramMessageId?: string | number;
+  telegramMessageIds?: Array<string | number>;
 }
 
 export type MessageOption = 'silent' | 'effect';

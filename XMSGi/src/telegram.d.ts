@@ -179,6 +179,7 @@ declare global {
         success: boolean;
         id?: string | number;
         telegramMessageId?: string | number;
+        telegramMessageIds?: Array<string | number>;
         confirmed?: boolean;
         operationIdentity?: string;
         error?: string;
@@ -225,7 +226,8 @@ declare global {
       getFilePath: (file: File) => string;
       cancel: (data: {
         chatId: string;
-        telegramMessageId: string | number;
+        telegramMessageId?: string | number;
+        telegramMessageIds?: Array<string | number>;
         message?: string;
         targetTimestamp?: number;
       }) => Promise<{

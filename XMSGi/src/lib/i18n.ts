@@ -248,6 +248,8 @@ const translations = {
     'schedule.invalidDateTime': 'Invalid date or time.',
     'schedule.invalidDateTitle': 'Invalid schedule',
     'schedule.futureTime': 'Schedule time must be in the future.',
+    'schedule.tooFarFuture': 'Schedule date cannot be more than 367 days in the future.',
+    'schedule.tooFarFutureTitle': 'Date too far ahead',
     'schedule.pastTimeTitle': 'Past time',
     'schedule.repeatRange': 'Choose between 1 and {count} runs.',
     'schedule.invalidRepeatCount': 'Invalid repeat count',
@@ -318,6 +320,8 @@ const translations = {
     'chatRemove.message': '"{name}" will leave your saved chats. Scheduled and sent messages will stay in your archive.',
   },
   ru: {
+    'schedule.tooFarFuture': 'Нельзя запланировать сообщение более чем на 367 дней вперёд.',
+    'schedule.tooFarFutureTitle': 'Слишком поздняя дата',
     'common.cancel': 'Отмена', 'common.close': 'Закрыть', 'common.remove': 'Удалить', 'common.save': 'Сохранить', 'common.back': 'Назад', 'common.apply': 'Применить', 'common.loading': 'Загрузка…', 'common.error': 'Ошибка',
     'language.title': 'Язык', 'language.english': 'English', 'language.russian': 'Русский',
     'auth.logout': 'Выйти', 'auth.signOut': 'Выйти?', 'auth.rememberMe': 'Запомнить меня', 'auth.forgetMe': 'Забыть меня', 'auth.confirmLogout': 'Подтвердить выход', 'auth.signOutPreference': 'Настройка выхода', 'auth.continueTelegram': 'Продолжить с Telegram', 'auth.continue': 'ПРОДОЛЖИТЬ', 'auth.telegram': 'TELEGRAM', 'auth.phone': 'Телефон', 'auth.phonePlaceholder': '1 555 000 0000', 'auth.loginCode': 'Код входа', 'auth.loginCodePlaceholder': 'Код, отправленный на ваш телефон', 'auth.twoFactorPassword': 'Пароль двухэтапной проверки', 'auth.twoFactorPasswordPlaceholder': 'Ваш пароль двухэтапной проверки', 'auth.connecting': 'Подключение…', 'auth.signIn': 'Войти', 'auth.verifyConnect': 'Проверить и подключиться', 'auth.verifyCode': 'Проверить код', 'auth.startOver': 'Начать заново с другим номером', 'auth.welcomeBack': 'С ВОЗВРАЩЕНИЕМ,', 'auth.returningUser': 'Вернувшийся пользователь', 'auth.notYou': 'Это не вы?', 'auth.authorizationFailed': 'Не удалось авторизоваться.', 'auth.enterTwoFactor': 'Введите пароль Telegram 2FA, чтобы продолжить.', 'auth.disconnectFailed': 'Не удалось отключить аккаунт.', 'auth.restoreFailed': 'Не удалось восстановить сохранённую сессию Telegram.', 'auth.removeFailed': 'Не удалось удалить аккаунт Telegram.', 'auth.readStateFailed': 'Не удалось прочитать состояние авторизации Telegram.', 'auth.connectFailed': 'Не удалось подключить сохранённую сессию.', 'auth.readConnectionFailed': 'Не удалось прочитать настройки подключения.', 'auth.sessionExpired': 'Сессия Telegram истекла. Войдите снова.',

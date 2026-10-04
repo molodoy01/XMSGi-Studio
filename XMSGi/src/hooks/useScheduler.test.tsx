@@ -21,6 +21,26 @@ function createScheduleIdentityResult(operations: Array<Record<string, unknown>>
   };
 }
 
+function localDateTimeAt(timestamp: number) {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  };
+}
+
+function getFutureReplacementTimes() {
+  const original = new Date(Date.now() + 30 * 60 * 1000);
+  original.setSeconds(0, 0);
+  const replacement = new Date(Date.now() + 60 * 60 * 1000);
+  replacement.setSeconds(0, 0);
+  return {
+    originalWhen: original.toISOString(),
+    replacementDateTime: localDateTimeAt(replacement.getTime()),
+  };
+}
+
 function renderWorkspaceHistory(upcoming: ScheduledMessage[], sent: ScheduledMessage[], telegramOverrides: Record<string, unknown>, showNotification = vi.fn(), historyScope: 'personal' | 'workspace' = 'workspace', selectedChat: Chat | null = null) {
   const saveScheduleHistory = vi.fn().mockResolvedValue({ success: true });
   const loadScheduleHistory = vi.fn().mockResolvedValue({
@@ -290,6 +310,116 @@ describe('useScheduler native history', () => {
     });
     expect(schedule).toHaveBeenCalledTimes(2);
     expect(events.indexOf('persist')).toBeLessThan(events.indexOf('schedule-retry'));
+  });
+
+  it.each([
+    { label: 'within the limit', offset: 366 * 24 * 60 * 60 * 1000, accepted: true },
+    { label: 'exactly at the limit', offset: 367 * 24 * 60 * 60 * 1000, accepted: true },
+    { label: 'beyond the limit', offset: 367 * 24 * 60 * 60 * 1000 + 60 * 1000, accepted: false },
+  ])('enforces Telegram’s 367-day limit for a date $label', async ({ offset, accepted }) => {
+    const now = new Date(2035, 0, 1, 12, 0, 0, 0).getTime();
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const schedule = vi.fn().mockResolvedValue({
+      success: true,
+      confirmed: true,
+      telegramMessageId: 'telegram-scheduled-1',
+    });
+    const showNotification = vi.fn();
+    const { result, loadScheduleHistory, saveScheduleHistory } = renderWorkspaceHistory(
+      [],
+      [],
+      { schedule },
+      showNotification,
+      'workspace',
+      chat,
+    );
+    const selectedDateTime = localDateTimeAt(now + offset);
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+  const historyWritesAfterRestore = saveScheduleHistory.mock.calls.length;
+    await act(async () => {
+      await result.current.handleSchedule({
+        chatId: chat.id,
+        message: 'Schedule limit check',
+        ...selectedDateTime,
+      });
+    });
+
+    if (accepted) {
+      await waitFor(() => expect(schedule).toHaveBeenCalledOnce());
+      expect(result.current.upcoming).toHaveLength(1);
+      expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
+        targetTimestamp: Math.floor((now + offset) / 1000),
+      }));
+    } else {
+      expect(schedule).not.toHaveBeenCalled();
+      expect(result.current.upcoming).toHaveLength(0);
+      expect(saveScheduleHistory).toHaveBeenCalledTimes(historyWritesAfterRestore);
+      expect(showNotification).toHaveBeenCalledWith(
+        expect.stringContaining('367'),
+        'warning',
+        expect.any(String),
+      );
+    }
+  });
+
+  it('keeps partial fallback IDs in history and sends all of them on manual cancel retry', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    const date = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    const time = `${String(future.getHours()).padStart(2, '0')}:${String(future.getMinutes()).padStart(2, '0')}`;
+    const telegramMessageIds = ['telegram-partial-1', 'telegram-partial-2'];
+    const schedule = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Some attachments could not be scheduled.',
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+    });
+    const cancel = vi.fn().mockResolvedValue({ success: true, alreadySent: false });
+    const saveScheduleHistory = vi.fn().mockResolvedValue({ success: true });
+    const { result } = renderWorkspaceHistory(
+      [],
+      [],
+      { schedule, cancel, saveScheduleHistory },
+      vi.fn(),
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(result.current.scheduling).toBe(false));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: '',
+        date,
+        time,
+        attachments: ['C:/demo/one.png', 'C:/demo/two.png'],
+      });
+    });
+
+    await waitFor(() => expect(result.current.upcoming[0]).toMatchObject({
+      status: 'failed',
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+      retryAction: 'cancel',
+    }));
+    expect(saveScheduleHistory).toHaveBeenCalledWith(expect.objectContaining({
+      field: 'upcoming',
+      messages: expect.arrayContaining([expect.objectContaining({ telegramMessageIds })]),
+    }));
+
+    await act(async () => {
+      await result.current.handleRetry(result.current.upcoming[0]);
+    });
+
+    expect(cancel).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: chat.id,
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+    }));
+    expect(result.current.upcoming).toHaveLength(0);
+    expect(schedule).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -606,13 +736,14 @@ describe('useScheduler native history', () => {
 
   it('cancels the original schedule only after the replacement is confirmed', async () => {
     const chat = { id: 'chat-1', name: 'Test chat' };
+    const { originalWhen, replacementDateTime } = getFutureReplacementTimes();
     const original: ScheduledMessage = {
       id: 'original-schedule',
       chatId: chat.id,
       chatName: chat.name,
       text: 'Original text',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-14T18:00:00.000Z',
+      when: originalWhen,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
       status: 'scheduled',
       telegramMessageId: 'telegram-original',
     };
@@ -640,8 +771,7 @@ describe('useScheduler native history', () => {
       await result.current.handleSchedule({
         chatId: chat.id,
         message: 'Replacement text',
-        date: '2035-01-15',
-        time: '19:00',
+        ...replacementDateTime,
         replaceMessage: original,
       });
     });
@@ -657,13 +787,14 @@ describe('useScheduler native history', () => {
 
   it('keeps the original schedule when Telegram does not confirm the replacement', async () => {
     const chat = { id: 'chat-1', name: 'Test chat' };
+    const { originalWhen, replacementDateTime } = getFutureReplacementTimes();
     const original: ScheduledMessage = {
       id: 'original-schedule-unconfirmed',
       chatId: chat.id,
       chatName: chat.name,
       text: 'Original text',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-14T18:00:00.000Z',
+      when: originalWhen,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
       status: 'scheduled',
       telegramMessageId: 'telegram-original-unconfirmed',
     };
@@ -684,8 +815,7 @@ describe('useScheduler native history', () => {
       await result.current.handleSchedule({
         chatId: chat.id,
         message: 'Replacement text',
-        date: '2035-01-15',
-        time: '19:00',
+        ...replacementDateTime,
         replaceMessage: original,
       });
     });
@@ -701,13 +831,14 @@ describe('useScheduler native history', () => {
 
   it('keeps both schedules and marks the original retryable when replacement cancellation fails', async () => {
     const chat = { id: 'chat-1', name: 'Test chat' };
+    const { originalWhen, replacementDateTime } = getFutureReplacementTimes();
     const original: ScheduledMessage = {
       id: 'original-schedule-failed-cancel',
       chatId: chat.id,
       chatName: chat.name,
       text: 'Original text',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-14T18:00:00.000Z',
+      when: originalWhen,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
       status: 'scheduled',
       telegramMessageId: 'telegram-original-failed-cancel',
     };
@@ -732,8 +863,7 @@ describe('useScheduler native history', () => {
       result.current.handleSchedule({
         chatId: chat.id,
         message: 'Replacement text',
-        date: '2035-01-15',
-        time: '19:00',
+        ...replacementDateTime,
         replaceMessage: original,
       });
     });
@@ -754,13 +884,14 @@ describe('useScheduler native history', () => {
 
   it('cancels the replacement when Telegram reports the original was already sent', async () => {
     const chat = { id: 'chat-1', name: 'Test chat' };
+    const { originalWhen, replacementDateTime } = getFutureReplacementTimes();
     const original: ScheduledMessage = {
       id: 'original-already-sent',
       chatId: chat.id,
       chatName: chat.name,
       text: 'Original text',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-14T18:00:00.000Z',
+      when: originalWhen,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
       status: 'scheduled',
       telegramMessageId: 'telegram-original-already-sent',
     };
@@ -774,7 +905,7 @@ describe('useScheduler native history', () => {
         success: true,
         alreadySent: true,
         telegramMessageId: 'telegram-original-delivered',
-        sentAt: '2035-01-15T18:00:30.000Z',
+        sentAt: new Date(Date.parse(originalWhen) + 30_000).toISOString(),
       })
       .mockResolvedValueOnce({ success: true });
     const { result, loadScheduleHistory } = renderWorkspaceHistory(
@@ -791,8 +922,7 @@ describe('useScheduler native history', () => {
       result.current.handleSchedule({
         chatId: chat.id,
         message: 'Replacement text',
-        date: '2035-01-15',
-        time: '19:00',
+        ...replacementDateTime,
         replaceMessage: original,
       });
     });

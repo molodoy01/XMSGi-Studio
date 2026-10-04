@@ -244,10 +244,6 @@
   transition: background 140ms ease;
 }
 
-.history-search-entry:focus-within {
-  background: rgba(0, 0, 0, 0.22);
-}
-
 .history-search input {
   flex: 1 1 auto;
   width: 0;
@@ -271,6 +267,11 @@
 .history-search input::placeholder {
   color: var(--dim);
   opacity: 0.95;
+}
+
+.history-search input:focus,
+.history-search input:focus-visible {
+  background: transparent;
 }
 
 .history-search-clear {

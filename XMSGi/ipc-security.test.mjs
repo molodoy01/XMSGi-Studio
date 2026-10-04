@@ -154,6 +154,18 @@ describe('IPC security validation', () => {
       targetTimestamp: 2052547200,
     });
 
+    expect(validateCancelPayload({
+      chatId: 'me',
+      telegramMessageId: '42',
+      telegramMessageIds: ['42', '43', '44'],
+      message: '',
+      targetTimestamp: 2052547200,
+    })).toMatchObject({ telegramMessageId: '42', telegramMessageIds: ['42', '43', '44'] });
+    expect(() => validateCancelPayload({
+      chatId: 'me',
+      telegramMessageIds: ['42', 'bad'],
+    })).toThrow('telegramMessageIds');
+
     expect(() => validateCancelPayload({ chatId: 'me', message: '' })).toThrow('telegramMessageId');
     expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: 'bad', message: '' })).toThrow('telegramMessageId');
     expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: '42', message: null })).toThrow('message');

@@ -1973,6 +1973,13 @@ function getEffectIdentity(effect) {
   return effectId === undefined || effectId === null ? null : String(effectId);
 }
 
+function isInvalidMediaAlbumError(error) {
+  const details = [error?.code, error?.message, error?.request?.className]
+    .filter(Boolean)
+    .join(' ');
+  return /(?:MEDIA_INVALID|Media invalid)/i.test(details) && /SendMultiMedia/i.test(details);
+}
+
 function matchesScheduledOperation(scheduledMessage, operation) {
   const messageTimestamp = scheduledMessage.date instanceof Date
     ? Math.floor(scheduledMessage.date.getTime() / 1000)
@@ -2045,7 +2052,7 @@ function logTelegramOperation(label, message, attachments = [], replyMarkup) {
   });
 }
 
-async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, idempotencyKey) {
+async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, idempotencyKey, onResponse) {
   const originalInvoke = clientAtStart.invoke;
   const hadOwnInvoke = Object.prototype.hasOwnProperty.call(clientAtStart, 'invoke');
 
@@ -2055,8 +2062,25 @@ async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, id
       requestType: request?.className || request?.constructor?.name || 'unknown',
       mediaType: request?.media?.className || request?.media?.constructor?.name || null,
       buttonRowCount: request?.replyMarkup?.rows?.length || 0,
+      scheduleDate: request?.scheduleDate ?? null,
+      mediaCount: Array.isArray(request?.multiMedia) ? request.multiMedia.length : null,
     });
-    return originalInvoke.call(this, request, ...args);
+    const response = await originalInvoke.call(this, request, ...args);
+    const updates = Array.isArray(response?.updates)
+      ? response.updates
+      : response?.update
+        ? [response.update]
+        : [response];
+    console.info(`[Telegram ${label}] response`, {
+      requestType: request?.className || request?.constructor?.name || 'unknown',
+      scheduledUpdateCount: updates.filter((update) => update?.className === 'UpdateNewScheduledMessage').length,
+      immediateMessageUpdateCount: updates.filter((update) => (
+        update?.className === 'UpdateNewMessage'
+        || update?.className === 'UpdateNewChannelMessage'
+      )).length,
+    });
+    onResponse?.(response);
+    return response;
   };
   try {
     return await operation();
@@ -2306,49 +2330,159 @@ async function scheduleMessageInternal(
 
   logTelegramOperation('schedule', message, attachments, replyMarkup);
 
-  const sendResult = await withTelegramInvokeDiagnostics(client, 'schedule', () => telegramRequest(() => withTimeout(
-    scheduleOperation(),
-    REQUEST_TIMEOUT,
-    'Scheduling Telegram message'
-  )), scheduleIdempotencyKey);
+  let telegramMessageIds = [];
+  let scheduleConfirmedByResponse = false;
+  let sentImmediatelyByResponse = false;
+  const captureScheduleResponse = (response) => {
+    const updates = Array.isArray(response?.updates)
+      ? response.updates
+      : response?.update
+        ? [response.update]
+        : [response];
+    const responseIds = updates.flatMap((update) => {
+      if (update?.className === 'UpdateNewScheduledMessage' && update.message?.id != null) {
+        return [update.message.id];
+      }
+      return update?.className === 'UpdateMessageID' && update.id != null ? [update.id] : [];
+    });
+    scheduleConfirmedByResponse = updates.some((update) => (
+      update?.className === 'UpdateNewScheduledMessage'
+    )) || scheduleConfirmedByResponse;
+    sentImmediatelyByResponse ||= updates.some((update) => (
+      update?.className === 'UpdateNewMessage'
+      || update?.className === 'UpdateNewChannelMessage'
+    ));
+    telegramMessageIds = [...new Map(
+      [...telegramMessageIds, ...responseIds].map((id) => [String(id), id])
+    ).values()];
+  };
 
-  let telegramMessageId = null;
+  let sendResult;
+  try {
+    sendResult = await withTelegramInvokeDiagnostics(client, 'schedule', () => telegramRequest(() => withTimeout(
+      scheduleOperation(),
+      REQUEST_TIMEOUT,
+      'Scheduling Telegram message'
+    )), scheduleIdempotencyKey, captureScheduleResponse);
+  } catch (error) {
+    if (attachments.length < 2 || !isInvalidMediaAlbumError(error)) throw error;
 
-  if (
-    sendResult &&
-    sendResult.id !== undefined &&
-    sendResult.id !== null
-  ) {
+    console.warn('[Telegram schedule] album rejected; scheduling attachments separately', {
+      attachmentCount: attachments.length,
+      errorCode: error?.code || 'MEDIA_INVALID',
+    });
 
-    telegramMessageId =
-      sendResult.id;
+    const individualResults = [];
+    try {
+      for (const [index, attachment] of attachments.entries()) {
+        const attachmentOptions = {
+          ...sendOptions,
+          message: index === 0 ? message : '',
+          formattingEntities: index === 0 ? sendOptions.formattingEntities : undefined,
+          file: attachment,
+          buttons: index === 0 ? preparedMarkup : undefined,
+        };
+        const attachmentIdempotencyKey = `${scheduleIdempotencyKey}:attachment:${index}`;
+        const result = await withTelegramInvokeDiagnostics(client, 'schedule', () => telegramRequest(() => withTimeout(
+          client.sendMessage(target, attachmentOptions),
+          REQUEST_TIMEOUT,
+          'Scheduling Telegram attachment'
+        )), attachmentIdempotencyKey, captureScheduleResponse);
+        individualResults.push(result);
+      }
+    } catch (fallbackError) {
+      const partialIds = [...new Map([
+        ...telegramMessageIds,
+        ...individualResults.flatMap((result) => (Array.isArray(result) ? result : [result])
+          .map((item) => item?.id)
+          .filter((id) => id !== undefined && id !== null)),
+      ].map((id) => [String(id), Number(id)])).values()];
+      if (partialIds.length > 0) {
+        const cleanupRetryDelays = [1000, 2000, 5000];
+        const waitForCleanupRetry = typeof options.scheduleCleanupRetryDelay === 'function'
+          ? options.scheduleCleanupRetryDelay
+          : (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        let remainingIds = partialIds;
 
+        for (const delayMilliseconds of cleanupRetryDelays) {
+          if (remainingIds.length === 0) break;
+          await waitForCleanupRetry(delayMilliseconds);
+
+          try {
+            await telegramRequest(() => withTimeout(
+              client.deleteScheduledMessages(target, remainingIds),
+              REQUEST_TIMEOUT,
+              'Cleaning up a partial Telegram media schedule'
+            ));
+            remainingIds = [];
+          } catch (cleanupError) {
+            console.error('Telegram partial media schedule cleanup failed:', cleanupError?.code || cleanupError?.name || 'unknown');
+            try {
+              const stillScheduled = await telegramRequest(() => withTimeout(
+                client.getScheduledMessages(target, remainingIds),
+                REQUEST_TIMEOUT,
+                'Checking remaining partial Telegram media schedules'
+              ));
+              const stillScheduledIds = new Set(stillScheduled.map((item) => String(item.id)));
+              remainingIds = remainingIds.filter((id) => stillScheduledIds.has(String(id)));
+            } catch (lookupError) {
+              console.error('Telegram partial media schedule reconciliation failed:', lookupError?.code || lookupError?.name || 'unknown');
+            }
+          }
+        }
+
+        if (remainingIds.length > 0) {
+          const partialError = fallbackError instanceof Error
+            ? fallbackError
+            : new Error(String(fallbackError));
+          partialError.telegramMessageId = remainingIds[0];
+          partialError.telegramMessageIds = remainingIds;
+          throw partialError;
+        }
+      }
+      throw fallbackError;
+    }
+
+    sendResult = individualResults;
   }
 
-  const scheduledMessages = await telegramRequest(() => withTimeout(
-    client.getScheduledMessages(target),
-    REQUEST_TIMEOUT,
-    'Verifying scheduled Telegram message'
-  ));
-
-  let confirmedMessage = null;
-
-  if (telegramMessageId !== null) {
-
-    confirmedMessage =
-      scheduledMessages.find(
-        (msg) =>
-          String(msg.id) ===
-          String(telegramMessageId)
-      );
+  const returnedMessageIds = (Array.isArray(sendResult) ? sendResult : [sendResult])
+    .map((messageResult) => messageResult?.id)
+    .filter((id) => id !== undefined && id !== null);
+  if (returnedMessageIds.length > 0) {
+    telegramMessageIds = [...new Map(
+      [...telegramMessageIds, ...returnedMessageIds].map((id) => [String(id), id])
+    ).values()];
   }
 
-  if (!confirmedMessage && attachments.length === 0) {
+  if (sentImmediatelyByResponse && !scheduleConfirmedByResponse) {
+    throw new Error('Telegram sent the message immediately instead of scheduling it.');
+  }
 
-    confirmedMessage =
-      scheduledMessages.find(
+  let confirmedMessage = scheduleConfirmedByResponse && telegramMessageIds.length > 0
+    ? { id: telegramMessageIds[0] }
+    : null;
+
+  if (!confirmedMessage) {
+    const scheduledMessages = await telegramRequest(() => withTimeout(
+      client.getScheduledMessages(target),
+      REQUEST_TIMEOUT,
+      'Verifying scheduled Telegram message'
+    ));
+    const confirmedMessages = telegramMessageIds.map((messageId) => scheduledMessages.find(
+      (msg) => String(msg.id) === String(messageId)
+    )).filter(Boolean);
+    confirmedMessage = confirmedMessages[0] ?? null;
+
+    if (telegramMessageIds.length > 0 && confirmedMessages.length !== telegramMessageIds.length) {
+      confirmedMessage = null;
+    }
+
+    if (!confirmedMessage && attachments.length === 0) {
+      confirmedMessage = scheduledMessages.find(
         (msg) => matchesScheduledOperation(msg, scheduleOperationDetails)
       );
+    }
   }
 
   if (!confirmedMessage) {
@@ -2371,6 +2505,8 @@ async function scheduleMessageInternal(
 
     telegramMessageId:
       confirmedMessage.id,
+
+    telegramMessageIds,
 
     confirmed: true,
 
@@ -2422,8 +2558,11 @@ async function cancelScheduledMessageInternal(
 
   const clientAtStart = client;
 
-  let telegramMessageId =
-    messageId;
+  let telegramMessageIds = Array.isArray(messageId)
+    ? messageId
+    : messageId === undefined || messageId === null
+      ? []
+      : [messageId];
 
   const findAlreadySentMessage = async () => {
     if (!message || !Number.isFinite(targetTimestamp)) return null;
@@ -2445,7 +2584,7 @@ async function cancelScheduledMessageInternal(
     }
   };
 
-  if (!telegramMessageId) {
+  if (telegramMessageIds.length === 0) {
     const scheduledMessages =
       await telegramRequest(() => clientAtStart.getScheduledMessages(
         target
@@ -2494,15 +2633,13 @@ async function cancelScheduledMessageInternal(
       );
     }
 
-    telegramMessageId =
-      foundMessage.id;
-
+    telegramMessageIds = [foundMessage.id];
   }
 
   try {
     await telegramRequest(() => clientAtStart.deleteScheduledMessages(
       target,
-      [Number(telegramMessageId)]
+      telegramMessageIds.map(Number)
     ));
   } catch (error) {
     const sentMessage = await findAlreadySentMessage();

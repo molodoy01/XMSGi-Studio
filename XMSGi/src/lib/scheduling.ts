@@ -23,6 +23,7 @@ export type TelegramScheduledMessage = {
 export type TelegramScheduleResult = {
   success: boolean;
   telegramMessageId?: string | number;
+  telegramMessageIds?: Array<string | number>;
   id?: string | number;
   confirmed?: boolean;
   error?: string;
@@ -128,12 +129,21 @@ export function applyScheduleResult(
 ): ScheduledMessage[] {
   if (!result.success) {
     return messages.map((message) => message.operationId === operationId
-      ? {
-        ...message,
-        status: 'failed',
-        lastError: result.error || 'Telegram did not confirm that this schedule was saved.',
-        retryAction: 'schedule',
-      }
+      ? (() => {
+        const telegramMessageIds = result.telegramMessageIds ?? message.telegramMessageIds;
+        const telegramMessageId = result.telegramMessageId
+          ?? result.id
+          ?? telegramMessageIds?.[0]
+          ?? message.telegramMessageId;
+        return {
+          ...message,
+          ...(telegramMessageId !== undefined ? { telegramMessageId } : {}),
+          ...(telegramMessageIds ? { telegramMessageIds } : {}),
+          status: 'failed' as const,
+          lastError: result.error || 'Telegram did not confirm that this schedule was saved.',
+          retryAction: telegramMessageIds?.length ? 'cancel' as const : 'schedule' as const,
+        };
+      })()
       : message);
   }
 
@@ -145,6 +155,7 @@ export function applyScheduleResult(
           ...message,
           status: 'scheduled',
           telegramMessageId,
+          telegramMessageIds: result.telegramMessageIds ?? (telegramMessageId === undefined ? undefined : [telegramMessageId]),
         }
       : message
   );
