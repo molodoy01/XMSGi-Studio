@@ -108,6 +108,8 @@ export function useScheduler({
   const timeEditedRef = useRef(false);
   const [upcoming, setUpcoming] = useState<ScheduledMessage[]>([]);
   const [sent, setSent] = useState<ScheduledMessage[]>([]);
+  const upcomingStateRef = useRef(upcoming);
+  const sentStateRef = useRef(sent);
   const [historyReady, setHistoryReady] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const schedulingLockRef = useRef(false);
@@ -124,6 +126,9 @@ export function useScheduler({
   const loadSent = useCallback(() => loadSentFromStorage(historyScope), [historyScope]);
   const saveUpcoming = useCallback((messages: ScheduledMessage[]) => saveUpcomingToStorage(messages, historyScope), [historyScope]);
   const saveSent = useCallback((messages: ScheduledMessage[]) => saveSentToStorage(messages, historyScope), [historyScope]);
+
+  useEffect(() => { upcomingStateRef.current = upcoming; }, [upcoming]);
+  useEffect(() => { sentStateRef.current = sent; }, [sent]);
 
   useEffect(() => {
     if (historyScope !== 'personal') return;
@@ -236,14 +241,16 @@ export function useScheduler({
 
         if (cancelled) return;
 
+        const scheduleConfirmed = result.success
+          && (!pendingMessage.replacementOfId || result.confirmed === true);
         setUpcoming((current) => {
           const updated = current.map((message) => {
             if (message.operationId !== pendingMessage.operationId) return message;
-            if (!result.success) {
+            if (!scheduleConfirmed) {
               return {
                 ...message,
                 status: 'failed' as const,
-                lastError: result.error || t('schedule.pendingFailed'),
+                lastError: result.error || 'Telegram did not confirm that this replacement was saved.',
                 retryAction: 'schedule' as const,
               };
             }
@@ -255,12 +262,19 @@ export function useScheduler({
           return updated;
         });
 
-        if (!result.success) {
+        if (!scheduleConfirmed) {
           showNotification(
-            result.error || t('schedule.pendingFailed'),
+            result.error || 'Telegram did not confirm that this replacement was saved.',
             'error',
             'Scheduling failed'
           );
+        } else if (pendingMessage.replacementOfId) {
+          const originalMessage = upcoming.find((item) => item.id === pendingMessage.replacementOfId);
+          const replacementMessage = applyScheduleResult([pendingMessage], pendingMessage.operationId!, result)
+            .find((item) => item.operationId === pendingMessage.operationId);
+          if (originalMessage && replacementMessage) {
+            handleCancelMessage(originalMessage, [replacementMessage], true);
+          }
         }
       }
     }
@@ -292,6 +306,7 @@ export function useScheduler({
     replyMarkup?: InlineKeyboardMarkup;
     silent?: boolean;
     effect?: string;
+    replaceMessage?: ScheduledMessage;
   }, repeatOptions: ScheduleRepeatOptions = { mode: 'none', occurrences: 1 }) {
     if (!historyReady || scheduling || schedulingLockRef.current || typeof window.telegram?.schedule !== 'function') return;
 
@@ -301,6 +316,7 @@ export function useScheduler({
     const scheduleMessage = assistantSchedule?.message ?? message;
     const scheduleDate = assistantSchedule?.date ?? date;
     const scheduleTime = assistantSchedule?.time ?? time;
+    const replaceMessage = assistantSchedule?.replaceMessage;
 
     if (!scheduleChat) {
       showNotification(
@@ -311,7 +327,16 @@ export function useScheduler({
       return;
     }
 
-    if (!scheduleMessage.trim()) {
+    if (replaceMessage && (replaceMessage.telegramMessageId === undefined || replaceMessage.telegramMessageId === null)) {
+      showNotification(
+        t('schedule.telegramIdMissing'),
+        'error',
+        t('schedule.cannotUnschedule'),
+      );
+      return;
+    }
+
+    if (!scheduleMessage.trim() && !(assistantSchedule?.attachments ?? []).length) {
       showNotification(
         t('schedule.emptyMessage'),
         'warning',
@@ -399,10 +424,19 @@ export function useScheduler({
     const silent = assistantSchedule?.silent === true;
     const effect = assistantSchedule?.effect;
     const occurrenceDates = getScheduleOccurrences(whenDate, repeatOptions);
+    if (replaceMessage && occurrenceDates.length !== 1) {
+      showNotification(
+        t('schedule.repeatRange', { count: 1 }),
+        'warning',
+        t('schedule.invalidRepeatCount'),
+      );
+      return;
+    }
     const duplicateExists = occurrenceDates.some((occurrenceDate) => {
       const when = occurrenceDate.toISOString();
       return upcoming.some((scheduledMessage) =>
-        scheduledMessage.chatId === chatId
+        scheduledMessage.id !== replaceMessage?.id
+        && scheduledMessage.chatId === chatId
         && scheduledMessage.text === text
         && scheduledMessage.when === when
         && scheduledMessage.status !== 'sent',
@@ -419,6 +453,9 @@ export function useScheduler({
     }
 
     schedulingLockRef.current = true;
+    if (replaceMessage) activePublishIdsRef.current.add(replaceMessage.id);
+    setLastAction(null);
+    setSuccessPulse(false);
     setScheduling(true);
     const pendingMessages = occurrenceDates.map((occurrenceDate) => createPendingSchedule({
       accountId,
@@ -433,7 +470,9 @@ export function useScheduler({
       replyMarkup,
       silent,
       effect,
-    }));
+    })).map((pendingMessage) => replaceMessage
+      ? { ...pendingMessage, replacementOfId: replaceMessage.id }
+      : pendingMessage);
     const pendingUpcoming = [...pendingMessages, ...upcoming];
     setUpcoming(pendingUpcoming);
 
@@ -481,6 +520,15 @@ export function useScheduler({
         setScheduling(false);
         const confirmedSchedules = results.filter(({ result }) => result.success && result.confirmed === true);
         const failedSchedules = results.length - confirmedSchedules.length;
+        const replacementMessages = confirmedSchedules.flatMap(({ result, operationId }) => {
+          const pendingMessage = pendingMessages.find((message) => message.operationId === operationId);
+          if (!pendingMessage) return [];
+          return applyScheduleResult([pendingMessage], operationId, {
+            success: true,
+            telegramMessageId: result.telegramMessageId ?? result.id,
+            confirmed: true,
+          });
+        });
 
         setUpcoming((current) => {
           const updated = current.map((message) => {
@@ -506,6 +554,7 @@ export function useScheduler({
         });
 
         if (confirmedSchedules.length === 0) {
+          if (replaceMessage) activePublishIdsRef.current.delete(replaceMessage.id);
           if (results[0]?.result.error && refreshChatPermissions) {
             void refreshChatPermissions(chatId);
           }
@@ -515,6 +564,19 @@ export function useScheduler({
             t('schedule.errorTitle')
           );
           return;
+        }
+
+        if (replaceMessage) {
+          activePublishIdsRef.current.delete(replaceMessage.id);
+          if (confirmedSchedules.length === 1 && failedSchedules === 0 && replacementMessages.length === 1) {
+            handleCancelMessage(replaceMessage, replacementMessages, true);
+          } else {
+            showNotification(
+              t('schedule.partialCancellation'),
+              'warning',
+              t('schedule.partialCancellationTitle'),
+            );
+          }
         }
 
         setMessage('');
@@ -537,6 +599,7 @@ export function useScheduler({
       .catch(async (error) => {
         schedulingLockRef.current = false;
         setScheduling(false);
+        if (replaceMessage) activePublishIdsRef.current.delete(replaceMessage.id);
         const lastError = error instanceof Error ? error.message : t('schedule.networkScheduling');
         const pendingIds = new Set(pendingMessages.map((message) => message.operationId));
         const failedUpcoming = pendingUpcoming.map((message) => pendingIds.has(message.operationId)
@@ -552,8 +615,8 @@ export function useScheduler({
       });
   }
 
-  function handleCancelMessage(msg: ScheduledMessage) {
-    if (cancelingIdsRef.current.has(msg.id) || activePublishIdsRef.current.has(msg.id) || typeof window.telegram?.cancel !== 'function') return;
+  async function handleCancelMessage(msg: ScheduledMessage, replacementMessages: ScheduledMessage[] = [], quiet = false): Promise<boolean> {
+    if (cancelingIdsRef.current.has(msg.id) || activePublishIdsRef.current.has(msg.id) || typeof window.telegram?.cancel !== 'function') return false;
 
     if (
       msg.telegramMessageId === undefined ||
@@ -564,10 +627,19 @@ export function useScheduler({
         'error',
         t('schedule.cannotUnschedule')
       );
-      return;
+      return false;
     }
 
-    const currentMessage = upcoming.find((item) => item.id === msg.id) ?? msg;
+    const cancelContextUpcoming = [...upcomingStateRef.current];
+    for (const replacementMessage of replacementMessages) {
+      const existingIndex = cancelContextUpcoming.findIndex((item) => item.id === replacementMessage.id);
+      if (existingIndex >= 0) {
+        cancelContextUpcoming[existingIndex] = replacementMessage;
+      } else {
+        cancelContextUpcoming.unshift(replacementMessage);
+      }
+    }
+    const currentMessage = cancelContextUpcoming.find((item) => item.id === msg.id) ?? msg;
     const attempt: ScheduledMessage = {
       ...currentMessage,
       status: 'sending',
@@ -575,7 +647,7 @@ export function useScheduler({
       lastError: undefined,
       retryAction: 'cancel',
     };
-    const sendingUpcoming = upcoming.map((item) => item.id === msg.id ? attempt : item);
+    const sendingUpcoming = cancelContextUpcoming.map((item) => item.id === msg.id ? attempt : item);
     activePublishIdsRef.current.add(msg.id);
     cancelingIdsRef.current.add(msg.id);
     setCancelingIds((prev) => {
@@ -584,8 +656,10 @@ export function useScheduler({
       return next;
     });
     setUpcoming(sendingUpcoming);
+    upcomingStateRef.current = sendingUpcoming;
 
-    void (async () => {
+    let cancellationSucceeded = false;
+    await (async () => {
       try {
         if (!await persistScheduleHistoryAndWait(historyScope, 'upcoming', sendingUpcoming)) {
           throw new Error('The cancellation state could not be saved. Telegram was not contacted.');
@@ -607,17 +681,75 @@ export function useScheduler({
             lastError: undefined,
             retryAction: undefined,
           };
-          const remaining = upcoming.filter((item) => item.id !== msg.id);
-          const nextSent = [sentMessage, ...sent.filter((item) => item.id !== msg.id)];
+          const cancelledReplacementIds = new Set<string>();
+          const replacementErrors = new Map<string, string>();
+          const replacementSentMessages: ScheduledMessage[] = [];
+          for (const replacementMessage of replacementMessages) {
+            if (replacementMessage.telegramMessageId === undefined || replacementMessage.telegramMessageId === null) {
+              replacementErrors.set(replacementMessage.id, t('schedule.telegramIdMissing'));
+              continue;
+            }
+
+            try {
+              const replacementCancelResult = await window.telegram.cancel({
+                chatId: replacementMessage.chatId,
+                telegramMessageId: replacementMessage.telegramMessageId,
+                message: replacementMessage.text,
+                targetTimestamp: Math.floor(new Date(replacementMessage.when).getTime() / 1000),
+              });
+              if (!replacementCancelResult.success) {
+                throw new Error(replacementCancelResult.error || t('schedule.cancelFailed'));
+              }
+
+              if (replacementCancelResult.alreadySent) {
+                replacementSentMessages.push({
+                  ...replacementMessage,
+                  status: 'sent',
+                  sentAt: replacementCancelResult.sentAt || new Date().toISOString(),
+                  telegramMessageId: replacementCancelResult.telegramMessageId,
+                });
+              } else {
+                cancelledReplacementIds.add(replacementMessage.id);
+              }
+            } catch (error) {
+              replacementErrors.set(
+                replacementMessage.id,
+                error instanceof Error ? error.message : t('schedule.cancelFailed'),
+              );
+            }
+          }
+
+          const remaining = cancelContextUpcoming
+            .filter((item) => item.id !== msg.id && !cancelledReplacementIds.has(item.id))
+            .map((item) => {
+              const error = replacementErrors.get(item.id);
+              return error
+                ? { ...item, status: 'failed' as const, lastError: error, retryAction: 'cancel' as const }
+                : item;
+            });
+          const nextSent = [...replacementSentMessages, sentMessage, ...sentStateRef.current.filter((item) => item.id !== msg.id)];
           setUpcoming(remaining);
+          upcomingStateRef.current = remaining;
           setSent(nextSent);
-          await persistScheduleHistoryAndWait(historyScope, 'snapshot', { upcoming: remaining, sent: nextSent });
-          showNotification('Telegram had already sent this scheduled message.', 'info', t('schedule.sent'));
+          sentStateRef.current = nextSent;
+          const persisted = await persistScheduleHistoryAndWait(historyScope, 'snapshot', { upcoming: remaining, sent: nextSent });
+          const replacementWasSent = replacementSentMessages.length > 0;
+          cancellationSucceeded = persisted && replacementErrors.size === 0 && !replacementWasSent;
+          if (replacementErrors.size > 0 || replacementWasSent || !persisted) {
+            showNotification(
+              t('schedule.partialCancellation'),
+              'warning',
+              t('schedule.partialCancellationTitle'),
+            );
+          } else {
+            showNotification('Telegram had already sent this scheduled message; its replacement was cancelled.', 'info', t('schedule.sent'));
+          }
           return;
         }
 
-        const remaining = upcoming.filter((item) => item.id !== msg.id);
+        const remaining = cancelContextUpcoming.filter((item) => item.id !== msg.id);
         setUpcoming(remaining);
+        upcomingStateRef.current = remaining;
         if (!await persistScheduleHistoryAndWait(historyScope, 'upcoming', remaining)) {
           const lastError = 'Telegram cancelled this schedule, but the history update could not be saved.';
           const failedMessage: ScheduledMessage = {
@@ -627,26 +759,32 @@ export function useScheduler({
             lastError,
             retryAction: 'send',
           };
-          const failedUpcoming = upcoming.map((item) => item.id === msg.id ? failedMessage : item);
+          const failedUpcoming = cancelContextUpcoming.map((item) => item.id === msg.id ? failedMessage : item);
           setUpcoming(failedUpcoming);
+          upcomingStateRef.current = failedUpcoming;
           await persistScheduleHistoryAndWait(historyScope, 'upcoming', failedUpcoming);
           showNotification(`${lastError} Retry will send without cancelling the old schedule again.`, 'error', t('schedule.errorTitle'));
           return;
         }
 
-        showNotification(t('schedule.unscheduled'), 'info', t('schedule.unscheduledTitle'));
+        cancellationSucceeded = true;
+        if (!quiet) showNotification(t('schedule.unscheduled'), 'info', t('schedule.unscheduledTitle'));
       } catch (error) {
-        const lastError = error instanceof Error ? error.message : t('schedule.networkCancelling');
+        const cancellationError = error instanceof Error ? error.message : t('schedule.networkCancelling');
+        const lastError = replacementMessages.length > 0
+          ? `${t('schedule.partialCancellation')} ${cancellationError}`
+          : cancellationError;
         const failedMessage: ScheduledMessage = {
           ...attempt,
           status: 'failed',
           lastError,
           retryAction: 'cancel',
         };
-        const failedUpcoming = upcoming.map((item) => item.id === msg.id ? failedMessage : item);
+        const failedUpcoming = cancelContextUpcoming.map((item) => item.id === msg.id ? failedMessage : item);
         setUpcoming(failedUpcoming);
+        upcomingStateRef.current = failedUpcoming;
         await persistScheduleHistoryAndWait(historyScope, 'upcoming', failedUpcoming);
-        showNotification(lastError, 'error', t('schedule.errorTitle'));
+        if (!quiet) showNotification(lastError, replacementMessages.length > 0 ? 'warning' : 'error', replacementMessages.length > 0 ? t('schedule.partialCancellationTitle') : t('schedule.errorTitle'));
       } finally {
         activePublishIdsRef.current.delete(msg.id);
         cancelingIdsRef.current.delete(msg.id);
@@ -657,11 +795,27 @@ export function useScheduler({
         });
       }
     })();
+    return cancellationSucceeded;
+  }
+
+  async function handleCancelMessages(messages: ScheduledMessage[]): Promise<boolean> {
+    const uniqueMessages = [...new Map(messages.map((message) => [message.id, message])).values()];
+    let allCancelled = true;
+
+    for (const message of uniqueMessages) {
+      if (message.telegramMessageId === undefined || message.telegramMessageId === null) {
+        allCancelled = false;
+        continue;
+      }
+      if (!await handleCancelMessage(message, [], true)) allCancelled = false;
+    }
+
+    return allCancelled;
   }
 
   async function handleSendNow(msg: ScheduledMessage) {
     if (msg.retryAction === 'cancel') {
-      handleCancelMessage(msg);
+      await handleCancelMessage(msg);
       return;
     }
     if (msg.retryAction === 'schedule') {
@@ -833,6 +987,10 @@ export function useScheduler({
       const nextUpcoming = upcoming.map((item) => item.id === msg.id ? scheduledMessage : item);
       setUpcoming(nextUpcoming);
       await persistScheduleHistoryAndWait(historyScope, 'upcoming', nextUpcoming);
+      if (attempt.replacementOfId) {
+        const originalMessage = upcoming.find((item) => item.id === attempt.replacementOfId);
+        if (originalMessage) handleCancelMessage(originalMessage, [scheduledMessage], true);
+      }
       showNotification(t('schedule.scheduledOne'), 'success', t('schedule.scheduledTitle'));
     } catch (error) {
       const lastError = error instanceof Error ? error.message : t('schedule.networkScheduling');
@@ -872,7 +1030,7 @@ export function useScheduler({
     silent = false,
     effect?: string,
   ) {
-    if (!historyReady || publishingDraft || !text.trim() || typeof window.telegram?.send !== 'function') return false;
+    if (!historyReady || publishingDraft || (!text.trim() && attachments.length === 0) || typeof window.telegram?.send !== 'function') return false;
 
     setPublishingDraft(true);
 
@@ -924,8 +1082,8 @@ export function useScheduler({
     }
   }
 
-  function handleDeleteMessage(msg: ScheduledMessage) {
-    if (!window.confirm(t('schedule.confirmDelete'))) return;
+  function handleDeleteMessage(msg: ScheduledMessage, skipConfirmation = false) {
+    if (!skipConfirmation && !window.confirm(t('schedule.confirmDelete'))) return;
 
     if (msg.status !== 'sent') {
       setUpcoming((current) => {
@@ -953,50 +1111,6 @@ export function useScheduler({
     );
   }
 
-  function handleClearAll() {
-    if (upcoming.length === 0) return;
-
-    if (!window.confirm(t('schedule.confirmClearAll'))) return;
-
-    const cancelable = upcoming.filter(
-      (msg) =>
-        msg.telegramMessageId !== undefined &&
-        msg.telegramMessageId !== null
-    );
-
-    Promise.all(
-      cancelable.map((msg) =>
-        window.telegram
-          .cancel({
-            chatId: msg.chatId,
-            telegramMessageId: msg.telegramMessageId!,
-          })
-          .then((result) => ({ message: msg, success: result.success }))
-          .catch(() => ({ message: msg, success: false }))
-      )
-    ).then((results) => {
-      const failedIds = new Set(
-        results.filter((result) => !result.success).map((result) => result.message.id),
-      );
-      const cancelableIds = new Set(cancelable.map((msg) => msg.id));
-      setUpcoming((current) => {
-        const remaining = current.filter(
-          (msg) => !cancelableIds.has(msg.id) || failedIds.has(msg.id),
-        );
-        saveUpcoming(remaining);
-        return remaining;
-      });
-
-      showNotification(
-        failedIds.size > 0
-          ? t('schedule.partialCancellation')
-          : t('schedule.allCancelled'),
-        failedIds.size > 0 ? 'warning' : 'success',
-        failedIds.size > 0 ? t('schedule.partialCancellationTitle') : t('schedule.clearedTitle'),
-      );
-    });
-  }
-
   return {
     date,
     setDate,
@@ -1021,11 +1135,11 @@ export function useScheduler({
     openPickerRef,
     handleSchedule,
     handleCancelMessage,
+    handleCancelMessages,
     handleSendNow,
     handleRetry,
     handleSendDraftNow,
     handleDeleteMessage,
     handleClearSent,
-    handleClearAll,
   };
 }

@@ -9,13 +9,15 @@ type StudioMountProps = {
   chats: Chat[];
   scheduler: StudioSchedulerRuntime;
   onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
+  onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
   onRegisterHistoryRescheduleHandler?: (handler: ((message: StudioScheduledMessage) => void) | null) => void;
 };
 
-export function StudioMount({ connected, activeAccountId, chats, scheduler, onRegisterHistoryDraftOpener, onRegisterHistoryRescheduleHandler }: StudioMountProps) {
+export function StudioMount({ connected, activeAccountId, chats, scheduler, onRegisterHistoryDraftOpener, onRegisterHistoryDraftClearHandler, onRegisterHistoryDraftDeleteHandler, onRegisterHistoryRescheduleHandler }: StudioMountProps) {
   return (
     <LocaleProvider>
-      <StudioApp connected={connected} activeAccountId={activeAccountId} chats={chats} scheduler={scheduler} onRegisterHistoryDraftOpener={onRegisterHistoryDraftOpener} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />
+      <StudioApp connected={connected} activeAccountId={activeAccountId} chats={chats} scheduler={scheduler} onRegisterHistoryDraftOpener={onRegisterHistoryDraftOpener} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />
     </LocaleProvider>
   );
 }

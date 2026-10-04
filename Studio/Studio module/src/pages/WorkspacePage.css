@@ -130,7 +130,7 @@
   flex-direction: row;
   align-items: stretch;
   gap: 16px;
-  padding: 88px 20px 20px;
+  padding: 72px 20px 20px;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -5031,26 +5031,27 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   border: 1px solid rgba(245, 247, 250, 0.42);
   border-radius: 50%;
   cursor: pointer;
-  transition: outline-color 120ms ease, transform 120ms ease;
+  transition: transform 120ms ease, box-shadow 160ms ease;
 }
 
-.draft-color-swatch[data-color='gray'] { background: #8b929a; }
-.draft-color-swatch[data-color='coral'] { background: #e56f68; }
-.draft-color-swatch[data-color='amber'] { background: #d9a13c; }
-.draft-color-swatch[data-color='green'] { background: #55a87c; }
-.draft-color-swatch[data-color='teal'] { background: #269ca3; }
-.draft-color-swatch[data-color='blue'] { background: #548ed3; }
+.draft-color-swatch[data-color='gray'] { --draft-swatch-color: #8b929a; background: var(--draft-swatch-color); }
+.draft-color-swatch[data-color='coral'] { --draft-swatch-color: #e56f68; background: var(--draft-swatch-color); }
+.draft-color-swatch[data-color='amber'] { --draft-swatch-color: #d9a13c; background: var(--draft-swatch-color); }
+.draft-color-swatch[data-color='green'] { --draft-swatch-color: #55a87c; background: var(--draft-swatch-color); }
+.draft-color-swatch[data-color='teal'] { --draft-swatch-color: #269ca3; background: var(--draft-swatch-color); }
+.draft-color-swatch[data-color='blue'] { --draft-swatch-color: #548ed3; background: var(--draft-swatch-color); }
 
 .draft-color-picker .draft-color-swatch.is-selected {
   border: 2px solid #fff;
-  outline: 2px solid var(--signal);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 1px rgba(10, 12, 14, 0.9);
+  outline: 2px solid var(--draft-swatch-color) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 1px rgba(10, 12, 14, 0.9), 0 0 7px 1px color-mix(in srgb, var(--draft-swatch-color) 56%, transparent) !important;
 }
 
 .draft-color-picker .draft-color-swatch:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 3px;
+  outline: 2px solid var(--draft-swatch-color) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 1px rgba(10, 12, 14, 0.9), 0 0 7px 1px color-mix(in srgb, var(--draft-swatch-color) 56%, transparent) !important;
 }
 
 .draft-color-picker .draft-color-swatch:hover {
@@ -7477,7 +7478,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     flex-direction: column;
     align-items: stretch;
     gap: 28px;
-    padding: 88px 20px 24px;
+    padding: 72px 20px 24px;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;

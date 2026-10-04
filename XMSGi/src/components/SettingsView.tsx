@@ -24,6 +24,14 @@ type SettingsViewProps = {
   onSaveGeminiKey: () => void;
   onRemoveGeminiKey: () => void;
   onToggleAssistant: () => void;
+  telegramCredentials: { hasCredentials: boolean; hasSession: boolean; connected: boolean; signedOut: boolean };
+  telegramApiId: string;
+  telegramApiHash: string;
+  telegramCredentialsBusy: boolean;
+  telegramCredentialsError: string;
+  onTelegramApiIdChange: (value: string) => void;
+  onTelegramApiHashChange: (value: string) => void;
+  onSaveTelegramCredentials: () => void;
 };
 
 export function SettingsView({
@@ -40,6 +48,14 @@ export function SettingsView({
   onSaveGeminiKey,
   onRemoveGeminiKey,
   onToggleAssistant,
+  telegramCredentials,
+  telegramApiId,
+  telegramApiHash,
+  telegramCredentialsBusy,
+  telegramCredentialsError,
+  onTelegramApiIdChange,
+  onTelegramApiHashChange,
+  onSaveTelegramCredentials,
 }: SettingsViewProps) {
   const { locale, setLocale, t } = useLocale();
   const [isEditingKey, setIsEditingKey] = useState(false);
@@ -96,6 +112,45 @@ export function SettingsView({
           </section>
           <section className="settings-view-section settings-telegram-section">
             <h2>{t('settings.telegramAccount')}</h2>
+            <h3>{t('settings.telegramCredentials')}</h3>
+            <p className="settings-view-description">{t('settings.telegramCredentialsDescription')}</p>
+            <form
+              className="telegram-credentials-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onSaveTelegramCredentials();
+              }}
+            >
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={telegramApiId}
+                onChange={(event) => onTelegramApiIdChange(event.target.value)}
+                placeholder={t('settings.apiIdPlaceholder')}
+                aria-label={t('settings.apiIdPlaceholder')}
+                disabled={telegramCredentialsBusy}
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={telegramApiHash}
+                onChange={(event) => onTelegramApiHashChange(event.target.value)}
+                placeholder={t('settings.apiHashPlaceholder')}
+                aria-label={t('settings.apiHashPlaceholder')}
+                disabled={telegramCredentialsBusy}
+              />
+              <button type="submit" disabled={telegramCredentialsBusy || !telegramApiId.trim() || !telegramApiHash.trim()}>
+                {t('common.save')}
+              </button>
+            </form>
+            <div className="telegram-credentials-status" role="status" aria-live="polite">
+              <span>{t('settings.telegramCredentials')}: <strong className={telegramCredentials.hasCredentials ? 'is-ready' : 'is-missing'}>{telegramCredentials.hasCredentials ? t('settings.credentialsReady') : t('settings.credentialsMissing')}</strong></span>
+              <span>{t('settings.sessionStatus')}: <strong className={telegramCredentials.hasSession ? 'is-ready' : 'is-missing'}>{telegramCredentials.hasSession ? t('settings.credentialsReady') : t('settings.credentialsMissing')}</strong></span>
+              <span>{t('telegramStatus.connected')}: <strong className={telegramCredentials.connected ? 'is-ready' : 'is-missing'}>{telegramCredentials.connected ? t('settings.credentialsReady') : t('settings.credentialsMissing')}</strong></span>
+              {telegramCredentials.signedOut && <span className="is-signed-out">{t('settings.signedOut')}</span>}
+            </div>
+            {telegramCredentialsError && <p className="settings-view-error">{telegramCredentialsError}</p>}
             <p className="settings-view-description">
               {accountName || t('telegramStatus.account')}
             </p>

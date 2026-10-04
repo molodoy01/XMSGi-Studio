@@ -20,6 +20,14 @@ type SettingsPageProps = {
   onSaveGeminiKey: () => void;
   onRemoveGeminiKey: () => void;
   onToggleAssistant: () => void;
+  telegramCredentials: { hasCredentials: boolean; hasSession: boolean; connected: boolean; signedOut: boolean };
+  telegramApiId: string;
+  telegramApiHash: string;
+  telegramCredentialsBusy: boolean;
+  telegramCredentialsError: string;
+  onTelegramApiIdChange: (value: string) => void;
+  onTelegramApiHashChange: (value: string) => void;
+  onSaveTelegramCredentials: () => void;
 };
 
 export function SettingsPage({
@@ -36,6 +44,14 @@ export function SettingsPage({
   onSaveGeminiKey,
   onRemoveGeminiKey,
   onToggleAssistant,
+  telegramCredentials,
+  telegramApiId,
+  telegramApiHash,
+  telegramCredentialsBusy,
+  telegramCredentialsError,
+  onTelegramApiIdChange,
+  onTelegramApiHashChange,
+  onSaveTelegramCredentials,
 }: SettingsPageProps) {
   return (
     <SettingsView
@@ -52,6 +68,14 @@ export function SettingsPage({
       onSaveGeminiKey={onSaveGeminiKey}
       onRemoveGeminiKey={onRemoveGeminiKey}
       onToggleAssistant={onToggleAssistant}
+      telegramCredentials={telegramCredentials}
+      telegramApiId={telegramApiId}
+      telegramApiHash={telegramApiHash}
+      telegramCredentialsBusy={telegramCredentialsBusy}
+      telegramCredentialsError={telegramCredentialsError}
+      onTelegramApiIdChange={onTelegramApiIdChange}
+      onTelegramApiHashChange={onTelegramApiHashChange}
+      onSaveTelegramCredentials={onSaveTelegramCredentials}
     />
   );
 }

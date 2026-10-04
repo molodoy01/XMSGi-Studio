@@ -92,8 +92,8 @@ declare global {
         category?: 'flood' | 'slowmode' | 'auth' | 'permission' | 'network' | 'unknown' | null;
         error?: string;
       }>;
-      getConfig: () => Promise<{ success: boolean; config?: { hasCredentials?: boolean; hasSession?: boolean; connected?: boolean }; error?: string }>;
-      saveCredentials: (data: { API_ID: string; API_HASH: string }) => Promise<{ success: boolean; config?: { hasCredentials?: boolean; hasSession?: boolean; connected?: boolean }; error?: string }>;
+      getConfig: () => Promise<{ success: boolean; config?: { hasCredentials?: boolean; hasSession?: boolean; connected?: boolean; signedOut?: boolean }; error?: string }>;
+      saveCredentials: (data: { API_ID: string; API_HASH: string }) => Promise<{ success: boolean; config?: { hasCredentials?: boolean; hasSession?: boolean; connected?: boolean; signedOut?: boolean }; error?: string }>;
       getAuthState: () => Promise<TelegramAuthStateResult>;
       signOutKeepSession: () => Promise<TelegramAuthStateResult>;
       welcomeBack: () => Promise<TelegramAuthStateResult>;

@@ -49,12 +49,20 @@ function App() {
   const studioNotifications = useNotifications();
   const [studioMessage, setStudioMessage] = useState('');
   const studioDraftOpenerRef = useRef<((draft: SavedDraft) => void) | null>(null);
+  const studioDraftClearerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const studioDraftDeleterRef = useRef<((draftId: string) => Promise<boolean>) | null>(null);
   const studioHistoryReschedulerRef = useRef<((message: StudioScheduledMessage) => void) | null>(null);
   const registerHistoryDraftOpener = useCallback((opener: ((draft: SavedDraft) => void) | null) => {
     studioDraftOpenerRef.current = opener;
   }, []);
   const registerHistoryRescheduleHandler = useCallback((handler: ((message: StudioScheduledMessage) => void) | null) => {
     studioHistoryReschedulerRef.current = handler;
+  }, []);
+  const registerHistoryDraftClearHandler = useCallback((handler: (() => Promise<boolean>) | null) => {
+    studioDraftClearerRef.current = handler;
+  }, []);
+  const registerHistoryDraftDeleteHandler = useCallback((handler: ((draftId: string) => Promise<boolean>) | null) => {
+    studioDraftDeleterRef.current = handler;
   }, []);
 
   const chatsApiRef = useRef<{
@@ -157,6 +165,7 @@ function App() {
     openPickerRef: personalOpenPickerRef,
     handleSchedule: handlePersonalSchedule,
     handleCancelMessage: handlePersonalCancelMessage,
+    handleCancelMessages: handlePersonalCancelMessages,
     handleSendNow: handlePersonalSendNow,
     handleDeleteMessage: handlePersonalDeleteMessage,
     handleClearSent: handlePersonalClearSent,
@@ -232,12 +241,25 @@ function App() {
     else handlePersonalClearSent();
   };
 
-  const deleteHistoryRecord = (record: HistoryItem) => {
-    if (record.original.kind !== 'scheduled' || record.status !== 'sent') return;
+  const clearHistoryDrafts = async () => studioDraftClearerRef.current?.() ?? false;
+
+  const cancelHistoryQueue = async (records: HistoryItem[]) => {
+    const personalMessages = records.flatMap((record) => record.source === 'personal' && record.original.kind === 'scheduled' ? [record.original.message] : []);
+    const workspaceMessages = records.flatMap((record) => record.source === 'workspace' && record.original.kind === 'scheduled' ? [record.original.message] : []);
+    const results = await Promise.all([
+      personalMessages.length ? handlePersonalCancelMessages(personalMessages) : true,
+      workspaceMessages.length ? studioScheduler.handleCancelMessages(workspaceMessages) : true,
+    ]);
+    return results.every(Boolean);
+  };
+
+  const deleteHistoryRecord = (record: HistoryItem): void | Promise<boolean> => {
+    if (record.original.kind === 'saved-draft') return studioDraftDeleterRef.current?.(record.original.draft.id);
+    if (!['sent', 'failed'].includes(record.status) || record.original.kind !== 'scheduled') return;
     if (record.source === 'workspace') {
-      studioScheduler.handleDeleteMessage(record.original.message);
+      studioScheduler.handleDeleteMessage(record.original.message, true);
     } else {
-      handlePersonalDeleteMessage(record.original.message);
+      handlePersonalDeleteMessage(record.original.message, true);
     }
   };
 
@@ -407,6 +429,8 @@ function App() {
       onHistoryDelete={deleteHistoryRecord}
       onHistoryOpenDraft={openHistoryDraft}
       onHistoryClearSent={clearHistorySent}
+      onHistoryClearDrafts={clearHistoryDrafts}
+      onHistoryCancelQueue={cancelHistoryQueue}
     >
       <div className={`product-view ${productView === 'studio' ? 'is-active' : ''}`} aria-hidden={productView !== 'studio'}>
         <StudioMount
@@ -419,6 +443,8 @@ function App() {
             closeNotification: studioNotifications.closeNotification,
           }}
           onRegisterHistoryDraftOpener={registerHistoryDraftOpener}
+          onRegisterHistoryDraftClearHandler={registerHistoryDraftClearHandler}
+          onRegisterHistoryDraftDeleteHandler={registerHistoryDraftDeleteHandler}
           onRegisterHistoryRescheduleHandler={registerHistoryRescheduleHandler}
         />
       </div>

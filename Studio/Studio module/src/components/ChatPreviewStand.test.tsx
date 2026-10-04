@@ -9,7 +9,7 @@ import { ChatPreviewStand } from './ChatPreviewStand';
 const wallpaperStorageKey = 'awaitmsg-chat-preview-wallpaper';
 const chat: Chat = { id: 'chat-1', name: 'Telegram', username: 'telegram', type: 'channel' };
 
-function renderChatPreviewStand() {
+function renderChatPreviewStand(attachments: { name: string; path: string; previewUrl?: string }[] = []) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
@@ -27,7 +27,7 @@ function renderChatPreviewStand() {
         draftText=""
         draftEntities={[]}
         inlineButtons={[]}
-        attachments={[]}
+        attachments={attachments}
         previewTime=""
         collapsed={false}
         chatListOpen={false}
@@ -86,6 +86,24 @@ describe('ChatPreviewStand wallpaper picker', () => {
       expect(container.querySelector('.chat-preview-options-menu')).toBeNull();
     } finally {
       unmount();
+    }
+  });
+
+  it('keeps same-named file attachments distinct in the live preview', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { container, unmount } = renderChatPreviewStand([
+      { name: 'report.txt', path: '/files/one/report.txt' },
+      { name: 'report.txt', path: '/files/two/report.txt' },
+    ]);
+
+    try {
+      expect(container.querySelectorAll('.chat-preview-document')).toHaveLength(2);
+      expect(consoleError.mock.calls.flat().some((value) =>
+        typeof value === 'string' && value.includes('Encountered two children with the same key')
+      )).toBe(false);
+    } finally {
+      unmount();
+      consoleError.mockRestore();
     }
   });
 

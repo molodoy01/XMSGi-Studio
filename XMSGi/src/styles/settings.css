@@ -301,6 +301,82 @@
   opacity: 0.45;
 }
 
+.telegram-credentials-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.telegram-credentials-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid rgba(154, 168, 184, 0.35);
+  border-radius: 4px;
+  background: rgba(17, 20, 23, 0.72);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.telegram-credentials-form input:focus-visible {
+  border-color: var(--signal);
+  outline: 2px solid rgba(238, 133, 55, 0.2);
+  outline-offset: 1px;
+}
+
+.telegram-credentials-form input::placeholder {
+  color: #98a4af;
+  opacity: 1;
+}
+
+.telegram-credentials-form button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--signal);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.telegram-credentials-form button:disabled {
+  border-color: rgba(154, 168, 184, 0.35);
+  color: #a7b0b8;
+  cursor: default;
+  opacity: 0.8;
+}
+
+.telegram-credentials-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.telegram-credentials-status strong {
+  font-weight: 600;
+}
+
+.telegram-credentials-status .is-ready {
+  color: #79c88a;
+}
+
+.telegram-credentials-status .is-missing,
+.telegram-credentials-status .is-signed-out {
+  color: #d09a72;
+}
+
 .settings-api-link {
   display: inline-block;
   margin-top: 22px;
@@ -561,4 +637,6 @@
   .settings-view-section { padding-right: 4px; padding-left: 4px; }
   .settings-key-row { align-items: flex-start; flex-direction: column; gap: 14px; }
   .settings-key-actions { gap: 16px; }
+  .telegram-credentials-form { grid-template-columns: minmax(0, 1fr); }
+  .telegram-credentials-form button { justify-self: start; }
 }

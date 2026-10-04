@@ -38,6 +38,8 @@ type StudioAppProps = {
   scheduler?: StudioSchedulerRuntime;
   activeAccountId?: 'account-1' | 'account-2';
   onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
+  onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
   onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
 };
 
@@ -61,16 +63,17 @@ export type StudioSchedulerRuntime = {
     attachments?: string[];
     entities?: unknown;
     replyMarkup?: InlineKeyboardMarkup;
+    replaceMessage?: ScheduledMessage;
   }, repeat?: ScheduleRepeatOptions) => void;
   handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: unknown, replyMarkup?: InlineKeyboardMarkup) => Promise<boolean>;
   handleSendNow: (message: ScheduledMessage) => void;
   handleDeleteMessage: (message: ScheduledMessage) => void;
   handleClearSent: () => void;
-  handleClearAll: () => void;
   handleCancelMessage: (message: ScheduledMessage) => void;
+  handleCancelMessages: (messages: ScheduledMessage[]) => Promise<boolean>;
 };
 
-export default function App({ connected: xmsgiConnected, chats: xmsgiChats, scheduler, activeAccountId = 'account-1', onRegisterHistoryDraftOpener, onRegisterHistoryRescheduleHandler }: StudioAppProps = {}) {
+export default function App({ connected: xmsgiConnected, chats: xmsgiChats, scheduler, activeAccountId = 'account-1', onRegisterHistoryDraftOpener, onRegisterHistoryDraftClearHandler, onRegisterHistoryDraftDeleteHandler, onRegisterHistoryRescheduleHandler }: StudioAppProps = {}) {
   const [defaultSchedule] = useState(getDefaultScheduleDateTime);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(xmsgiChats?.[0] ?? null);
   const [localChats, setLocalChats] = useState(xmsgiChats ?? []);
@@ -92,7 +95,7 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
   const addChat = (chat: Chat) => setLocalChats((current) => current.some((item) => item.id === chat.id) ? current : [...current, chat]);
   const removeChat = (chat: Chat) => setRemoveModal({ show: true, chat });
   const confirmRemoveChat = () => { const chat = removeModal.chat; if (!chat) return; setLocalChats((current) => current.filter((item) => item.id !== chat.id)); if (selectedChat?.id === chat.id) setSelectedChat(localChats.find((item) => item.id !== chat.id) ?? null); setRemoveModal({ show: false, chat: null }); };
-  const handleSchedule = async (payload?: { chatId: string; message: string; date: string; time: string; attachments?: string[]; entities?: unknown; replyMarkup?: InlineKeyboardMarkup }, repeat?: ScheduleRepeatOptions) => {
+  const handleSchedule = async (payload?: { chatId: string; message: string; date: string; time: string; attachments?: string[]; entities?: unknown; replyMarkup?: InlineKeyboardMarkup; replaceMessage?: ScheduledMessage }, repeat?: ScheduleRepeatOptions) => {
     if (!payload || scheduling) return;
     if (!isFutureSchedule(payload.date, payload.time)) {
       showNotification('Дата и время должны быть в будущем.', 'error');
@@ -115,6 +118,8 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
       replyMarkup: payload.replyMarkup,
       repeat,
     });
+    setLastAction(null);
+    setSuccessPulse(false);
     setScheduling(true);
 
     const scheduledMessages: ScheduledMessage[] = [];
@@ -161,6 +166,14 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
         failures.length ? 'warning' : 'success',
         'Studio',
       );
+      if (
+        payload.replaceMessage
+        && failures.length === 0
+        && scheduledMessages.length === 1
+        && scheduledMessages[0].status === 'confirmed'
+      ) {
+        await handleCancelMessage(payload.replaceMessage);
+      }
     } else {
       showNotification(failures[0] || 'Telegram could not schedule the message.', 'error', 'Studio');
     }
@@ -226,11 +239,6 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
   };
   const handleDeleteMessage = (message: ScheduledMessage) => { setUpcoming((current) => current.filter((item) => item.id !== message.id)); setSent((current) => current.filter((item) => item.id !== message.id)); };
   const handleClearSent = () => setSent([]);
-  const handleClearAll = async () => {
-    for (const message of upcoming) {
-      await handleCancelMessage(message);
-    }
-  };
   const handleCancelMessage = async (message: ScheduledMessage) => {
     if (cancelingIds.has(message.id)) return;
     if (message.telegramMessageId === undefined) {
@@ -291,6 +299,6 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
     return () => window.clearTimeout(timeoutId);
   }, [successPulse]);
 
-  const props = useMemo(() => ({ connected, chats: localChats, selectedChat, setSelectedChat, onAddChat: addChat, onRemoveChat: removeChat, removeModal, setRemoveModal, confirmRemoveChat, date, time, scheduling: scheduler?.scheduling ?? scheduling, successPulse: scheduler?.successPulse ?? successPulse, lastAction: scheduler?.lastAction ?? lastAction, notification: scheduler?.notification ?? notification, closeNotification: scheduler?.closeNotification ?? closeNotification, upcoming: scheduler?.upcoming ?? upcoming, sent: scheduler?.sent ?? sent, revealingId: scheduler?.revealingId ?? revealingId, cancelingIds: scheduler?.cancelingIds ?? cancelingIds, sendingIds: scheduler?.sendingIds ?? sendingIds, setDate, setTime, handleSchedule: scheduler?.handleSchedule ?? handleSchedule, handleSendDraftNow: scheduler?.handleSendDraftNow ?? handleSendDraftNow, handleSendNow: scheduler?.handleSendNow ?? handleSendNow, handleDeleteMessage: scheduler?.handleDeleteMessage ?? handleDeleteMessage, handleClearSent: scheduler?.handleClearSent ?? handleClearSent, handleClearAll: scheduler?.handleClearAll ?? handleClearAll, publishingDraft: scheduler?.publishingDraft ?? publishingDraft, handleCancelMessage: scheduler?.handleCancelMessage ?? handleCancelMessage, onRegisterHistoryDraftOpener }), [localChats, selectedChat, removeModal, date, time, scheduling, successPulse, lastAction, notification, upcoming, sent, revealingId, cancelingIds, sendingIds, publishingDraft, scheduler, onRegisterHistoryDraftOpener]);
-  return <WorkspacePage {...props} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />;
+  const props = useMemo(() => ({ connected, chats: localChats, selectedChat, setSelectedChat, onAddChat: addChat, onRemoveChat: removeChat, removeModal, setRemoveModal, confirmRemoveChat, date, time, scheduling: scheduler?.scheduling ?? scheduling, successPulse: scheduler?.successPulse ?? successPulse, lastAction: scheduler?.lastAction ?? lastAction, notification: scheduler?.notification ?? notification, closeNotification: scheduler?.closeNotification ?? closeNotification, upcoming: scheduler?.upcoming ?? upcoming, sent: scheduler?.sent ?? sent, revealingId: scheduler?.revealingId ?? revealingId, cancelingIds: scheduler?.cancelingIds ?? cancelingIds, sendingIds: scheduler?.sendingIds ?? sendingIds, setDate, setTime, handleSchedule: scheduler?.handleSchedule ?? handleSchedule, handleSendDraftNow: scheduler?.handleSendDraftNow ?? handleSendDraftNow, handleSendNow: scheduler?.handleSendNow ?? handleSendNow, handleDeleteMessage: scheduler?.handleDeleteMessage ?? handleDeleteMessage, handleClearSent: scheduler?.handleClearSent ?? handleClearSent, publishingDraft: scheduler?.publishingDraft ?? publishingDraft, handleCancelMessage: scheduler?.handleCancelMessage ?? handleCancelMessage, onRegisterHistoryDraftOpener }), [localChats, selectedChat, removeModal, date, time, scheduling, successPulse, lastAction, notification, upcoming, sent, revealingId, cancelingIds, sendingIds, publishingDraft, scheduler, onRegisterHistoryDraftOpener]);
+  return <WorkspacePage {...props} handleCancelMessages={scheduler?.handleCancelMessages} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />;
 }

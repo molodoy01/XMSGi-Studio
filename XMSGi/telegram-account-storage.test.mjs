@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Buffer } from 'node:buffer';
+import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -16,7 +17,12 @@ function createFakeStorage(initialConfig = {}, options = {}) {
   const safeStorage = {
     isEncryptionAvailable: () => options.encryptionAvailable !== false,
     encryptString: (value) => Buffer.from(`encrypted:${value}`),
-    decryptString: (value) => value.toString().replace(/^encrypted:/, '')
+    decryptString: (value) => {
+      if (options.rejectUnknownCiphertext && !value.toString().startsWith('encrypted:')) {
+        throw new Error('Unknown encrypted value');
+      }
+      return value.toString().replace(/^encrypted:/, '');
+    }
   };
   const fs = {
     readFileSync: vi.fn((filePath) => {
@@ -45,6 +51,19 @@ function createFakeStorage(initialConfig = {}, options = {}) {
   });
 
   return { adapter, files, fs };
+}
+
+function encryptLegacyFallback(value) {
+  const key = crypto.createHash('sha256')
+    .update('xmsgi-telegram-secret-v1:C:\\temp')
+    .digest();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([
+    iv,
+    cipher.update(value),
+    cipher.final()
+  ]).toString('base64');
 }
 
 describe('telegram account storage adapter', () => {
@@ -318,6 +337,29 @@ describe('telegram account storage adapter', () => {
       API_HASH: '',
       SESSION_STRING: '',
       signedOut: false
+    });
+  });
+
+  it('migrates the previous local fallback ciphertext into safeStorage', () => {
+    const apiId = '12345';
+    const apiHash = 'a'.repeat(32);
+    const session = '1BAA' + 'A'.repeat(56);
+    const { adapter, files } = createFakeStorage({
+      API_ID_ENCRYPTED: encryptLegacyFallback(apiId),
+      API_HASH_ENCRYPTED: encryptLegacyFallback(apiHash),
+      SESSION_STRING_ENCRYPTED: encryptLegacyFallback(session),
+    }, { rejectUnknownCiphertext: true });
+
+    expect(adapter.loadAccountSecrets()).toEqual({
+      API_ID: apiId,
+      API_HASH: apiHash,
+      SESSION_STRING: session,
+      signedOut: false
+    });
+    expect(JSON.parse(files.get(getConfigPath()))).toEqual({
+      API_ID_ENCRYPTED: Buffer.from(`encrypted:${apiId}`).toString('base64'),
+      API_HASH_ENCRYPTED: Buffer.from(`encrypted:${apiHash}`).toString('base64'),
+      SESSION_STRING_ENCRYPTED: Buffer.from(`encrypted:${session}`).toString('base64'),
     });
   });
 

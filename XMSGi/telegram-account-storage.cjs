@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const defaultPath = require('path');
 const SECRET_FIELDS = {
   API_ID: 'API_ID_ENCRYPTED',
@@ -35,8 +36,45 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
     return electron.safeStorage.encryptString(String(secret ?? '')).toString('base64');
   }
 
+  function decryptLegacyFallbackSecret(secret) {
+    try {
+      const raw = Buffer.from(secret, 'base64');
+      if (raw.length < 32 || (raw.length - 16) % 16 !== 0) {
+        return '';
+      }
+
+      const userDataRoot = electron.app && typeof electron.app.getPath === 'function'
+        ? electron.app.getPath('userData')
+        : process.env.APPDATA || process.cwd();
+      const key = crypto.createHash('sha256')
+        .update(`xmsgi-telegram-secret-v1:${userDataRoot}`)
+        .digest();
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, raw.subarray(0, 16));
+      return Buffer.concat([
+        decipher.update(raw.subarray(16)),
+        decipher.final(),
+      ]).toString('utf8').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  function isValidLegacySecret(key, value) {
+    if (key === 'API_ID') {
+      return /^\d+$/.test(value) && Number(value) > 0;
+    }
+    if (key === 'API_HASH') {
+      return /^[\da-f]{32}$/i.test(value);
+    }
+    return value.length >= 40 && /^[A-Za-z0-9+/=_-]+$/.test(value);
+  }
+
   function decryptSecret(secret) {
-    if (!secret || !isSafeStorageAvailable()) {
+    if (!secret) {
+      return '';
+    }
+
+    if (!isSafeStorageAvailable()) {
       return '';
     }
 
@@ -109,6 +147,26 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
       if (plainValue !== undefined && plainValue !== null && plainValue !== '') {
         nextConfig[encryptedKey] = encryptSecret(plainValue);
         delete nextConfig[key];
+        migrated = true;
+      }
+    });
+
+    Object.entries(SECRET_FIELDS).forEach(([key, encryptedKey]) => {
+      const encryptedValue = nextConfig[encryptedKey];
+      if (!encryptedValue) {
+        return;
+      }
+
+      try {
+        electron.safeStorage.decryptString(Buffer.from(encryptedValue, 'base64'));
+        return;
+      } catch {
+        const legacyValue = decryptLegacyFallbackSecret(encryptedValue);
+        if (!legacyValue || !isValidLegacySecret(key, legacyValue)) {
+          return;
+        }
+
+        nextConfig[encryptedKey] = encryptSecret(legacyValue);
         migrated = true;
       }
     });

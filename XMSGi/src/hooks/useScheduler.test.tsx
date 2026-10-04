@@ -270,6 +270,317 @@ describe('useScheduler native history', () => {
     expect(events.indexOf('persist')).toBeLessThan(events.indexOf('schedule-retry'));
   });
 
+  it('allows attachment-only messages to be sent immediately', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const send = vi.fn().mockResolvedValue({ success: true, id: 'telegram-send-1' });
+    const { result } = renderWorkspaceHistory([], [], { send }, vi.fn(), 'workspace', chat);
+
+    await waitFor(() => expect(result.current.upcoming).toEqual([]));
+    await act(async () => {
+      const sent = await result.current.handleSendDraftNow(chat, '', ['C:/demo/demo.pdf']);
+      expect(sent).toBe(true);
+    });
+
+
+    expect(send).toHaveBeenCalledWith(
+      chat.id,
+      '',
+      ['C:/demo/demo.pdf'],
+      [],
+      undefined,
+      false,
+      undefined,
+      'account-1',
+    );
+  });
+
+  it('cancels the original schedule only after the replacement is confirmed', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const original: ScheduledMessage = {
+      id: 'original-schedule',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Original text',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-14T18:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-original',
+    };
+    const events: string[] = [];
+    const schedule = vi.fn(async () => {
+      events.push('schedule');
+      return { success: true, confirmed: true, telegramMessageId: 'telegram-replacement' };
+    });
+    const cancel = vi.fn(async () => {
+      events.push('cancel');
+      return { success: true };
+    });
+    const { result, loadScheduleHistory } = renderWorkspaceHistory(
+      [original],
+      [],
+      { schedule, cancel },
+      vi.fn(),
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: 'Replacement text',
+        date: '2035-01-15',
+        time: '19:00',
+        replaceMessage: original,
+      });
+    });
+
+    await waitFor(() => expect(result.current.upcoming).toHaveLength(1));
+    expect(events).toEqual(['schedule', 'cancel']);
+    expect(result.current.upcoming[0]).toMatchObject({
+      text: 'Replacement text',
+      telegramMessageId: 'telegram-replacement',
+      status: 'scheduled',
+    });
+  });
+
+  it('keeps the original schedule when Telegram does not confirm the replacement', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const original: ScheduledMessage = {
+      id: 'original-schedule-unconfirmed',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Original text',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-14T18:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-original-unconfirmed',
+    };
+    const schedule = vi.fn().mockResolvedValue({ success: false, error: 'Schedule request failed.' });
+    const cancel = vi.fn().mockResolvedValue({ success: true });
+    const { result, loadScheduleHistory } = renderWorkspaceHistory(
+      [original],
+      [],
+      { schedule, cancel },
+      vi.fn(),
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: 'Replacement text',
+        date: '2035-01-15',
+        time: '19:00',
+        replaceMessage: original,
+      });
+    });
+
+    await waitFor(() => expect(result.current.upcoming).toHaveLength(2));
+    expect(cancel).not.toHaveBeenCalled();
+    expect(result.current.upcoming).toContainEqual(expect.objectContaining({
+      id: original.id,
+      status: 'scheduled',
+      telegramMessageId: original.telegramMessageId,
+    }));
+  });
+
+  it('keeps both schedules and marks the original retryable when replacement cancellation fails', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const original: ScheduledMessage = {
+      id: 'original-schedule-failed-cancel',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Original text',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-14T18:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-original-failed-cancel',
+    };
+    const schedule = vi.fn().mockResolvedValue({
+      success: true,
+      confirmed: true,
+      telegramMessageId: 'telegram-replacement-failed-cancel',
+    });
+    const cancel = vi.fn().mockResolvedValue({ success: false, error: 'Telegram cancellation failed.' });
+    const showNotification = vi.fn();
+    const { result, loadScheduleHistory } = renderWorkspaceHistory(
+      [original],
+      [],
+      { schedule, cancel },
+      showNotification,
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: 'Replacement text',
+        date: '2035-01-15',
+        time: '19:00',
+        replaceMessage: original,
+      });
+    });
+
+    await waitFor(() => expect(result.current.upcoming).toHaveLength(2));
+    expect(result.current.upcoming).toContainEqual(expect.objectContaining({
+      id: original.id,
+      status: 'failed',
+      retryAction: 'cancel',
+    }));
+    expect(result.current.upcoming).toContainEqual(expect.objectContaining({
+      text: 'Replacement text',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-replacement-failed-cancel',
+    }));
+    expect(showNotification).toHaveBeenCalledWith(expect.any(String), 'warning', expect.any(String));
+  });
+
+  it('cancels the replacement when Telegram reports the original was already sent', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const original: ScheduledMessage = {
+      id: 'original-already-sent',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Original text',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-14T18:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-original-already-sent',
+    };
+    const schedule = vi.fn().mockResolvedValue({
+      success: true,
+      confirmed: true,
+      telegramMessageId: 'telegram-replacement-race',
+    });
+    const cancel = vi.fn()
+      .mockResolvedValueOnce({
+        success: true,
+        alreadySent: true,
+        telegramMessageId: 'telegram-original-delivered',
+        sentAt: '2035-01-15T18:00:30.000Z',
+      })
+      .mockResolvedValueOnce({ success: true });
+    const { result, loadScheduleHistory } = renderWorkspaceHistory(
+      [original],
+      [],
+      { schedule, cancel },
+      vi.fn(),
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: 'Replacement text',
+        date: '2035-01-15',
+        time: '19:00',
+        replaceMessage: original,
+      });
+    });
+
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(2));
+    expect(cancel).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      chatId: chat.id,
+      telegramMessageId: 'telegram-replacement-race',
+    }));
+    expect(result.current.upcoming).toEqual([]);
+    expect(result.current.sent[0]).toMatchObject({
+      id: original.id,
+      status: 'sent',
+      telegramMessageId: 'telegram-original-delivered',
+    });
+  });
+
+  it('cancels the linked original when a failed replacement is retried successfully', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const original: ScheduledMessage = {
+      id: 'retry-original-schedule',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Original text',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-14T18:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-retry-original',
+    };
+    const replacement: ScheduledMessage = {
+      id: 'retry-replacement-schedule',
+      operationId: 'retry-replacement-operation',
+      replacementOfId: original.id,
+      chatId: chat.id,
+      chatName: chat.name,
+      text: 'Replacement text',
+      when: '2035-01-15T19:00:00.000Z',
+      createdAt: '2035-01-14T18:30:00.000Z',
+      status: 'failed',
+      retryAction: 'schedule',
+    };
+    const events: string[] = [];
+    const schedule = vi.fn(async () => {
+      events.push('schedule');
+      return { success: true, confirmed: true, telegramMessageId: 'telegram-retried-replacement' };
+    });
+    const cancel = vi.fn(async () => {
+      events.push('cancel');
+      return { success: true };
+    });
+    const { result, loadScheduleHistory } = renderWorkspaceHistory(
+      [original, replacement],
+      [],
+      { schedule, cancel },
+      vi.fn(),
+      'workspace',
+      chat,
+    );
+
+    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
+    await act(async () => {
+      await result.current.handleRetry(replacement);
+    });
+
+    expect(events).toEqual(['schedule', 'cancel']);
+    expect(result.current.upcoming).toHaveLength(1);
+    expect(result.current.upcoming[0]).toMatchObject({
+      id: replacement.id,
+      status: 'scheduled',
+      telegramMessageId: 'telegram-retried-replacement',
+    });
+  });
+
+  it('allows attachment-only messages to be scheduled without text', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    const date = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    const time = `${String(future.getHours()).padStart(2, '0')}:${String(future.getMinutes()).padStart(2, '0')}`;
+    const schedule = vi.fn().mockResolvedValue({ success: true, confirmed: true, telegramMessageId: 'telegram-scheduled-1' });
+    const { result } = renderWorkspaceHistory([], [], { schedule }, vi.fn(), 'workspace', chat);
+
+    await waitFor(() => expect(result.current.scheduling).toBe(false));
+    await act(async () => {
+      result.current.handleSchedule({
+        chatId: chat.id,
+        message: '',
+        date,
+        time,
+        attachments: ['C:/demo/demo.pdf'],
+      });
+    });
+
+    await waitFor(() => expect(schedule).toHaveBeenCalledTimes(1));
+    expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: chat.id,
+      message: '',
+      attachments: ['C:/demo/demo.pdf'],
+    }));
+  });
+
   it.each([
     { length: 4097, attachments: [], limit: 4096 },
     { length: 1025, attachments: ['attachment.txt'], limit: 1024 },
@@ -334,86 +645,6 @@ describe('useScheduler native history', () => {
       scope: historyScope,
       field: 'sent',
       messages: [],
-    }));
-  });
-
-  it.each(['personal', 'workspace'] as const)('clears All through the existing %s scheduler scope after Telegram confirms cancellation', async (historyScope) => {
-    const chat = { id: 'chat-1', name: 'Test chat' };
-    const message: ScheduledMessage = {
-      id: `scheduled-${historyScope}`,
-      chatId: chat.id,
-      chatName: chat.name,
-      text: 'Cancel before clearing',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-15T17:00:00.000Z',
-      status: 'scheduled',
-      telegramMessageId: `telegram-${historyScope}`,
-    };
-    const cancel = vi.fn().mockResolvedValue({ success: true });
-    const { result, loadScheduleHistory, saveScheduleHistory } = renderWorkspaceHistory(
-      [message],
-      [],
-      { cancel },
-      vi.fn(),
-      historyScope,
-      chat,
-    );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
-    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith(historyScope));
-    act(() => result.current.handleClearAll());
-
-    await waitFor(() => expect(result.current.upcoming).toEqual([]));
-    expect(cancel).toHaveBeenCalledWith({ chatId: message.chatId, telegramMessageId: message.telegramMessageId });
-    await waitFor(() => expect(saveScheduleHistory).toHaveBeenCalledWith({
-      scope: historyScope,
-      field: 'upcoming',
-      messages: [],
-    }));
-  });
-
-  it.each(['personal', 'workspace'] as const)('retains failed Telegram cancellations in the %s queue during Clear All', async (historyScope) => {
-    const chat = { id: 'chat-1', name: 'Test chat' };
-    const succeeded: ScheduledMessage = {
-      id: `cancelled-${historyScope}`,
-      chatId: chat.id,
-      chatName: chat.name,
-      text: 'Cancellation succeeds',
-      when: '2035-01-15T18:00:00.000Z',
-      createdAt: '2035-01-15T17:00:00.000Z',
-      status: 'scheduled',
-      telegramMessageId: `telegram-ok-${historyScope}`,
-    };
-    const failed: ScheduledMessage = {
-      ...succeeded,
-      id: `retained-${historyScope}`,
-      text: 'Cancellation fails',
-      telegramMessageId: `telegram-fail-${historyScope}`,
-    };
-    const cancel = vi.fn(({ telegramMessageId }: { telegramMessageId?: string | number }) => Promise.resolve({
-      success: telegramMessageId === succeeded.telegramMessageId,
-      ...(telegramMessageId === failed.telegramMessageId ? { error: 'Telegram cancellation failed.' } : {}),
-    }));
-    const showNotification = vi.fn();
-    const { result, loadScheduleHistory, saveScheduleHistory } = renderWorkspaceHistory(
-      [succeeded, failed],
-      [],
-      { cancel },
-      showNotification,
-      historyScope,
-      chat,
-    );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
-    await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith(historyScope));
-    act(() => result.current.handleClearAll());
-
-    await waitFor(() => expect(result.current.upcoming).toEqual([failed]));
-    expect(showNotification).toHaveBeenCalledWith(expect.any(String), 'warning', expect.any(String));
-    await waitFor(() => expect(saveScheduleHistory).toHaveBeenCalledWith({
-      scope: historyScope,
-      field: 'upcoming',
-      messages: [failed],
     }));
   });
 
@@ -686,6 +917,38 @@ describe('useScheduler native history', () => {
     await waitFor(() => expect(saveScheduleHistory).toHaveBeenCalledWith({ scope: 'workspace', field: 'upcoming', messages: [] }));
   });
 
+  it('cancels multiple scheduled records sequentially and uses the updated queue state', async () => {
+    const firstMessage: ScheduledMessage = {
+      id: 'cancel-batch-first',
+      chatId: 'chat-1',
+      chatName: 'Test chat',
+      text: 'First scheduled message',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-15T17:00:00.000Z',
+      status: 'scheduled',
+      telegramMessageId: 'telegram-cancel-first',
+    };
+    const secondMessage: ScheduledMessage = {
+      ...firstMessage,
+      id: 'cancel-batch-second',
+      text: 'Second scheduled message',
+      telegramMessageId: 'telegram-cancel-second',
+    };
+    const cancel = vi.fn().mockResolvedValue({ success: true });
+    const { result } = renderWorkspaceHistory([firstMessage, secondMessage], [], { cancel });
+
+    await waitFor(() => expect(result.current.upcoming).toHaveLength(2));
+    let cancelled = false;
+    await act(async () => {
+      cancelled = await result.current.handleCancelMessages([firstMessage, secondMessage]);
+    });
+
+    expect(cancelled).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(cancel.mock.invocationCallOrder[1]);
+    expect(result.current.upcoming).toHaveLength(0);
+  });
+
   it('deletes a sent record through the existing local history handler', async () => {
     const message: ScheduledMessage = {
       id: 'delete-sent',
@@ -705,5 +968,28 @@ describe('useScheduler native history', () => {
 
     await waitFor(() => expect(result.current.sent).toHaveLength(0));
     expect(saveScheduleHistory).toHaveBeenCalledWith({ scope: 'workspace', field: 'sent', messages: [] });
+  });
+
+  it('deletes a failed record without a second confirmation after the history dialog', async () => {
+    const message: ScheduledMessage = {
+      id: 'delete-failed-history',
+      chatId: 'chat-1',
+      chatName: 'Test chat',
+      text: 'Failed schedule',
+      when: '2035-01-15T18:00:00.000Z',
+      createdAt: '2035-01-15T17:00:00.000Z',
+      status: 'failed',
+      lastError: 'Telegram did not confirm that the reminder was saved.',
+      retryAction: 'schedule',
+    };
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { result, saveScheduleHistory } = renderWorkspaceHistory([message], [], {});
+
+    await waitFor(() => expect(result.current.upcoming).toEqual([message]));
+    act(() => result.current.handleDeleteMessage(message, true));
+
+    await waitFor(() => expect(result.current.upcoming).toHaveLength(0));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(saveScheduleHistory).toHaveBeenCalledWith({ scope: 'workspace', field: 'upcoming', messages: [] });
   });
 });

@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
-import { readWorkspaceDraftStoreFallback, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
+import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -38,6 +38,7 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
     removeModal: { show: false, chat: null },
     setRemoveModal: vi.fn(),
     confirmRemoveChat: vi.fn(),
+    upcoming: [],
     date: '2026-01-10',
     time: '09:00',
     scheduling: false,
@@ -107,6 +108,99 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(document.querySelector('.workspace-page-publish-menu-toggle')).not.toBeNull();
     unmount();
+  });
+
+  it('clears saved drafts through the history handler and preserves the workspace draft', async () => {
+    const savedDraft = {
+      id: 'history-clear-draft',
+      name: 'Saved draft',
+      body: 'Saved content',
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+    };
+    const workspaceDraft = {
+      body: 'Unsaved editor content',
+      savedAt: '12:00',
+      attachments: [],
+    };
+    inMemoryDraftStore = {
+      schemaVersion: 2,
+      migrationVersion: 1,
+      savedDrafts: [savedDraft],
+      workspaceDraft,
+    };
+    let clearHistoryDrafts: (() => Promise<boolean>) | null = null;
+    const { unmount } = await renderWorkspacePage({
+      onRegisterHistoryDraftClearHandler: (handler) => { clearHistoryDrafts = handler; },
+    });
+
+    let cleared = false;
+    await act(async () => {
+      cleared = await clearHistoryDrafts?.() ?? false;
+    });
+
+    expect(cleared).toBe(true);
+    expect(inMemoryDraftStore.savedDrafts).toEqual([]);
+    expect(inMemoryDraftStore.workspaceDraft).toMatchObject({ body: 'Unsaved editor content' });
+    unmount();
+  });
+
+  it('deletes one saved draft through the history handler and keeps the others', async () => {
+    const drafts = [
+      { id: 'delete-one', name: 'Delete one', body: 'Selected draft', createdAt: '2026-09-28T10:00:00.000Z', updatedAt: '2026-09-29T18:35:00.000Z' },
+      { id: 'keep-one', name: 'Keep one', body: 'Other draft', createdAt: '2026-09-28T10:00:00.000Z', updatedAt: '2026-09-29T18:36:00.000Z' },
+    ];
+    inMemoryDraftStore = {
+      schemaVersion: 2,
+      migrationVersion: 1,
+      savedDrafts: drafts,
+      workspaceDraft: { body: 'Unsaved editor content', savedAt: '12:00', attachments: [] },
+    };
+    let deleteHistoryDraft: ((draftId: string) => Promise<boolean>) | null = null;
+    const { unmount } = await renderWorkspacePage({
+      onRegisterHistoryDraftDeleteHandler: (handler) => { deleteHistoryDraft = handler; },
+    });
+
+    let deleted = false;
+    await act(async () => {
+      deleted = await deleteHistoryDraft?.('delete-one') ?? false;
+    });
+
+    expect(deleted).toBe(true);
+    expect(inMemoryDraftStore.savedDrafts.map((draft: { id: string }) => draft.id)).toEqual(['keep-one']);
+    expect(inMemoryDraftStore.workspaceDraft).toMatchObject({ body: 'Unsaved editor content' });
+    unmount();
+  });
+
+  it('keeps the browser runtime quiet when draft storage is unavailable', async () => {
+    const originalDraftStorage = Object.getOwnPropertyDescriptor(window, 'draftStorage');
+    Reflect.deleteProperty(window, 'draftStorage');
+    localStorage.removeItem('xmsgi-draft-store-fallback');
+    localStorage.removeItem('awaitmsg-draft-store-fallback');
+
+    try {
+      const { unmount } = await renderWorkspacePage();
+      expect(document.body.textContent).not.toContain('Saved drafts are unavailable in this runtime.');
+      unmount();
+    } finally {
+      if (originalDraftStorage) {
+        Object.defineProperty(window, 'draftStorage', originalDraftStorage);
+      } else {
+        Reflect.deleteProperty(window, 'draftStorage');
+      }
+    }
+  });
+
+  it('treats attachment-only drafts as valid content', () => {
+    expect(hasDraftContent('', [{ name: 'demo.png', path: 'C:/demo/demo.png' }])).toBe(true);
+    expect(hasDraftContent('', [{ name: 'demo.png', path: '', previewUrl: 'data:image/png;base64,AAA' }])).toBe(true);
+    expect(hasDraftContent('', [])).toBe(false);
+  });
+
+  it('keeps browser fallback attachments that only have previewUrl data', () => {
+    expect(normalizeAttachments([{ name: 'demo.png', previewUrl: 'data:image/png;base64,AAA' }])).toEqual([
+      { name: 'demo.png', path: 'data:image/png;base64,AAA', size: undefined, previewUrl: 'data:image/png;base64,AAA' },
+    ]);
   });
 
   it('opens the compact schedule shell by default for the active preview state', async () => {
@@ -217,18 +311,108 @@ describe('WorkspacePage main-screen flows', () => {
       date: expectedDate,
       time: expectedTime,
     });
+    const editor = document.querySelector<HTMLDivElement>('.workspace-page-rich-text-input.is-active')!;
+    Object.defineProperties(editor, {
+      scrollHeight: { configurable: true, value: 900 },
+      clientHeight: { configurable: true, value: 200 },
+    });
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
 
     expect(setSelectedChat).toHaveBeenCalledWith(chatA);
     expect(setDate).toHaveBeenCalledWith(expectedDate);
     expect(setTime).toHaveBeenCalledWith(expectedTime);
     expect(handleCancelMessage).not.toHaveBeenCalled();
-    expect(document.querySelector('.workspace-page-rich-text-input.is-active')?.textContent).toContain(message.text);
+    expect(editor.textContent).toContain(message.text);
+    expect(document.activeElement).toBe(editor);
+    expect(editor.scrollTop).toBe(700);
+    expect(editor.dataset.selectionStart).toBe(String(message.text.length));
+    expect(editor.dataset.selectionEnd).toBe(String(message.text.length));
     expect(document.querySelector<HTMLInputElement>('[aria-label="Day"]')?.value).toBe(String(scheduledAt.getDate()));
     expect(document.querySelector<HTMLInputElement>('[aria-label="Month"]')?.value).toBe(String(scheduledAt.getMonth() + 1).padStart(2, '0'));
     expect(document.querySelector<HTMLInputElement>('[aria-label="Year"]')?.value).toBe(String(scheduledAt.getFullYear()));
     expect(document.querySelector<HTMLInputElement>('[aria-label="Schedule time"]')?.value).toBe(expectedTime);
 
     unmount();
+  });
+
+  it('preserves all scheduled post data when draft hydration finishes after rescheduling starts', async () => {
+    let finishDraftLoad!: (result: Awaited<ReturnType<typeof window.draftStorage.load>>) => void;
+    inMemoryDraftStore = {
+      schemaVersion: 2,
+      migrationVersion: 1,
+      savedDrafts: [],
+      workspaceDraft: {
+        body: 'An older workspace draft',
+        entities: [],
+        attachments: [{ name: 'old.pdf', path: 'C:\\files\\old.pdf' }],
+        savedAt: '10:00',
+        selectedChat: chatA,
+        date: '2026-01-10',
+        time: '09:00',
+        repeatMode: 'none',
+        repeatDays: [],
+        repeatOccurrences: 5,
+      },
+    };
+    vi.mocked(window.draftStorage.load).mockImplementationOnce(() => new Promise((resolve) => {
+      finishDraftLoad = resolve;
+    }));
+
+    const registerRescheduler = vi.fn();
+    const setDate = vi.fn();
+    const setTime = vi.fn();
+    const scheduledAt = new Date('2035-01-15T18:30:00.000Z');
+    const message: ScheduledMessage = {
+      id: 'studio-reschedule-before-hydration',
+      chatId: chatA.id,
+      chatName: chatA.name,
+      text: 'Keep this exact scheduled text',
+      when: scheduledAt.toISOString(),
+      createdAt: '2035-01-15T17:00:00.000Z',
+      status: 'confirmed',
+      attachments: ['C:\\files\\brief.pdf', 'C:\\files\\photo.png'],
+      entities: [{ type: 'bold', offset: 10, length: 5 }],
+      replyMarkup: { inline_keyboard: [[{ text: 'Original button', url: 'https://example.com' }]] },
+    };
+    const { rerender, unmount } = await renderWorkspacePage({
+      onRegisterHistoryRescheduleHandler: registerRescheduler,
+      upcoming: [message],
+      setDate,
+      setTime,
+    });
+
+    try {
+      await act(async () => {
+        registerRescheduler.mock.calls[0][0](message);
+      });
+      const expectedDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
+      const expectedTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
+      rerender({ date: expectedDate, time: expectedTime });
+      await act(async () => {
+        finishDraftLoad({
+          success: true,
+          store: JSON.parse(JSON.stringify(inMemoryDraftStore)),
+        });
+      });
+
+      const editor = document.querySelector('.workspace-page-rich-text-input.is-active');
+      expect(editor?.textContent).toContain(message.text);
+      expect(editor?.textContent).not.toContain('An older workspace draft');
+      expect(document.body.textContent).toContain('brief.pdf');
+      expect(document.body.textContent).toContain('photo.png');
+      expect(document.querySelector<HTMLInputElement>('[aria-label="Schedule time"]')?.value)
+        .toBe(expectedTime);
+      expect(setDate).toHaveBeenCalledWith(expectedDate);
+      expect(setDate).not.toHaveBeenCalledWith('2026-01-10');
+      expect(setTime).toHaveBeenCalledWith(expectedTime);
+      expect(setTime).not.toHaveBeenCalledWith('09:00');
+      expect(document.querySelector('.workspace-page-rich-text-input.is-active strong')?.textContent).toBe('exact');
+      expect(document.body.textContent).toContain('Original button');
+    } finally {
+      unmount();
+    }
   });
 
   it('allows selecting publish modes before the message is ready without executing them', async () => {
@@ -298,6 +482,61 @@ describe('WorkspacePage main-screen flows', () => {
     expect(handleSchedule).not.toHaveBeenCalled();
     expect(handleSendDraftNow).not.toHaveBeenCalled();
     expect(inMemoryDraftStore.savedDrafts).toHaveLength(0);
+    unmount();
+  });
+
+  it('closes the schedule stage after a successful schedule result', async () => {
+    const handleSchedule = vi.fn();
+    const { rerender, unmount } = await renderWorkspacePage({
+      date: '2035-01-15',
+      time: '18:30',
+      handleSchedule,
+    });
+    const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
+    await act(async () => menuToggle.click());
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => scheduleOption.click());
+    const timeButton = Array.from(document.querySelectorAll('.workspace-page-schedule-compact-button'))
+      .find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement;
+    await act(async () => timeButton.click());
+
+    const scheduleStage = '.workspace-page-rich-text-schedule-stage.is-active';
+    expect(document.querySelector(scheduleStage)).not.toBeNull();
+    const doneButton = document.querySelector<HTMLButtonElement>('.workspace-page-schedule-footer .workspace-page-stage-primary')!;
+    await act(async () => doneButton.click());
+
+    expect(handleSchedule).toHaveBeenCalledOnce();
+    rerender({ scheduling: true });
+    expect(document.querySelector(scheduleStage)).not.toBeNull();
+    rerender({ scheduling: false, lastAction: 'scheduled' });
+    expect(document.querySelector(scheduleStage)).toBeNull();
+    unmount();
+  });
+
+  it('keeps the schedule stage open when scheduling fails', async () => {
+    const handleSchedule = vi.fn();
+    const { rerender, unmount } = await renderWorkspacePage({
+      date: '2035-01-15',
+      time: '18:30',
+      handleSchedule,
+    });
+    const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
+    await act(async () => menuToggle.click());
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => scheduleOption.click());
+    const timeButton = Array.from(document.querySelectorAll('.workspace-page-schedule-compact-button'))
+      .find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement;
+    await act(async () => timeButton.click());
+
+    const scheduleStage = '.workspace-page-rich-text-schedule-stage.is-active';
+    const doneButton = document.querySelector<HTMLButtonElement>('.workspace-page-schedule-footer .workspace-page-stage-primary')!;
+    await act(async () => doneButton.click());
+    rerender({ scheduling: true });
+    rerender({ scheduling: false, lastAction: null });
+
+    expect(document.querySelector(scheduleStage)).not.toBeNull();
     unmount();
   });
 

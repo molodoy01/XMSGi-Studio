@@ -716,15 +716,15 @@ export function ChatPreviewStand({
                 >
                   {imageAttachments.length > 0 && (
                     <div className={`chat-preview-attachment-grid ${imageAttachments.length > 1 ? 'is-album' : ''}`}>
-                      {imageAttachments.map((attachment) => (
-                        <img key={attachment.name} src={attachment.previewUrl || toFileUrl(attachment.path)} alt={attachment.name} />
+                      {imageAttachments.map((attachment, index) => (
+                        <img key={`${attachment.path}:${index}`} src={attachment.previewUrl || toFileUrl(attachment.path)} alt={attachment.name} />
                       ))}
                     </div>
                   )}
                   {documentAttachments.length > 0 && (
                     <div className="chat-preview-document-list">
-                      {documentAttachments.map((attachment) => (
-                        <div className="chat-preview-document" key={attachment.name}>
+                        {documentAttachments.map((attachment, index) => (
+                          <div className="chat-preview-document" key={`${attachment.path}:${index}`}>
                           <span className="chat-preview-file-icon">FILE</span>
                           <span>{attachment.name}</span>
                         </div>

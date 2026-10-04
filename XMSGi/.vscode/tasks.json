@@ -52,6 +52,34 @@
 			"problemMatcher": [
 				"$tsc"
 			]
+		},
+		{
+			"label": "Test HistoryDrawer",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"vitest",
+				"run",
+				"src/workspace/HistoryDrawer.test.tsx",
+				"--reporter=basic"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test HistoryDrawer 2",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"vitest",
+				"run",
+				"src/workspace/HistoryDrawer.test.tsx",
+				"--reporter=basic"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

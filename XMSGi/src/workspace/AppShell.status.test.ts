@@ -43,7 +43,6 @@ describe('shared History Drawer entry point', () => {
       onHistoryDelete: vi.fn(),
       onHistoryOpenDraft: vi.fn(),
       onHistoryClearSent: vi.fn(),
-      onHistoryClearAll: vi.fn(),
     }, createElement('div', null, 'Current screen'))));
 
     fireEvent.click(screen.getByRole('button', { name: 'История' }));

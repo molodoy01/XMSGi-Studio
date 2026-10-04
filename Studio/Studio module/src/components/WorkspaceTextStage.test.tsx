@@ -247,18 +247,32 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
-  it('shows a media label after the character count for saved drafts with attachments', () => {
-    const draftWithPhoto = {
+  it('shows the attachment count after the character count only when needed', () => {
+    const draftWithOneAttachment = {
       ...savedDraftA,
+      id: 'draft-one-attachment',
+      name: 'One attachment',
       attachments: [{ name: 'photo.png', path: '/tmp/photo.png', size: 1234 }],
     };
+    const draftWithTwoAttachments = {
+      ...savedDraftA,
+      id: 'draft-2',
+      name: 'Two attachments',
+      attachments: [
+        { name: 'photo.png', path: '/tmp/photo.png', size: 1234 },
+        { name: 'brief.pdf', path: '/tmp/brief.pdf', size: 4567 },
+      ],
+    };
 
-    const { unmount } = renderStage({ mode: 'draft', savedDrafts: [draftWithPhoto] });
+    const { unmount } = renderStage({ mode: 'draft', savedDrafts: [savedDraftA, draftWithOneAttachment, draftWithTwoAttachments] });
 
     const draftView = document.querySelector('.workspace-page-rich-text-draft-stage.is-active');
-    const savedDraftButton = Array.from(draftView?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes('Follow-up'));
+    const getDraftButton = (name: string) => Array.from(draftView?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes(name));
 
-    expect(savedDraftButton?.textContent).toContain('1 photo');
+    expect(getDraftButton('Follow-up')?.textContent).toContain('19 characters');
+    expect(getDraftButton('Follow-up')?.textContent).not.toContain('attachment');
+    expect(getDraftButton('One attachment')?.textContent).toContain('19 characters · 1 attachment');
+    expect(getDraftButton('Two attachments')?.textContent).toContain('19 characters · 2 attachments');
     unmount();
   });
 
@@ -344,6 +358,29 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(document.querySelector('[aria-label="Month"]')).toBeTruthy();
     expect(document.querySelector('[aria-label="Year"]')).toBeTruthy();
     expect(document.querySelector('.workspace-page-schedule-timezone')).toBeTruthy();
+    unmount();
+  });
+
+  it('allows entering both digits of the month before committing the date', () => {
+    const setDate = vi.fn();
+    const { unmount } = renderStage({ mode: 'schedule', date: '2027-01-05', setDate });
+    const monthInput = document.querySelector('[aria-label="Month"]') as HTMLInputElement;
+    const setNativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+
+    act(() => {
+      setNativeValue?.call(monthInput, '1');
+      monthInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(setDate).not.toHaveBeenCalled();
+    expect(monthInput.value).toBe('1');
+
+    act(() => {
+      setNativeValue?.call(monthInput, '10');
+      monthInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(setDate).toHaveBeenCalledWith('2027-10-05');
     unmount();
   });
 

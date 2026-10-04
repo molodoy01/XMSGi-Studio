@@ -41,26 +41,8 @@ function getLocalTimezoneLabel() {
 
 function getDraftAttachmentSummary(draft: SavedDraft): string {
   const attachments = draft.attachments ?? [];
-  if (attachments.length === 0) {
-    return '';
-  }
-
-  const photoCount = attachments.filter((attachment) => /\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name)).length;
-  const fileCount = attachments.length - photoCount;
-
-  if (attachments.length === 1) {
-    return photoCount === 1 ? '1 photo' : '1 file';
-  }
-
-  if (photoCount === attachments.length) {
-    return `${attachments.length} photos`;
-  }
-
-  if (fileCount === attachments.length) {
-    return `${attachments.length} files`;
-  }
-
-  return `${attachments.length} media`;
+  if (attachments.length === 0) return '';
+  return attachments.length === 1 ? '1 attachment' : `${attachments.length} attachments`;
 }
 
 interface Props {
@@ -410,7 +392,8 @@ export function WorkspaceTextStage({
     const nextSegments = { ...currentDateSegments, [segment]: digits };
     setScheduleDateDraft(nextSegments);
 
-    if (isValidDateSegments(nextSegments)) {
+    const segmentIsComplete = digits.length === (segment === 'year' ? 4 : 2);
+    if (segmentIsComplete && isValidDateSegments(nextSegments)) {
       setDate(`${nextSegments.year}-${String(Number(nextSegments.month)).padStart(2, '0')}-${String(Number(nextSegments.day)).padStart(2, '0')}`);
       setScheduleDateDraft(null);
     }

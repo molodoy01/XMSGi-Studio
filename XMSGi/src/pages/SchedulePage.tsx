@@ -250,6 +250,7 @@ export function SchedulePage(props: SchedulePageProps) {
   }, [selectedChat?.id]);
 
   useEffect(() => {
+    if (successPulse) setTimePickerOpen(false);
     if (successPulse && !message.trim()) {
       resetMessageOptionsRef.current = true;
     }

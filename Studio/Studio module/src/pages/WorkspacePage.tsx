@@ -40,6 +40,7 @@ type WorkspacePageProps = {
   removeModal: { show: boolean; chat: Chat | null };
   setRemoveModal: React.Dispatch<React.SetStateAction<{ show: boolean; chat: Chat | null }>>;
   confirmRemoveChat: () => void;
+  upcoming: ScheduledMessage[];
   date: string;
   time: string;
   scheduling: boolean;
@@ -57,11 +58,15 @@ type WorkspacePageProps = {
     attachments?: string[];
     entities?: RichTextEntity[];
     replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>;
+    replaceMessage?: ScheduledMessage;
   }, repeat?: ScheduleRepeatOptions) => void;
   handleCancelMessage: (message: ScheduledMessage) => void;
+  handleCancelMessages?: (messages: ScheduledMessage[]) => Promise<boolean>;
   handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: RichTextEntity[], replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>) => Promise<boolean>;
   publishingDraft: boolean;
   onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
+  onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
   onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
 };
 
@@ -307,6 +312,10 @@ type WorkspaceAttachment = {
   previewUrl?: string;
 };
 
+export function hasDraftContent(body: string, attachments: WorkspaceAttachment[] = []): boolean {
+  return body.trim().length > 0 || attachments.some((attachment) => Boolean(attachment.path || attachment.previewUrl || attachment.name));
+}
+
 const WORKSPACE_DRAFT_KEY = 'xmsgi-workspace-draft';
 const LEGACY_WORKSPACE_DRAFT_KEY = 'awaitmsg-workspace-draft';
 const PREVIEW_LAYOUT_KEY = 'xmsgi-preview-layout';
@@ -400,6 +409,11 @@ export function readWorkspaceDraftStoreFallback(): PersistedDraftStore | null {
   }
 }
 
+function isBrowserRuntimeFallback(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.protocol === 'http:' || window.location.protocol === 'https:';
+}
+
 export function writeWorkspaceDraftStoreFallback(store: PersistedDraftStore): void {
   try {
     const serialized = JSON.stringify(store);
@@ -430,24 +444,27 @@ function getDraftStorageApi() {
   return storage && typeof storage.load === 'function' ? storage : null;
 }
 
-function normalizeAttachments(value: unknown): WorkspaceAttachment[] {
+export function normalizeAttachments(value: unknown): WorkspaceAttachment[] {
   if (!Array.isArray(value)) return [];
 
   return value.flatMap((attachment) => {
     if (typeof attachment === 'string') {
-      return [{ name: attachment, path: '' }];
+      return [{ name: attachment, path: attachment }];
     }
 
     if (
       attachment &&
       typeof attachment === 'object' &&
-      typeof attachment.name === 'string' &&
-      typeof attachment.path === 'string'
+      typeof attachment.name === 'string'
     ) {
+      const path = typeof attachment.path === 'string' ? attachment.path : typeof attachment.previewUrl === 'string' ? attachment.previewUrl : '';
+      if (!path) return [];
+
       return [{
         name: attachment.name,
-        path: attachment.path,
+        path,
         size: typeof attachment.size === 'number' && attachment.size >= 0 ? attachment.size : undefined,
+        previewUrl: typeof attachment.previewUrl === 'string' ? attachment.previewUrl : undefined,
       }];
     }
 
@@ -474,6 +491,21 @@ function isImageAttachment(attachment: WorkspaceAttachment) {
   return /\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name);
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error(`The selected file could not be converted to a data URL: ${file.name}`));
+    };
+    reader.onerror = () => reject(new Error(`The selected file could not be read: ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
 function toFileUrl(filePath: string) {
   if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
 
@@ -496,6 +528,7 @@ export function WorkspacePage({
   removeModal,
   setRemoveModal,
   confirmRemoveChat,
+  upcoming,
   date,
   time,
   scheduling,
@@ -510,12 +543,17 @@ export function WorkspacePage({
   handleSendDraftNow,
   publishingDraft,
   onRegisterHistoryDraftOpener,
+  onRegisterHistoryDraftClearHandler,
+  onRegisterHistoryDraftDeleteHandler,
   onRegisterHistoryRescheduleHandler,
 }: WorkspacePageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentPreviewUrlsRef = useRef(new Set<string>());
   const bodyInputRef = useRef<HTMLDivElement | null>(null);
+  const focusRescheduledEditorAtEndRef = useRef(false);
   const historyDraftOpenerRef = useRef<(draft: SavedDraft) => void>(() => undefined);
+  const historyDraftClearerRef = useRef<() => Promise<boolean>>(async () => false);
+  const historyDraftDeleterRef = useRef<(draftId: string) => Promise<boolean>>(async () => false);
   const historyRescheduleHandlerRef = useRef<(message: ScheduledMessage) => void>(() => undefined);
   const previewFeedRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
@@ -618,6 +656,10 @@ export function WorkspacePage({
   const publishFeedbackTimerRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
   const [publishAction, setPublishAction] = useState<PublishAction>('send');
+  const [rescheduleSource, setRescheduleSource] = useState<ScheduledMessage | null>(null);
+  const rescheduleSourceRef = useRef<ScheduledMessage | null>(null);
+  const scheduleSubmissionPendingRef = useRef(false);
+  const scheduleSubmissionStartedRef = useRef(false);
   const publishMenuRef = useRef<HTMLDivElement | null>(null);
   const publishMenuToggleRef = useRef<HTMLButtonElement | null>(null);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>(() => {
@@ -629,6 +671,55 @@ export function WorkspacePage({
   });
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
+
+  useLayoutEffect(() => {
+    if (stageMode !== 'editor' || !focusRescheduledEditorAtEndRef.current) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const editor = bodyInputRef.current;
+      if (!editor) return;
+
+      editor.focus({ preventScroll: true });
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      const caretPosition = draftBody.length;
+      editor.dataset.selectionStart = String(caretPosition);
+      editor.dataset.selectionEnd = String(caretPosition);
+      editor.scrollTop = Math.max(0, editor.scrollHeight - editor.clientHeight);
+      focusRescheduledEditorAtEndRef.current = false;
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [draftBody, draftEntities, stageMode]);
+
+  useEffect(() => {
+    if (!scheduleSubmissionPendingRef.current) return;
+    if (stageMode !== 'schedule') {
+      scheduleSubmissionPendingRef.current = false;
+      scheduleSubmissionStartedRef.current = false;
+      return;
+    }
+    if (scheduling) {
+      scheduleSubmissionStartedRef.current = true;
+      return;
+    }
+    if (!scheduleSubmissionStartedRef.current) return;
+
+    const scheduledSuccessfully = lastAction === 'scheduled';
+    scheduleSubmissionPendingRef.current = false;
+    scheduleSubmissionStartedRef.current = false;
+    if (!scheduledSuccessfully) return;
+
+    setScheduleFocus(null);
+    setStageMode('editor');
+  }, [lastAction, scheduling, stageMode]);
 
   useTimedStatus(attachmentError, setAttachmentError, FOOTER_STATUS_DURATION_MS.attachmentError);
   useTimedStatus(textFileError, setTextFileError, FOOTER_STATUS_DURATION_MS.textFileError);
@@ -675,7 +766,7 @@ export function WorkspacePage({
     }, kind === 'warning' ? FOOTER_STATUS_DURATION_MS.publishWarning : FOOTER_STATUS_DURATION_MS.publishSuccess);
   };
 
-  const createWorkspaceDraftSnapshot = (): WorkspaceDraft | null => draftBody.trim() ? {
+  const createWorkspaceDraftSnapshot = (): WorkspaceDraft | null => hasDraftContent(draftBody, attachments) ? {
     body: draftBody,
     entities: draftEntities,
     attachments: attachments
@@ -743,22 +834,24 @@ export function WorkspacePage({
     savedDraftsRef.current = store.savedDrafts;
     const workspaceDraft = store.workspaceDraft as Partial<WorkspaceDraft> | null;
     initialDraftRef.current = workspaceDraft ?? {};
-    if (workspaceDraft) {
-      setDraftBody(workspaceDraft.body ?? '');
-      setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
-      setAttachments(normalizeAttachments(workspaceDraft.attachments));
-      setInlineButtons(workspaceDraft.inlineButtons ?? []);
-      setSavedAt(workspaceDraft.savedAt || 'Not saved');
-      if (workspaceDraft.date) setDate(workspaceDraft.date);
-      if (workspaceDraft.time) setTime(workspaceDraft.time);
-      if (workspaceDraft.repeatMode) setRepeatMode(workspaceDraft.repeatMode);
-      setRepeatDays(workspaceDraft.repeatDays ?? []);
-      if (workspaceDraft.repeatOccurrences) setRepeatOccurrences(workspaceDraft.repeatOccurrences);
-    } else {
-      setDraftBody('');
-      setDraftEntities([]);
-      setAttachments([]);
-      setInlineButtons([]);
+    if (!rescheduleSourceRef.current) {
+      if (workspaceDraft) {
+        setDraftBody(workspaceDraft.body ?? '');
+        setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
+        setAttachments(normalizeAttachments(workspaceDraft.attachments));
+        setInlineButtons(workspaceDraft.inlineButtons ?? []);
+        setSavedAt(workspaceDraft.savedAt || 'Not saved');
+        if (workspaceDraft.date) setDate(workspaceDraft.date);
+        if (workspaceDraft.time) setTime(workspaceDraft.time);
+        if (workspaceDraft.repeatMode) setRepeatMode(workspaceDraft.repeatMode);
+        setRepeatDays(workspaceDraft.repeatDays ?? []);
+        if (workspaceDraft.repeatOccurrences) setRepeatOccurrences(workspaceDraft.repeatOccurrences);
+      } else {
+        setDraftBody('');
+        setDraftEntities([]);
+        setAttachments([]);
+        setInlineButtons([]);
+      }
     }
     setDraftStoreBackups([]);
     setDraftStoreError('');
@@ -879,6 +972,19 @@ export function WorkspacePage({
           applyPersistedDraftStore(fallbackStore);
           return;
         }
+
+        if (isBrowserRuntimeFallback()) {
+          const emptyStore: PersistedDraftStore = {
+            schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
+            migrationVersion: 1,
+            savedDrafts: [],
+            workspaceDraft: null,
+          };
+          writeWorkspaceDraftStoreFallback(emptyStore);
+          applyPersistedDraftStore(emptyStore);
+          return;
+        }
+
         setDraftStoreError('Saved drafts are unavailable in this runtime.');
         return;
       }
@@ -928,7 +1034,7 @@ export function WorkspacePage({
   useEffect(() => {
     if (!draftStoreReady || scheduleDraftHydratedRef.current) return;
     const savedDraft = initialDraftRef.current;
-    if (savedDraft?.selectedChat && chats.some((chat) => chat.id === savedDraft.selectedChat?.id)) {
+    if (!rescheduleSourceRef.current && savedDraft?.selectedChat && chats.some((chat) => chat.id === savedDraft.selectedChat?.id)) {
       setSelectedChat(savedDraft.selectedChat);
     }
     scheduleDraftHydratedRef.current = true;
@@ -1056,27 +1162,16 @@ export function WorkspacePage({
       ? draftBodyText
       : draftBody;
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (previewHistoryLoading || previewCollapsed) return;
 
-    const scrollPreviewToBottom = () => {
+    const frameId = window.requestAnimationFrame(() => {
       if (previewFeedRef.current) {
         previewFeedRef.current.scrollTop = previewFeedRef.current.scrollHeight;
       }
-    };
-
-    scrollPreviewToBottom();
-    const firstFrame = window.requestAnimationFrame(() => {
-      scrollPreviewToBottom();
-    });
-    const secondFrame = window.requestAnimationFrame(() => {
-      scrollPreviewToBottom();
     });
 
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
-    };
+    return () => window.cancelAnimationFrame(frameId);
   }, [
     previewHistory?.chat.id,
     previewHistory?.messages.length,
@@ -1113,7 +1208,7 @@ export function WorkspacePage({
     return `${summaryDate} · ${summaryTime}`;
   })();
 
-  const hasDraftContent = Boolean(draftBody.trim());
+  const hasDraftContentState = hasDraftContent(draftBody, attachments);
   const hasSelectedTarget = Boolean(selectedChat);
   const hasValidScheduleDate = Boolean(date && !Number.isNaN(new Date(`${date}T12:00:00`).getTime()));
   const hasValidScheduleTime = Boolean(time && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time));
@@ -1122,19 +1217,19 @@ export function WorkspacePage({
     || ((repeatMode === 'weekly' || repeatMode === 'biweekly') ? repeatDays.length > 0 : true)
     && repeatOccurrences > 0
     && repeatOccurrences <= MAX_SCHEDULE_OCCURRENCES;
-  const canSendNow = hasSelectedTarget && hasDraftContent && !attachmentError && !publishingDraft && !sendInFlight && !scheduling;
-  const canSaveDraft = hasDraftContent && !publishingDraft;
-  const canSchedule = hasSelectedTarget && hasDraftContent && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && hasFutureSchedule;
+  const canSendNow = hasSelectedTarget && hasDraftContentState && !attachmentError && !publishingDraft && !sendInFlight && !scheduling;
+  const canSaveDraft = hasDraftContentState && !publishingDraft;
+  const canSchedule = hasSelectedTarget && hasDraftContentState && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && hasFutureSchedule;
 
   let publishActionBlocker = '';
   if (publishAction === 'draft') {
-    if (!hasDraftContent) {
+    if (!hasDraftContentState) {
       publishActionBlocker = 'Введите текст сообщения';
     } else if (!draftStoreReady) {
       publishActionBlocker = draftStoreError || 'Подождите загрузки хранилища черновиков';
     }
   } else if (publishAction === 'schedule') {
-    if (!hasDraftContent) {
+    if (!hasDraftContentState) {
       publishActionBlocker = 'Введите текст сообщения';
     } else if (!hasSelectedTarget) {
       publishActionBlocker = 'Выберите чат';
@@ -1147,7 +1242,7 @@ export function WorkspacePage({
     } else if (!hasFutureSchedule) {
       publishActionBlocker = 'Укажите дату и время в будущем';
     }
-  } else if (!hasDraftContent) {
+  } else if (!hasDraftContentState) {
     publishActionBlocker = 'Введите текст сообщения';
   } else if (!hasSelectedTarget) {
     publishActionBlocker = 'Выберите чат';
@@ -1159,13 +1254,15 @@ export function WorkspacePage({
     days: repeatDays,
     occurrences: repeatOccurrences,
   });
-  const currentModeSummary = publishAction === 'schedule'
-    ? (date && time ? publishScheduleSummary : 'Choose date and time')
-    : publishAction === 'draft'
-      ? `Draft • ${savedAt}`
-      : selectedChat
-        ? `Send now • ${selectedChat.name}`
-        : 'Send now • Choose a chat';
+  const currentModeSummary = rescheduleSource
+    ? `Replace scheduled post • ${rescheduleSource.chatName}`
+    : publishAction === 'schedule'
+      ? (date && time ? publishScheduleSummary : 'Choose date and time')
+      : publishAction === 'draft'
+        ? `Draft • ${savedAt}`
+        : selectedChat
+          ? `Send now • ${selectedChat.name}`
+          : 'Send now • Choose a chat';
   const publishFooterStatus = sendError
     ? { message: sendError, kind: 'error', transient: false, dismissible: false, duration: FOOTER_STATUS_DURATION_MS.sendError }
     : sendInFlight || publishingDraft
@@ -1217,7 +1314,7 @@ export function WorkspacePage({
       const sent = await handleSendDraftNow(
         chat,
         text,
-        attachments.map((attachment) => attachment.path).filter(Boolean),
+        attachments.map((attachment) => attachment.path || attachment.previewUrl || attachment.name).filter(Boolean),
         draftEntities,
         replyMarkup,
       );
@@ -1263,14 +1360,17 @@ export function WorkspacePage({
   const scheduleDraft = () => {
     if (!selectedChat || !canSchedule) return;
 
+    scheduleSubmissionPendingRef.current = true;
+    scheduleSubmissionStartedRef.current = false;
     handleSchedule({
       chatId: selectedChat.id,
       message: draftBody,
       date,
       time,
-      attachments: attachments.map((attachment) => attachment.path).filter(Boolean),
+      attachments: attachments.map((attachment) => attachment.path || attachment.previewUrl || attachment.name).filter(Boolean),
       entities: draftEntities,
       replyMarkup: toInlineKeyboardMarkup(inlineButtons),
+      ...(rescheduleSource ? { replaceMessage: rescheduleSource } : {}),
     }, {
       mode: repeatMode,
       days: repeatDays,
@@ -1279,7 +1379,7 @@ export function WorkspacePage({
   };
 
   const saveCurrentDraft = async () => {
-    if (!hasDraftContent) return;
+    if (!hasDraftContentState) return;
 
     const nextDraft = createWorkspaceDraftSnapshot();
     if (!nextDraft) return;
@@ -1301,6 +1401,10 @@ export function WorkspacePage({
 
   const choosePublishAction = (action: PublishAction) => {
     setPublishAction(action);
+    if (action !== 'schedule') {
+      rescheduleSourceRef.current = null;
+      setRescheduleSource(null);
+    }
     setPublishMenuOpen(false);
     setPublishFeedback('');
     if (action !== 'schedule' && stageMode === 'schedule') {
@@ -1311,7 +1415,7 @@ export function WorkspacePage({
 
   const handlePrimaryPublish = () => {
     if (publishAction === 'schedule') {
-      if (!hasDraftContent) {
+      if (!hasDraftContentState) {
         showPublishFeedback('Введите текст сообщения');
         return;
       }
@@ -1323,7 +1427,7 @@ export function WorkspacePage({
         if (stageMode !== 'schedule') {
           openScheduleStage();
         }
-        if (hasDraftContent && hasSelectedTarget && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && !hasFutureSchedule) {
+        if (hasDraftContentState && hasSelectedTarget && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && !hasFutureSchedule) {
           showPublishFeedback('Укажите дату и время в будущем');
         }
         return;
@@ -1452,12 +1556,23 @@ export function WorkspacePage({
     const nextDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
     const nextTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
     setSelectedChat(chat);
+    rescheduleSourceRef.current = message;
+    setRescheduleSource(message);
+    focusRescheduledEditorAtEndRef.current = true;
+    setPublishAction('schedule');
     setDraftBody(message.text);
     setDraftEntities(message.entities ?? []);
     setAttachments((message.attachments ?? []).map((path) => ({
       name: path.split(/[\\/]/).pop() || path,
       path,
     })));
+    setInlineButtons((message.replyMarkup?.inline_keyboard ?? []).map((row) => row.map((button) => ({
+      id: crypto.randomUUID(),
+      label: button.text,
+      action: button.url !== undefined
+        ? { type: 'url' as const, value: button.url }
+        : { type: 'callback' as const, value: button.callback_data ?? '' },
+    }))));
     setDate(nextDate);
     setTime(nextTime);
     setRepeatMode('none');
@@ -1472,10 +1587,31 @@ export function WorkspacePage({
   historyRescheduleHandlerRef.current = rescheduleMessage;
 
   useEffect(() => {
+    if (!rescheduleSource) return;
+    const original = upcoming.find((message) => message.id === rescheduleSource.id);
+    if (!original || original.status === 'failed') {
+      rescheduleSourceRef.current = null;
+      setRescheduleSource(null);
+    }
+  }, [rescheduleSource, upcoming]);
+
+  useEffect(() => {
     if (!onRegisterHistoryDraftOpener) return;
     onRegisterHistoryDraftOpener((draft) => historyDraftOpenerRef.current(draft));
     return () => onRegisterHistoryDraftOpener(null);
   }, [onRegisterHistoryDraftOpener]);
+
+  useEffect(() => {
+    if (!onRegisterHistoryDraftClearHandler) return;
+    onRegisterHistoryDraftClearHandler(() => historyDraftClearerRef.current());
+    return () => onRegisterHistoryDraftClearHandler(null);
+  }, [onRegisterHistoryDraftClearHandler]);
+
+  useEffect(() => {
+    if (!onRegisterHistoryDraftDeleteHandler) return;
+    onRegisterHistoryDraftDeleteHandler((draftId) => historyDraftDeleterRef.current(draftId));
+    return () => onRegisterHistoryDraftDeleteHandler(null);
+  }, [onRegisterHistoryDraftDeleteHandler]);
 
   useEffect(() => {
     if (!onRegisterHistoryRescheduleHandler) return;
@@ -1501,6 +1637,41 @@ export function WorkspacePage({
       setSavedDrafts(nextSavedDrafts);
     });
     if (deleted) showPublishFeedback('Черновик удалён', 'success');
+  };
+
+  historyDraftClearerRef.current = async () => {
+    if (draftAutosaveTimeoutRef.current) {
+      window.clearTimeout(draftAutosaveTimeoutRef.current);
+      draftAutosaveTimeoutRef.current = null;
+    }
+    const nextSavedDrafts: SavedDraft[] = [];
+    return persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
+      savedDraftsRef.current = nextSavedDrafts;
+      setSavedDrafts(nextSavedDrafts);
+      showPublishFeedback('Черновики удалены', 'success');
+    });
+  };
+
+  historyDraftDeleterRef.current = async (draftId) => {
+    const currentSavedDrafts = savedDraftsRef.current;
+    const nextSavedDrafts = deleteSavedDraft(currentSavedDrafts, draftId);
+    if (nextSavedDrafts.length === currentSavedDrafts.length) return false;
+
+    const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
+      savedDraftsRef.current = nextSavedDrafts;
+      setSavedDrafts(nextSavedDrafts);
+    });
+    if (!deleted) return false;
+
+    if (draftEditingId === draftId) {
+      setDraftEditingId(null);
+      setDraftEditorColor('gray');
+      setDraftName('');
+      setDraftBodyText('');
+      setDraftBodyEntities([]);
+    }
+    showPublishFeedback('Черновик удалён', 'success');
+    return true;
   };
 
   const saveDraftStage = async () => {
@@ -1715,9 +1886,8 @@ export function WorkspacePage({
       try {
         const draftStorage = getDraftStorageApi();
         if (!draftStorage) {
-          const previewUrl = URL.createObjectURL(file);
-          attachmentPreviewUrlsRef.current.add(previewUrl);
-          return { name: file.name, path: '', size: file.size, previewUrl };
+          const dataUrl = await readFileAsDataUrl(file);
+          return { name: file.name, path: dataUrl, size: file.size, previewUrl: dataUrl };
         }
 
         const result = await draftStorage.copyAttachment(file);
@@ -1917,6 +2087,7 @@ export function WorkspacePage({
                             entities,
                             attachments: attachments.map((attachment) => attachment.path).filter(Boolean),
                             replyMarkup: toInlineKeyboardMarkup(inlineButtons),
+                            ...(rescheduleSource ? { replaceMessage: rescheduleSource } : {}),
                           }, repeat);
                           setStageMode('editor');
                         }}

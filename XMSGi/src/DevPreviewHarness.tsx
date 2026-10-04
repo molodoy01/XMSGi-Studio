@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
 import type { StudioSchedulerRuntime } from '$studio';
+import type { ScheduledMessage as StudioScheduledMessage } from '../../Studio/Studio module/src/types';
 import { AppShell, StudioMount } from './workspace';
 import { normalizeSavedDraft, normalizeScheduledMessages } from './workspace/historyModel';
+import type { HistoryItem } from './workspace/historyModel';
 import { DRAFT_STORE_SCHEMA_VERSION } from '../../Studio/Studio module/src/lib/draftStoreVersion';
 
 const demoChats: Chat[] = [
@@ -17,7 +19,8 @@ const demoHistoryMessages: ScheduledMessage[] = [
     chatId: 'dev-channel',
     chatName: 'XMSGi Updates',
     text: 'Короткий анонс: подготовили обновление редактора и новые шаблоны публикаций.',
-    attachments: ['C:\\demo\\release-notes.pdf'],
+    attachments: [new URL('../screenshots/03.png', import.meta.url).href],
+    replyMarkup: { inline_keyboard: [[{ text: 'Подробнее', url: 'https://example.com' }]] },
     when: '2026-10-04T09:30:00.000Z',
     createdAt: '2026-10-03T12:00:00.000Z',
     status: 'confirmed',
@@ -109,7 +112,7 @@ try {
   // Keep the dev preview usable if browser storage is unavailable.
 }
 const demoScheduler: StudioSchedulerRuntime = {
-  upcoming: [],
+  upcoming: demoHistoryMessages,
   sent: [],
   scheduling: false,
   successPulse: false,
@@ -125,13 +128,18 @@ const demoScheduler: StudioSchedulerRuntime = {
   handleSendNow: noOperation,
   handleDeleteMessage: noOperation,
   handleClearSent: noOperation,
-  handleClearAll: async () => {},
   handleCancelMessage: async () => {},
 };
 
 export default function DevPreviewHarness() {
   const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
   const [, setShowAuthForm] = useState(false);
+  const historyReschedulerRef = useRef<((message: StudioScheduledMessage) => void) | null>(null);
+  const handleHistoryReschedule = (record: HistoryItem) => {
+    if (record.original.kind === 'scheduled') {
+      historyReschedulerRef.current?.({ ...record.original.message, status: 'scheduled' });
+    }
+  };
 
   return (
     <AppShell
@@ -147,12 +155,11 @@ export default function DevPreviewHarness() {
       onOpenSettings={noOperation}
       historyRecords={showHistoryPreview ? demoHistoryRecords : []}
       onHistoryCancel={noOperation}
-      onHistoryReschedule={noOperation}
+      onHistoryReschedule={handleHistoryReschedule}
       onHistorySendNow={noOperation}
       onHistoryDelete={noOperation}
       onHistoryOpenDraft={noOperation}
       onHistoryClearSent={noOperation}
-      onHistoryClearAll={noOperation}
     >
       <div className="product-view is-active">
         <StudioMount
@@ -160,6 +167,7 @@ export default function DevPreviewHarness() {
           activeAccountId="account-1"
           chats={demoChats}
           scheduler={demoScheduler}
+          onRegisterHistoryRescheduleHandler={(handler) => { historyReschedulerRef.current = handler; }}
         />
       </div>
     </AppShell>

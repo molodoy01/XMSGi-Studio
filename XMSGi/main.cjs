@@ -781,7 +781,8 @@ ipcMain.handle('telegram-config', async (event) => {
       config: {
         hasCredentials: Boolean(config.hasCredentials),
         hasSession: Boolean(config.hasSession),
-        connected: Boolean(config.connected)
+        connected: Boolean(config.connected),
+        signedOut: Boolean(config.signedOut)
       }
     };
   } catch (error) {
@@ -811,7 +812,8 @@ ipcMain.handle('telegram-save-credentials', async (event, data = {}) => {
       config: {
         hasCredentials: Boolean(result.config?.hasCredentials),
         hasSession: Boolean(result.config?.hasSession),
-        connected: Boolean(result.config?.connected)
+        connected: Boolean(result.config?.connected),
+        signedOut: Boolean(result.config?.signedOut)
       }
     };
   } catch (error) {

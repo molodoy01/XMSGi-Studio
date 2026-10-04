@@ -15,7 +15,7 @@ function renderComposer(initialMessage = '') {
     }),
   });
 
-  function Harness() {
+  function Harness({ isSuccessPulse = false }: { isSuccessPulse?: boolean }) {
     const [message, setMessage] = useState(initialMessage);
     const props: ComponentProps<typeof SchedulePage> = {
       message,
@@ -73,7 +73,7 @@ function renderComposer(initialMessage = '') {
       date: '2035-01-15',
       time: '12:30',
       scheduling: false,
-      successPulse: false,
+      successPulse: isSuccessPulse,
       dateEditedRef: { current: false },
       timeEditedRef: { current: false },
       openPickerRef: { current: null },
@@ -90,7 +90,12 @@ function renderComposer(initialMessage = '') {
   const editor = result.container.querySelector<HTMLTextAreaElement>('.message-field textarea');
   if (!editor) throw new Error('Production message textarea was not rendered.');
 
-  return { ...result, editor, handleSchedule };
+  return {
+    ...result,
+    editor,
+    handleSchedule,
+    showSuccess: () => result.rerender(<LocaleProvider><Harness isSuccessPulse /></LocaleProvider>),
+  };
 }
 
 describe('SchedulePage production composer', () => {
@@ -159,6 +164,17 @@ describe('SchedulePage production composer', () => {
     const effectsMenu = screen.getByRole('menu', { name: 'Available Telegram effects' });
     expect(effectsMenu.parentElement).toBe(document.body);
     expect(await screen.findByText('🎉')).toBeInTheDocument();
+  });
+
+  it('closes the time picker after a successful send or schedule', () => {
+    const { container, showSuccess } = renderComposer();
+    fireEvent.click(container.querySelector('.moment-time-icon')!);
+
+    expect(screen.getByRole('listbox', { name: 'Choose time' })).toBeInTheDocument();
+
+    showSuccess();
+
+    expect(screen.queryByRole('listbox', { name: 'Choose time' })).not.toBeInTheDocument();
   });
 
   it('inserts an emoji into the selection and blocks scheduling while the picker is open', () => {
