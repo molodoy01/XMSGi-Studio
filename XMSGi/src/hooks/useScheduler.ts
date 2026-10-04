@@ -118,6 +118,8 @@ export function useScheduler({
   const [revealingId, setRevealingId] = useState<string | null>(null);
   const [cancelingIds, setCancelingIds] = useState<Set<string>>(new Set());
   const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
+  const timeoutIdsRef = useRef<Set<number>>(new Set());
+  const mountedRef = useRef(true);
   const activePublishIdsRef = useRef(new Set<string>());
   const cancelingIdsRef = useRef(new Set<string>());
   const [publishingDraft, setPublishingDraft] = useState(false);
@@ -127,8 +129,27 @@ export function useScheduler({
   const saveUpcoming = useCallback((messages: ScheduledMessage[]) => saveUpcomingToStorage(messages, historyScope), [historyScope]);
   const saveSent = useCallback((messages: ScheduledMessage[]) => saveSentToStorage(messages, historyScope), [historyScope]);
 
+  const scheduleTimeout = (callback: () => void, milliseconds: number) => {
+    if (!mountedRef.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      timeoutIdsRef.current.delete(timeoutId);
+      if (mountedRef.current) callback();
+    }, milliseconds);
+    timeoutIdsRef.current.add(timeoutId);
+  };
+
   useEffect(() => { upcomingStateRef.current = upcoming; }, [upcoming]);
   useEffect(() => { sentStateRef.current = sent; }, [sent]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      timeoutIdsRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (historyScope !== 'personal') return;
@@ -687,7 +708,7 @@ export function useScheduler({
         );
         setLastAction('scheduled');
         setSuccessPulse(true);
-        window.setTimeout(() => setSuccessPulse(false), 1500);
+        scheduleTimeout(() => setSuccessPulse(false), 1500);
       })
       .catch(async (error) => {
         schedulingLockRef.current = false;
@@ -1012,7 +1033,7 @@ export function useScheduler({
         persisted ? t('schedule.sent') : t('schedule.errorTitle'),
       );
       setRevealingId(msg.id);
-      window.setTimeout(() => setRevealingId(null), 1500);
+      scheduleTimeout(() => setRevealingId(null), 1500);
     } catch (error) {
       const lastError = error instanceof Error ? error.message : t('schedule.networkSending');
       const failedMessage: ScheduledMessage = {
@@ -1160,8 +1181,8 @@ export function useScheduler({
       setSuccessPulse(true);
       setLastAction('sent');
       showNotification(t('schedule.messageSent'), 'success', t('schedule.sent'));
-      window.setTimeout(() => setSuccessPulse(false), 1500);
-      window.setTimeout(() => setLastAction(null), 1500);
+      scheduleTimeout(() => setSuccessPulse(false), 1500);
+      scheduleTimeout(() => setLastAction(null), 1500);
       return true;
     } catch (error) {
       if (refreshChatPermissions) void refreshChatPermissions(chat.id);

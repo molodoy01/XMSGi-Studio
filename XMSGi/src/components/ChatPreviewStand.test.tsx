@@ -105,6 +105,6 @@ describe('ChatPreviewStand DOM behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Web preview' }));
     expect(preview).toHaveClass('is-web');
     expect(screen.queryByRole('button', { name: 'Switch to Web preview' })).not.toBeInTheDocument();
-    expect(onToggleChatList).toHaveBeenCalledTimes(1);
+    expect(onToggleChatList).not.toHaveBeenCalled();
   });
 });

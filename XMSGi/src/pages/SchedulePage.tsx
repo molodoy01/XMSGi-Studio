@@ -1245,8 +1245,6 @@ export function SchedulePage(props: SchedulePageProps) {
                         ref={timeMenuRef}
                         className="start-screen-time-menu"
                         style={timeMenuPosition}
-                        role="listbox"
-                        aria-label={t('composer.chooseTime')}
                       >
                         <label className="start-screen-time-manual">
                           <span>{t('composer.manualTime')}</span>

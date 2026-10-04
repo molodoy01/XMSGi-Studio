@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 vi.mock('electron', () => ({
   app: { getPath: () => 'C:\\temp' },
@@ -158,6 +161,9 @@ describe('Telegram operation log privacy', () => {
         { text: 'Callback label', callback_data: 'PRIVATE_CALLBACK_DATA' },
       ]],
     };
+    const attachmentDirectory = mkdtempSync(join(tmpdir(), 'xmsgi-telegram-log-'));
+    const attachmentPath = join(attachmentDirectory, 'private-scheduled-secret.png');
+    writeFileSync(attachmentPath, 'private attachment');
 
     try {
       await core.connectTelegram();
@@ -167,7 +173,7 @@ describe('Telegram operation log privacy', () => {
       await core.sendMessage(
         'me',
         'PRIVATE_SEND_TEXT',
-        ['C:\\private\\photo-secret.png'],
+        [attachmentPath],
         [],
         privateMarkup,
       );
@@ -180,7 +186,7 @@ describe('Telegram operation log privacy', () => {
         undefined,
         undefined,
         scheduleTimestamp,
-        ['C:\\private\\scheduled-secret.png'],
+        [attachmentPath],
         [],
         privateMarkup,
       );
@@ -189,7 +195,7 @@ describe('Telegram operation log privacy', () => {
       await expect(core.sendMessage(
         'me',
         'PRIVATE_FAILURE_TEXT',
-        ['C:\\private\\failure-secret.png'],
+        [attachmentPath],
         [],
         privateMarkup,
       )).rejects.toMatchObject({ code: 'FAKE_SEND_FAILED' });
@@ -202,16 +208,18 @@ describe('Telegram operation log privacy', () => {
         'PRIVATE_BUTTON_TEXT',
         'PRIVATE_BUTTON_URL',
         'PRIVATE_CALLBACK_DATA',
-        'C:\\private\\photo-secret.png',
-        'C:\\private\\scheduled-secret.png',
-        'C:\\private\\failure-secret.png',
+        attachmentPath,
       ]) {
         expect(output).not.toContain(secret);
       }
       expect(output).toContain('FAKE_SEND_FAILED');
       expect(output).toContain('schedule');
     } finally {
-      await core.shutdownTelegram();
+      try {
+        await core.shutdownTelegram();
+      } finally {
+        rmSync(attachmentDirectory, { recursive: true, force: true });
+      }
     }
   });
 });
