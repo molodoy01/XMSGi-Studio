@@ -1,5 +1,31 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const telegramStatusSubscriptions = new WeakMap();
 
+function subscribeToTelegramStatus(callback) {
+  if (typeof callback !== 'function') return () => {};
+
+  let subscription = telegramStatusSubscriptions.get(callback);
+  if (!subscription) {
+    const listener = (_event, status) => callback(status);
+    subscription = { listener, references: 0 };
+    telegramStatusSubscriptions.set(callback, subscription);
+    ipcRenderer.on('telegram-status', listener);
+  }
+
+  subscription.references += 1;
+  let subscribed = true;
+
+  return () => {
+    if (!subscribed) return;
+    subscribed = false;
+    subscription.references -= 1;
+
+    if (subscription.references === 0) {
+      ipcRenderer.removeListener('telegram-status', subscription.listener);
+      telegramStatusSubscriptions.delete(callback);
+    }
+  };
+}
 contextBridge.exposeInMainWorld('telegram', {
 
   getConfig: () =>
@@ -81,6 +107,9 @@ contextBridge.exposeInMainWorld('telegram', {
       idempotencyKey
     }),
 
+  getScheduleIdentities: (operations) =>
+    ipcRenderer.invoke('telegram-schedule-identities', { operations }),
+
   schedule: (data) =>
     ipcRenderer.invoke('telegram-schedule', data),
 
@@ -93,20 +122,7 @@ contextBridge.exposeInMainWorld('telegram', {
   cancel: (data) =>
     ipcRenderer.invoke('telegram-cancel', data),
 
-  onStatus: (callback) => {
-
-    ipcRenderer.on(
-      'telegram-status',
-      (event, status) => {
-
-        if (typeof callback === 'function') {
-          callback(status);
-        }
-
-      }
-    );
-
-  }
+  onStatus: subscribeToTelegramStatus
 
 });
 

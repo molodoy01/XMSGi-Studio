@@ -590,6 +590,19 @@ export function WorkspacePage({
   const [attachments, setAttachments] = useState<WorkspaceAttachment[]>(
     () => normalizeAttachments(initialDraftRef.current?.attachments),
   );
+  const attachmentUsageRef = useRef({
+    count: attachments.length,
+    size: attachments.reduce((total, attachment) => total + (attachment.size ?? 0), 0),
+  });
+  const pendingAttachmentUsageRef = useRef(new Map<number, { count: number; size: number }>());
+  const attachmentSelectionGenerationRef = useRef(0);
+  const replaceAttachments = (nextAttachments: WorkspaceAttachment[]) => {
+    attachmentUsageRef.current = {
+      count: nextAttachments.length,
+      size: nextAttachments.reduce((total, attachment) => total + (attachment.size ?? 0), 0),
+    };
+    setAttachments(nextAttachments);
+  };
   const [attachmentPreview, setAttachmentPreview] = useState<{
     src: string;
     name: string;
@@ -835,10 +848,11 @@ export function WorkspacePage({
     const workspaceDraft = store.workspaceDraft as Partial<WorkspaceDraft> | null;
     initialDraftRef.current = workspaceDraft ?? {};
     if (!rescheduleSourceRef.current) {
+      attachmentSelectionGenerationRef.current += 1;
       if (workspaceDraft) {
         setDraftBody(workspaceDraft.body ?? '');
         setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
-        setAttachments(normalizeAttachments(workspaceDraft.attachments));
+        replaceAttachments(normalizeAttachments(workspaceDraft.attachments));
         setInlineButtons(workspaceDraft.inlineButtons ?? []);
         setSavedAt(workspaceDraft.savedAt || 'Not saved');
         if (workspaceDraft.date) setDate(workspaceDraft.date);
@@ -849,7 +863,7 @@ export function WorkspacePage({
       } else {
         setDraftBody('');
         setDraftEntities([]);
-        setAttachments([]);
+        replaceAttachments([]);
         setInlineButtons([]);
       }
     }
@@ -1095,11 +1109,12 @@ export function WorkspacePage({
 
   useEffect(() => {
     if (successPulse) {
+      attachmentSelectionGenerationRef.current += 1;
       attachmentPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       attachmentPreviewUrlsRef.current.clear();
       setDraftBody('');
       setDraftEntities([]);
-      setAttachments([]);
+      replaceAttachments([]);
       setInlineButtons([]);
     }
   }, [successPulse]);
@@ -1556,13 +1571,14 @@ export function WorkspacePage({
     const nextDate = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}-${String(scheduledAt.getDate()).padStart(2, '0')}`;
     const nextTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
     setSelectedChat(chat);
+    attachmentSelectionGenerationRef.current += 1;
     rescheduleSourceRef.current = message;
     setRescheduleSource(message);
     focusRescheduledEditorAtEndRef.current = true;
     setPublishAction('schedule');
     setDraftBody(message.text);
     setDraftEntities(message.entities ?? []);
-    setAttachments((message.attachments ?? []).map((path) => ({
+    replaceAttachments((message.attachments ?? []).map((path) => ({
       name: path.split(/[\\/]/).pop() || path,
       path,
     })));
@@ -1711,9 +1727,10 @@ export function WorkspacePage({
   };
 
   const useSavedDraft = (draft: SavedDraft) => {
+    attachmentSelectionGenerationRef.current += 1;
     setDraftBody(draft.body);
     setDraftEntities(draft.entities ?? []);
-    setAttachments(normalizeAttachments(draft.attachments));
+    replaceAttachments(normalizeAttachments(draft.attachments));
     setInlineButtons(draft.inlineButtons ?? []);
     if (draft.selectedChat) setSelectedChat(draft.selectedChat);
     if (draft.date) setDate(draft.date);
@@ -1855,15 +1872,18 @@ export function WorkspacePage({
   const handleAddFiles = async (files: File[]) => {
     if (!files.length) return;
 
+    const selectionGeneration = attachmentSelectionGenerationRef.current;
     setAttachmentError('');
 
-    const currentSize = attachments.reduce((total, attachment) => total + (attachment.size ?? 0), 0);
+    const currentPendingUsage = pendingAttachmentUsageRef.current.get(selectionGeneration) ?? { count: 0, size: 0 };
+    const currentCount = attachmentUsageRef.current.count + currentPendingUsage.count;
+    const currentSize = attachmentUsageRef.current.size + currentPendingUsage.size;
     const acceptedFiles: File[] = [];
     let nextSize = currentSize;
     let nextError = '';
 
     for (const file of files) {
-      if (attachments.length + acceptedFiles.length >= MAX_ATTACHMENTS) {
+      if (currentCount + acceptedFiles.length >= MAX_ATTACHMENTS) {
         nextError = `Можно добавить не больше ${MAX_ATTACHMENTS} файлов.`;
         break;
       }
@@ -1881,6 +1901,11 @@ export function WorkspacePage({
       acceptedFiles.push(file);
       nextSize += file.size;
     }
+
+    const reservedSize = acceptedFiles.reduce((total, file) => total + file.size, 0);
+    currentPendingUsage.count += acceptedFiles.length;
+    currentPendingUsage.size += reservedSize;
+    pendingAttachmentUsageRef.current.set(selectionGeneration, currentPendingUsage);
 
     const copiedAttachments = await Promise.all(acceptedFiles.map(async (file) => {
       try {
@@ -1900,9 +1925,21 @@ export function WorkspacePage({
     }));
     const storedAttachments = copiedAttachments.filter((item): item is { name: string; path: string; size: number } => 'path' in item);
     const copyErrors = copiedAttachments.filter((item): item is { error: string } => 'error' in item);
+    const pendingUsage = pendingAttachmentUsageRef.current.get(selectionGeneration);
+    if (pendingUsage) {
+      pendingUsage.count -= acceptedFiles.length;
+      pendingUsage.size -= reservedSize;
+      if (pendingUsage.count === 0 && pendingUsage.size === 0) {
+        pendingAttachmentUsageRef.current.delete(selectionGeneration);
+      }
+    }
+    if (selectionGeneration !== attachmentSelectionGenerationRef.current) return;
+    attachmentUsageRef.current.count += storedAttachments.length;
+    attachmentUsageRef.current.size += storedAttachments.reduce((total, attachment) => total + attachment.size, 0);
     if (storedAttachments.length) setAttachments((current) => [...current, ...storedAttachments]);
 
-    setAttachmentError([nextError, ...copyErrors.map((item) => item.error)].filter(Boolean).join(' '));
+    const errors = [nextError, ...copyErrors.map((item) => item.error)].filter(Boolean);
+    if (errors.length) setAttachmentError(errors.join(' '));
   };
 
   const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1917,7 +1954,7 @@ export function WorkspacePage({
     if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
       URL.revokeObjectURL(previewUrl);
     }
-    setAttachments((current) => current.filter((_, attachmentIndex) => attachmentIndex !== index));
+    replaceAttachments(attachments.filter((_, attachmentIndex) => attachmentIndex !== index));
   };
 
   const showAttachmentPreview = (image: HTMLImageElement, name: string, src: string) => {

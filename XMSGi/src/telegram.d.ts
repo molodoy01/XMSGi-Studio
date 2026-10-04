@@ -155,6 +155,16 @@ declare global {
         code?: string;
         waitSeconds?: number;
       }>;
+      getScheduleIdentities: (operations: Array<{
+        chatId: string;
+        message: string;
+        targetTimestamp: number;
+        attachments?: string[];
+        entities?: TelegramFormattingEntity[];
+        replyMarkup?: { inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> };
+        silent?: boolean;
+        effect?: string;
+      }>) => Promise<{ success: boolean; identities?: Array<string | null>; error?: string }>;
       schedule: (data: {
         accountId?: string;
         chatId: string;
@@ -170,6 +180,7 @@ declare global {
         id?: string | number;
         telegramMessageId?: string | number;
         confirmed?: boolean;
+        operationIdentity?: string;
         error?: string;
         code?: string;
         waitSeconds?: number;
@@ -224,7 +235,7 @@ declare global {
         sentAt?: string;
         error?: string;
       }>;
-      onStatus: (callback: (status: unknown) => void) => void;
+      onStatus: (callback: (status: unknown) => void) => () => void;
     };
   }
 }

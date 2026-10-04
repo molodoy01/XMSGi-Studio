@@ -9,6 +9,8 @@ declare module '$studio' {
     scheduler: StudioSchedulerRuntime;
     activeAccountId: 'account-1' | 'account-2';
     onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+    onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
+    onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
     onRegisterHistoryRescheduleHandler?: (handler: ((message: StudioScheduledMessage) => void) | null) => void;
   }>;
   export type { AccountContext, AccountSlotId, ChannelConnection, SavedDraft, StudioSchedulerRuntime };

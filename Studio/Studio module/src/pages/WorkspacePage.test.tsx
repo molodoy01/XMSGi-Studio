@@ -1214,6 +1214,368 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('reserves the aggregate attachment limit across overlapping selections', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    const filesForBatch = (prefix: string) => Array.from({ length: 4 }, (_, index) => {
+      const file = new File([''], `${prefix}-${index}.png`, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+      return file;
+    });
+    const firstBatch = filesForBatch('first');
+    const secondBatch = filesForBatch('second');
+    const { unmount } = await renderWorkspacePage();
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: firstBatch, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      Object.defineProperty(fileInput, 'files', { value: secondBatch, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent)
+      .toContain('200 МБ');
+
+    await act(async () => {
+      pendingCopies.forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: firstBatch[index].name, path: `/stored/${firstBatch[index].name}`, size: firstBatch[index].size },
+      }));
+      await Promise.resolve();
+    });
+
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(4);
+    unmount();
+  });
+
+  it('does not attach stale files after a successful publish clears the composer', async () => {
+    let resolveCopy!: (result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void;
+    const copyPromise = new Promise<{ success: boolean; attachment?: { name: string; path: string; size: number } }>((resolve) => {
+      resolveCopy = resolve;
+    });
+    vi.mocked(window.draftStorage.copyAttachment).mockReturnValue(copyPromise);
+    const { rerender, unmount } = await renderWorkspacePage();
+    const file = new File(['image'], 'late-photo.png', { type: 'image/png' });
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [file], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(1);
+
+    rerender({ successPulse: true });
+    resolveCopy({
+      success: true,
+      attachment: { name: file.name, path: `/stored/${file.name}`, size: file.size },
+    });
+
+    await act(async () => {
+      await copyPromise;
+      await Promise.resolve();
+    });
+
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(0);
+    unmount();
+  });
+
+  it('releases failed file reservations while retaining reservations for copied files', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number }; error?: string }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    const makeFile = (name: string) => {
+      const file = new File([''], name, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+      return file;
+    };
+    const firstBatch = Array.from({ length: 4 }, (_, index) => makeFile(`partial-${index}.png`));
+    const { unmount } = await renderWorkspacePage();
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: firstBatch, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      pendingCopies.slice(0, 3).forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: firstBatch[index].name, path: `/stored/${firstBatch[index].name}`, size: firstBatch[index].size },
+      }));
+      pendingCopies[3]({ success: false, error: 'Simulated copy failure.' });
+    });
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(3);
+
+    const nextFile = makeFile('after-partial-failure.png');
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [nextFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      pendingCopies[4]({
+        success: true,
+        attachment: { name: nextFile.name, path: `/stored/${nextFile.name}`, size: nextFile.size },
+      });
+    });
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(4);
+
+    const overLimitFile = new File(['extra'], 'over-limit.png', { type: 'image/png' });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [overLimitFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent)
+      .toContain('200 МБ');
+    unmount();
+  });
+
+  it('allows a new-generation upload before old copies settle and ignores their late results', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    const makeFile = (name: string, size: number) => {
+      const file = new File([''], name, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: size });
+      return file;
+    };
+    const staleBatch = Array.from({ length: 4 }, (_, index) => makeFile(`old-${index}.png`, 50 * 1024 * 1024));
+    const nextFile = makeFile('new-draft.png', 1024);
+    const { rerender, unmount } = await renderWorkspacePage();
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: staleBatch, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+
+    rerender({ successPulse: true });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [nextFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      pendingCopies[4]({
+        success: true,
+        attachment: { name: nextFile.name, path: `/stored/${nextFile.name}`, size: nextFile.size },
+      });
+    });
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(1);
+
+    await act(async () => {
+      pendingCopies.slice(0, 4).forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: staleBatch[index].name, path: `/stored/${staleBatch[index].name}`, size: staleBatch[index].size },
+      }));
+    });
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(1);
+    expect(document.querySelector('.workspace-page-attachment-name')?.textContent).toBe(nextFile.name);
+    unmount();
+  });
+
+  it('does not let an old upload overwrite a selected saved draft', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    inMemoryDraftStore.savedDrafts = [{
+      id: 'generation-draft',
+      name: 'Transition draft',
+      body: 'New draft body',
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+      attachments: [],
+    }];
+    inMemoryDraftStore.migrationVersion = 1;
+    const oldFiles = Array.from({ length: 4 }, (_, index) => {
+      const file = new File([''], `old-draft-${index}.png`, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+      return file;
+    });
+    const nextFile = new File(['new'], 'saved-draft-upload.png', { type: 'image/png' });
+    const { unmount } = await renderWorkspacePage();
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: oldFiles, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+
+    await openDraftsStage();
+    const draftButton = Array.from(document.querySelectorAll('.workspace-page-rich-text-draft-stage button'))
+      .find((button) => button.textContent?.includes('Transition draft')) as HTMLButtonElement;
+    expect(draftButton).toBeTruthy();
+    await act(async () => { draftButton.click(); });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [nextFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      pendingCopies[4]({
+        success: true,
+        attachment: { name: nextFile.name, path: `/stored/${nextFile.name}`, size: nextFile.size },
+      });
+    });
+    await act(async () => {
+      pendingCopies.slice(0, 4).forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: oldFiles[index].name, path: `/stored/${oldFiles[index].name}`, size: oldFiles[index].size },
+      }));
+    });
+
+    expect(document.querySelectorAll('.workspace-page-attachment-card')).toHaveLength(1);
+    expect(document.querySelector('.workspace-page-attachment-name')?.textContent).toBe(nextFile.name);
+    expect(document.querySelector('.workspace-page-rich-text-input')?.textContent).toContain('New draft body');
+    unmount();
+  });
+
+  it('ignores old uploads when persisted draft restoration replaces the composer', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    let resolveLoad!: (result: Awaited<ReturnType<typeof window.draftStorage.load>>) => void;
+    vi.mocked(window.draftStorage.load).mockImplementation(() => new Promise((resolve) => {
+      resolveLoad = resolve;
+    }));
+    const staleFiles = Array.from({ length: 4 }, (_, index) => {
+      const file = new File([''], `before-restore-${index}.png`, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+      return file;
+    });
+    const newFile = new File(['new'], 'after-restore.png', { type: 'image/png' });
+    const { unmount } = await renderWorkspacePage();
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: staleFiles, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+
+    resolveLoad({
+      success: true,
+      needsMigration: false,
+      store: {
+        schemaVersion: 2,
+        migrationVersion: 1,
+        savedDrafts: [],
+        workspaceDraft: { body: 'Restored workspace draft', attachments: [] },
+      },
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [newFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      pendingCopies[4]({
+        success: true,
+        attachment: { name: newFile.name, path: `/stored/${newFile.name}`, size: newFile.size },
+      });
+      pendingCopies.slice(0, 4).forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: staleFiles[index].name, path: `/stored/${staleFiles[index].name}`, size: staleFiles[index].size },
+      }));
+    });
+
+    expect(document.querySelector('.workspace-page-rich-text-input')?.textContent).toContain('Restored workspace draft');
+    expect(Array.from(document.querySelectorAll('.workspace-page-attachment-name')).map((node) => node.textContent))
+      .toEqual([newFile.name]);
+    unmount();
+  });
+
+  it('keeps only the scheduled and new files when rescheduling during an old upload', async () => {
+    const pendingCopies: Array<(result: { success: boolean; attachment?: { name: string; path: string; size: number } }) => void> = [];
+    vi.mocked(window.draftStorage.copyAttachment).mockImplementation(() => new Promise((resolve) => {
+      pendingCopies.push(resolve);
+    }));
+    const registerRescheduler = vi.fn();
+    const staleFiles = Array.from({ length: 4 }, (_, index) => {
+      const file = new File([''], `stale-${index}.png`, { type: 'image/png' });
+      Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+      return file;
+    });
+    const newFile = new File(['new'], 'after-reschedule.png', { type: 'image/png' });
+    const scheduledPost: ScheduledMessage = {
+      id: 'reschedule-with-pending-upload',
+      chatId: chatA.id,
+      chatName: chatA.name,
+      text: 'Existing scheduled post',
+      when: '2035-01-15T18:30:00.000Z',
+      createdAt: '2035-01-15T17:00:00.000Z',
+      status: 'scheduled',
+      attachments: ['C:\\scheduled\\brief.pdf'],
+    };
+    const { unmount } = await renderWorkspacePage({ onRegisterHistoryRescheduleHandler: registerRescheduler });
+    const fileInput = document.querySelector('.workspace-page-hidden-file-input') as HTMLInputElement;
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: staleFiles, configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      registerRescheduler.mock.calls[0][0](scheduledPost);
+    });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', { value: [newFile], configurable: true });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      pendingCopies[4]({
+        success: true,
+        attachment: { name: newFile.name, path: `/stored/${newFile.name}`, size: newFile.size },
+      });
+      pendingCopies.slice(0, 4).forEach((resolve, index) => resolve({
+        success: true,
+        attachment: { name: staleFiles[index].name, path: `/stored/${staleFiles[index].name}`, size: staleFiles[index].size },
+      }));
+    });
+
+    expect(Array.from(document.querySelectorAll('.workspace-page-attachment-name')).map((node) => node.textContent))
+      .toEqual(['brief.pdf', newFile.name]);
+    unmount();
+  });
+
   it('shows an enlarged preview when hovering or focusing an attached image', async () => {
     localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
       body: 'Photo caption',

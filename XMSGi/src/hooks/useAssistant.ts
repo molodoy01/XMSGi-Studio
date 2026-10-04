@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { SetStateAction } from 'react';
 import type { Chat } from '@/types';
 import { useLocale } from '@/lib/i18n';
 
@@ -114,7 +115,13 @@ export type GeminiSettings = Awaited<ReturnType<Window['gemini']['getSettings']>
 
 export function useAssistant({ chats }: { chats: Chat[] }) {
   const { t } = useLocale();
-  const [assistantPrompt, setAssistantPrompt] = useState('');
+  const [assistantPrompt, setAssistantPromptState] = useState('');
+  const assistantRequestGenerationRef = useRef(0);
+  const assistantRequestInFlightRef = useRef(false);
+  const setAssistantPrompt = (nextPrompt: SetStateAction<string>) => {
+    assistantRequestGenerationRef.current += 1;
+    setAssistantPromptState(nextPrompt);
+  };
   const [assistantResponse, setAssistantResponse] = useState('');
   const displayedAssistantResponse = useAnimatedText(assistantResponse);
   const [assistantIntent, setAssistantIntent] = useState<AssistantIntent | null>(null);
@@ -221,8 +228,10 @@ export function useAssistant({ chats }: { chats: Chat[] }) {
   async function handleAssistantSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!assistantPrompt.trim() || isThinking) return;
+    if (!assistantPrompt.trim() || isThinking || assistantRequestInFlightRef.current) return;
 
+    assistantRequestInFlightRef.current = true;
+    const requestGeneration = assistantRequestGenerationRef.current;
     setIsThinking(true);
     setAssistantResponse('');
     setAssistantIntent(null);
@@ -237,6 +246,8 @@ export function useAssistant({ chats }: { chats: Chat[] }) {
         }),
         chats: chats.map(({ id, name }) => ({ id, name })),
       });
+
+      if (requestGeneration !== assistantRequestGenerationRef.current) return;
 
       setAssistantResponse(
         result.success
@@ -256,8 +267,11 @@ export function useAssistant({ chats }: { chats: Chat[] }) {
           : null
       );
     } catch {
-      setAssistantResponse(t('assistant.genericError'));
+      if (requestGeneration === assistantRequestGenerationRef.current) {
+        setAssistantResponse(t('assistant.genericError'));
+      }
     } finally {
+      assistantRequestInFlightRef.current = false;
       setIsThinking(false);
     }
   }

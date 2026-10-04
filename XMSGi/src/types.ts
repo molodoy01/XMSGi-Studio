@@ -58,6 +58,7 @@ export interface ScheduledMessage {
   silent?: boolean;
   effect?: string;
   operationId?: string;
+  operationIdentity?: string;
   replacementOfId?: string;
   sentAt?: string;
   telegramMessageId?: string | number;

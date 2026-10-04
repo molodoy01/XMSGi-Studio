@@ -404,7 +404,7 @@ export function useTelegramAuth({
       }
     };
 
-    window.telegram.onStatus(handleStatus);
+    return window.telegram.onStatus(handleStatus);
   }, [t]);
 
   useEffect(() => {

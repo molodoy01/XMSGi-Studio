@@ -383,17 +383,60 @@ describe('HistoryDrawer search', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2);
   });
 
+  it('hides Drafts in Personal and switches away from a previously selected Drafts tab', () => {
+    renderHistory([upcomingRecord, personalUpcomingRecord]);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+
+    expect(screen.queryByRole('tab', { name: 'Черновики' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Запланировано' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.getByRole('article')).toHaveTextContent('Подтвердить встречу');
+  });
+
+  it('does not mention drafts in the empty Personal state', () => {
+    renderHistory([upcomingRecord]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+
+    expect(screen.getByText('Здесь появятся ваши сообщения.')).toBeInTheDocument();
+    expect(screen.queryByText(/черновик/i)).not.toBeInTheDocument();
+  });
+
   it('asks for confirmation before sending a scheduled message now', () => {
     const { onSendNow } = renderHistory([personalUpcomingRecord]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Отправить сейчас' }));
 
-    const confirmation = screen.getByRole('dialog', { name: 'Подтвердить действие' });
-    expect(confirmation).toHaveTextContent('Отправить это запланированное сообщение сейчас?');
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отправку' });
+    expect(confirmation).toHaveAttribute('aria-modal', 'true');
+    expect(within(confirmation).getByRole('button', { name: 'Отмена' })).toHaveFocus();
+    expect(confirmation).toHaveTextContent(`Отправить публикацию в «${personalUpcomingRecord.title}» сейчас?`);
     expect(onSendNow).not.toHaveBeenCalled();
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Подтвердить отправку' }));
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Отправить сейчас' }));
 
     expect(onSendNow).toHaveBeenCalledWith(personalUpcomingRecord);
+  });
+
+  it('closes history layers in order when Escape is pressed', () => {
+    const { onClose } = renderHistory([upcomingRecord]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu', { name: 'Формат экспорта' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'История' })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Действия' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Отменить' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog', { name: 'Подтвердить отмену публикации' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'История' })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('makes Edit primary for Studio messages and moves Send now into Actions', () => {
@@ -406,9 +449,9 @@ describe('HistoryDrawer search', () => {
     expect(screen.getByRole('menuitem', { name: 'Отправить сейчас' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Изменить: XMSGi Updates' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Отправить сейчас' }));
-    const confirmation = screen.getByRole('dialog', { name: 'Подтвердить действие' });
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отправку' });
     expect(onSendNow).not.toHaveBeenCalled();
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Подтвердить отправку' }));
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Отправить сейчас' }));
     expect(onSendNow).toHaveBeenCalledWith(upcomingRecord);
 
     fireEvent.click(rescheduleButton);
@@ -427,7 +470,7 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Удалить историю отправленных' }));
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление категории' });
-    expect(confirmation).toHaveTextContent('Удалить 2 записи из истории «Отправлено» (все источники)?');
+    expect(confirmation).toHaveTextContent('Удалить 2 записи из истории?');
     expect(confirmation).toHaveTextContent('Сообщения в Telegram останутся.');
     expect(onClearSent).not.toHaveBeenCalled();
 
@@ -437,8 +480,14 @@ describe('HistoryDrawer search', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Studio' }));
     fireEvent.click(screen.getByRole('button', { name: 'Удалить историю отправленных' }));
     const studioConfirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление категории' });
-    expect(studioConfirmation).toHaveTextContent('(Studio)');
-    fireEvent.click(within(studioConfirmation).getByRole('button', { name: 'Удалить 1 запись' }));
+    expect(studioConfirmation).toHaveTextContent('Удалить 1 запись из истории?');
+    fireEvent.mouseDown(studioConfirmation.parentElement!);
+    expect(screen.queryByRole('alertdialog', { name: 'Подтвердить удаление категории' })).not.toBeInTheDocument();
+    expect(onClearSent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить историю отправленных' }));
+    const finalConfirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление категории' });
+    fireEvent.click(within(finalConfirmation).getByRole('button', { name: 'Удалить 1 запись' }));
     await waitFor(() => expect(onClearSent).toHaveBeenCalledWith('workspace'));
   });
 
@@ -461,7 +510,9 @@ describe('HistoryDrawer search', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Удалить черновики' }));
 
       const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление категории' });
-      expect(confirmation).toHaveTextContent('Удалить 2 черновика из Studio?');
+      expect(confirmation).toHaveTextContent('Удалить 2 черновика? Восстановление невозможно.');
+      expect(confirmation).toHaveAttribute('aria-modal', 'true');
+      expect(within(confirmation).getByRole('button', { name: 'Отмена' })).toHaveFocus();
       expect(onClearDrafts).not.toHaveBeenCalled();
       fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить 2 черновика' }));
 
@@ -513,7 +564,7 @@ describe('HistoryDrawer search', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Удалить Draft to delete' }));
 
       const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление записи' });
-      expect(confirmation).toHaveTextContent('Удалить черновик «Draft to delete»?');
+      expect(confirmation).toHaveTextContent('Удалить черновик «Draft to delete»? Восстановление невозможно.');
       fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить черновик' }));
 
       await waitFor(() => expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({
@@ -537,11 +588,61 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Отменить запланированные публикации' }));
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отмену очереди' });
-    expect(confirmation).toHaveTextContent('Отменить 1 запись из очереди в Telegram?');
+    expect(confirmation).toHaveTextContent('Снять с расписания 1 запись в Telegram? Если отмена не подтвердится, публикации останутся в очереди.');
     expect(onCancelQueue).not.toHaveBeenCalled();
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Отменить 1 запись' }));
 
     await waitFor(() => expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]));
+  });
+
+  it('deletes local schedule errors from the scheduled cleanup without cancelling them in Telegram', async () => {
+    const localFailure = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'ipc-schedule-failure',
+      status: 'failed' as const,
+      lastError: "Error invoking remote method 'telegram-schedule': Invalid IPC input: message is required",
+      retryAction: 'schedule' as const,
+      telegramMessageId: undefined,
+    }], 'workspace', 'upcoming', [channel])[0];
+    const onDelete = vi.fn();
+    const onCancelQueue = vi.fn().mockResolvedValue(true);
+    renderHistory([localFailure], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, onCancelQueue);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить ошибочные записи из истории' }));
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление ошибочных записей' });
+    expect(confirmation).toHaveTextContent('Удалить ошибки (1) из истории? Telegram не подтвердил создание публикаций.');
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onCancelQueue).not.toHaveBeenCalled();
+
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить ошибки (1)' }));
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(localFailure));
+    expect(onCancelQueue).not.toHaveBeenCalled();
+  });
+
+  it('cleans local errors and cancels Telegram-confirmed schedules as separate actions', async () => {
+    const queueRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      telegramMessageId: 'telegram-queue-mixed',
+    }], 'workspace', 'upcoming', [channel])[0];
+    const localFailure = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'ipc-schedule-failure-mixed',
+      status: 'failed' as const,
+      retryAction: 'schedule' as const,
+      telegramMessageId: undefined,
+    }], 'workspace', 'upcoming', [channel])[0];
+    const onDelete = vi.fn();
+    const onCancelQueue = vi.fn().mockResolvedValue(true);
+    renderHistory([queueRecord, localFailure], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, onCancelQueue);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить запланированные публикации и удалить ошибки из истории' }));
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить очистку расписаний и ошибок' });
+    expect(confirmation).toHaveTextContent('Отменить в Telegram 1 запись и удалить ошибки (1) из истории?');
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Очистить ошибки и отменить расписания' }));
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(localFailure));
+    expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]);
   });
 
   it('cancels only the expanded scheduled record from the queue trash action', async () => {
@@ -561,7 +662,7 @@ describe('HistoryDrawer search', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Показать полностью: XMSGi Updates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Отменить XMSGi Updates' }));
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отмену публикации' });
-    expect(confirmation).toHaveTextContent('Отменить «XMSGi Updates» в Telegram?');
+    expect(confirmation).toHaveTextContent('Снять публикацию «XMSGi Updates» с расписания в Telegram?');
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Отменить расписание' }));
 
     await waitFor(() => expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]));
@@ -597,10 +698,10 @@ describe('HistoryDrawer search', () => {
     expect(screen.getByText('Cancelled entry remains visible')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Повторить отправку' }));
 
-    const confirmation = screen.getByRole('dialog', { name: 'Подтвердить действие' });
-    expect(confirmation).toHaveTextContent('Повторно отправить это сообщение сейчас?');
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отправку' });
+    expect(confirmation).toHaveTextContent(`Повторить отправку в «${failedRecord.title}» сейчас?`);
     expect(onSendNow).not.toHaveBeenCalled();
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Подтвердить отправку' }));
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Отправить сейчас' }));
 
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText('Failed entry for retry').closest('article')).toHaveTextContent('Ошибка');
@@ -830,16 +931,16 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[0]);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Отменить' }));
-    expect(screen.getByRole('dialog', { name: 'Подтвердить действие' })).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog', { name: 'Подтвердить отмену публикации' })).toBeInTheDocument();
     expect(onCancel).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить публикацию' }));
     expect(onCancel).toHaveBeenCalledWith(upcomingRecord);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[0]);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
-    expect(screen.getByRole('dialog', { name: 'Подтвердить действие' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить удаление' }));
+    expect(screen.getByRole('alertdialog', { name: 'Подтвердить удаление' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить запись' }));
     expect(onDelete).toHaveBeenCalledWith(completedRecord);
   });
 
@@ -856,10 +957,10 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Действия' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
-    expect(screen.getByText(/Если Telegram уже принял расписание/)).toBeInTheDocument();
+    expect(screen.getByText('Удалить ошибочную запись из истории? Публикация может остаться в очереди Telegram.')).toBeInTheDocument();
     expect(onDelete).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить удаление' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить запись' }));
 
     expect(onDelete).toHaveBeenCalledWith(failedRecord);
   });

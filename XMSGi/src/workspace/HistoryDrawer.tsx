@@ -95,6 +95,13 @@ function isQueueCancellationCandidate(record: HistoryItem) {
     && record.original.message.telegramMessageId !== null;
 }
 
+function isLocalScheduleFailure(record: HistoryItem) {
+  return record.original.kind === 'scheduled'
+    && record.status === 'failed'
+    && record.retryAction === 'schedule'
+    && record.original.message.telegramMessageId == null;
+}
+
 function formatHistoryCount(count: number) {
   const lastTwoDigits = count % 100;
   const lastDigit = count % 10;
@@ -458,9 +465,25 @@ export function HistoryDrawer({
     if (!isOpen) return;
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (selectedRecord) setSelectedRecord(null);
-        else onClose();
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+
+      if (previewImagePath) {
+        closeImagePreview();
+      } else if (confirmAction) {
+        setConfirmAction(null);
+      } else if (bulkDeleteCategory && !bulkDeleteBusy) {
+        setBulkDeleteCategory(null);
+        setBulkDeleteRecordId(null);
+        setBulkDeleteError('');
+      } else if (isExportMenuOpen) {
+        setIsExportMenuOpen(false);
+      } else if (actionMenuOpenId) {
+        setActionMenuOpenId(null);
+      } else if (selectedRecord) {
+        setSelectedRecord(null);
+      } else if (!bulkDeleteBusy) {
+        onClose();
       }
     };
 
@@ -472,7 +495,7 @@ export function HistoryDrawer({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen, onClose, selectedRecord]);
+  }, [actionMenuOpenId, bulkDeleteBusy, bulkDeleteCategory, confirmAction, isExportMenuOpen, isOpen, onClose, previewImagePath, selectedRecord]);
 
   useEffect(() => {
     if (!isOpen || !isExportMenuOpen) return;
@@ -481,15 +504,9 @@ export function HistoryDrawer({
       if (!exportMenuRef.current?.contains(event.target as Node)) setIsExportMenuOpen(false);
     };
 
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsExportMenuOpen(false);
-    };
-
     document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
     return () => {
       document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
     };
   }, [isExportMenuOpen, isOpen]);
 
@@ -514,6 +531,12 @@ export function HistoryDrawer({
     }
   }, [filteredRecords, selectedRecord]);
 
+  useEffect(() => {
+    if (confirmAction && !filteredRecords.some((record) => record.id === confirmAction.recordId)) {
+      setConfirmAction(null);
+    }
+  }, [confirmAction, filteredRecords]);
+
   const historyCounts = useMemo(() => {
     const counts = {
       total: records.length + draftItems.length,
@@ -536,6 +559,9 @@ export function HistoryDrawer({
 
     return counts;
   }, [draftItems, records, sourceFilter, statusFilter]);
+  const visibleStatusFilters: HistoryStatusFilter[] = sourceFilter === 'personal'
+    ? ['scheduled', 'sent']
+    : ['scheduled', 'sent', 'drafts'];
 
   const selectedRecordIndex = selectedRecord
     ? filteredRecords.findIndex((record) => record.id === selectedRecord.id)
@@ -543,6 +569,23 @@ export function HistoryDrawer({
   const queueCancellableRecords = filteredRecords.filter((record) => (
     isQueueCancellationCandidate(record)
   ));
+  const localScheduleFailureRecords = filteredRecords.filter(isLocalScheduleFailure);
+  const scheduleCleanupCount = queueCancellableRecords.length + localScheduleFailureRecords.length;
+  const scheduleCleanupLabel = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
+    ? 'Очистить ошибки и отменить расписания'
+    : queueCancellableRecords.length > 0
+      ? `Отменить ${formatHistoryCount(queueCancellableRecords.length)}`
+      : `Удалить ошибки (${localScheduleFailureRecords.length})`;
+  const scheduleCleanupAriaLabel = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
+    ? 'Отменить запланированные публикации и удалить ошибки из истории'
+    : queueCancellableRecords.length > 0
+      ? 'Отменить запланированные публикации'
+      : 'Удалить ошибочные записи из истории';
+  const scheduleCleanupTitle = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
+    ? 'Отменить подтверждённые расписания в Telegram и удалить ошибки из истории'
+    : queueCancellableRecords.length > 0
+      ? 'Отменить запланированные публикации в Telegram'
+      : 'Удалить локальные ошибки расписания из истории';
   const visibleRecords = selectedRecordIndex >= 0
     ? filteredRecords.slice(0, selectedRecordIndex + 1)
     : filteredRecords;
@@ -556,14 +599,14 @@ export function HistoryDrawer({
     ? `Экспортируется: ${selectedRecord.title}`
     : `Текущая категория: ${selectedCategoryLabel}`;
   const canDeleteCurrentCategory = statusFilter === 'scheduled'
-    ? queueCancellableRecords.length > 0
+    ? scheduleCleanupCount > 0
     : (statusFilter === 'sent' || statusFilter === 'drafts') && historyCounts.status[statusFilter] > 0;
   const categoryDeleteCount = statusFilter === 'scheduled'
-    ? queueCancellableRecords.length
+    ? scheduleCleanupCount
     : historyCounts.status[statusFilter];
   const selectedRecordMatchesDeleteCategory = Boolean(selectedRecordIndex >= 0 && selectedRecord && (
     statusFilter === 'scheduled'
-      ? isQueueCancellationCandidate(selectedRecord)
+      ? isQueueCancellationCandidate(selectedRecord) || isLocalScheduleFailure(selectedRecord)
       : statusFilter === 'sent'
         ? selectedRecord.status === 'sent'
         : selectedRecord.status === 'draft'
@@ -571,32 +614,54 @@ export function HistoryDrawer({
   const bulkDeleteRecord = bulkDeleteRecordId
     ? filteredRecords.find((record) => record.id === bulkDeleteRecordId) ?? null
     : null;
+  const confirmActionRecord = confirmAction
+    ? filteredRecords.find((record) => record.id === confirmAction.recordId) ?? null
+    : null;
+  const confirmActionPrompt = confirmAction && confirmActionRecord
+    ? confirmAction.type === 'cancel'
+      ? `Снять публикацию «${confirmActionRecord.title}» с расписания в Telegram?`
+      : confirmAction.type === 'send-now'
+        ? `${confirmActionRecord.status === 'failed' ? 'Повторить отправку' : 'Отправить публикацию'} в «${confirmActionRecord.title}» сейчас?`
+        : confirmActionRecord.status === 'failed'
+          ? 'Удалить ошибочную запись из истории? Публикация может остаться в очереди Telegram.'
+          : confirmActionRecord.status === 'draft'
+            ? `Удалить черновик «${confirmActionRecord.title}»? Восстановление невозможно.`
+            : `Удалить запись «${confirmActionRecord.title}» из истории? Сообщение в Telegram останется.`
+    : '';
   const bulkDeleteCount = bulkDeleteRecord
     ? 1
     : bulkDeleteCategory === 'scheduled'
-      ? queueCancellableRecords.length
+      ? scheduleCleanupCount
       : bulkDeleteCategory ? historyCounts.status[bulkDeleteCategory] : 0;
   const bulkDeletePrompt = bulkDeleteRecord
     ? bulkDeleteRecord.status === 'scheduled'
-      ? `Отменить «${bulkDeleteRecord.title}» в Telegram? Запись исчезнет из очереди.`
+      ? `Снять публикацию «${bulkDeleteRecord.title}» с расписания в Telegram?`
+      : isLocalScheduleFailure(bulkDeleteRecord)
+        ? `Удалить ошибку «${bulkDeleteRecord.title}» из истории? Telegram не подтвердил создание публикации.`
       : bulkDeleteRecord.status === 'failed' && bulkDeleteRecord.retryAction === 'cancel'
         ? `Повторить отмену «${bulkDeleteRecord.title}» в Telegram?`
       : bulkDeleteRecord.status === 'sent'
         ? `Удалить «${bulkDeleteRecord.title}» из истории? Сообщение в Telegram останется.`
-        : `Удалить черновик «${bulkDeleteRecord.title}»? Восстановить его не получится.`
+        : `Удалить черновик «${bulkDeleteRecord.title}»? Восстановление невозможно.`
     : bulkDeleteCategory === 'sent'
-      ? `Удалить ${formatHistoryCount(bulkDeleteCount)} из истории «Отправлено» (${sourceFilter === 'all' ? 'все источники' : sourceFilter === 'workspace' ? 'Studio' : 'Личное'})? Сообщения в Telegram останутся.`
+      ? `Удалить ${formatHistoryCount(bulkDeleteCount)} из истории? Сообщения в Telegram останутся.`
       : bulkDeleteCategory === 'drafts'
-        ? `Удалить ${formatDraftCount(bulkDeleteCount)} из Studio? Восстановить черновики после удаления не получится.`
-        : `Отменить ${formatHistoryCount(bulkDeleteCount)} из очереди в Telegram? Неотменённые записи останутся в очереди.`;
+        ? `Удалить ${formatDraftCount(bulkDeleteCount)}? Восстановление невозможно.`
+        : queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
+          ? `Отменить в Telegram ${formatHistoryCount(queueCancellableRecords.length)} и удалить ошибки (${localScheduleFailureRecords.length}) из истории?`
+          : queueCancellableRecords.length > 0
+            ? `Снять с расписания ${formatHistoryCount(queueCancellableRecords.length)} в Telegram? Если отмена не подтвердится, публикации останутся в очереди.`
+            : `Удалить ошибки (${localScheduleFailureRecords.length}) из истории? Telegram не подтвердил создание публикаций.`;
   const bulkDeleteActionLabel = bulkDeleteRecord
     ? bulkDeleteRecord.status === 'scheduled'
       ? 'Отменить расписание'
+      : isLocalScheduleFailure(bulkDeleteRecord)
+        ? 'Удалить ошибку'
       : bulkDeleteRecord.status === 'failed' && bulkDeleteRecord.retryAction === 'cancel'
         ? 'Повторить отмену'
       : bulkDeleteRecord.status === 'draft' ? 'Удалить черновик' : 'Удалить запись'
     : bulkDeleteCategory === 'scheduled'
-      ? `Отменить ${formatHistoryCount(bulkDeleteCount)}`
+      ? scheduleCleanupLabel
       : `Удалить ${bulkDeleteCategory === 'sent' ? formatHistoryCount(bulkDeleteCount) : formatDraftCount(bulkDeleteCount)}`;
   const exportRecords = (format: HistoryExportFormat) => {
     const recordsToExport = selectedRecord ? [selectedRecord] : filteredRecords;
@@ -618,6 +683,13 @@ export function HistoryDrawer({
     try {
       if (bulkDeleteRecord) {
         if (bulkDeleteCategory === 'scheduled') {
+          if (isLocalScheduleFailure(bulkDeleteRecord)) {
+            await onDelete(bulkDeleteRecord);
+            setSelectedRecord(null);
+            setBulkDeleteRecordId(null);
+            setBulkDeleteCategory(null);
+            return;
+          }
           if (!onCancelQueue || !await onCancelQueue([bulkDeleteRecord])) {
             setBulkDeleteError('Не удалось отменить публикацию в Telegram. Запись осталась в очереди.');
             return;
@@ -643,8 +715,14 @@ export function HistoryDrawer({
       }
 
       if (bulkDeleteCategory === 'scheduled') {
-        if (!onCancelQueue || !await onCancelQueue(queueCancellableRecords)) {
-          setBulkDeleteError('Не все публикации удалось отменить. Оставшиеся записи сохранены в очереди.');
+        for (const record of localScheduleFailureRecords) {
+          await onDelete(record);
+        }
+
+        if (queueCancellableRecords.length > 0 && (!onCancelQueue || !await onCancelQueue(queueCancellableRecords))) {
+          setBulkDeleteError(localScheduleFailureRecords.length > 0
+            ? 'Ошибки удалены из истории. Не все расписания удалось отменить; оставшиеся публикации сохранены в очереди.'
+            : 'Не все публикации удалось отменить. Оставшиеся записи сохранены в очереди.');
           return;
         }
         setBulkDeleteCategory(null);
@@ -720,6 +798,7 @@ export function HistoryDrawer({
                 type="button"
                 onClick={() => {
                   setSourceFilter(item);
+                  if (item === 'personal' && statusFilter === 'drafts') setStatusFilter('scheduled');
                   setBulkDeleteCategory(null);
                   setBulkDeleteRecordId(null);
                   setBulkDeleteError('');
@@ -741,7 +820,11 @@ export function HistoryDrawer({
             <div className="history-empty" role="status">
               <Search size={21} strokeWidth={1.5} aria-hidden="true" />
               <strong>{query ? 'Ничего не найдено' : 'В этой категории пока пусто'}</strong>
-              <span>{query ? 'Измените запрос или очистите поиск.' : 'Здесь появятся ваши сообщения и черновики.'}</span>
+              <span>{query
+                ? 'Измените запрос или очистите поиск.'
+                : sourceFilter === 'personal'
+                  ? 'Здесь появятся ваши сообщения.'
+                  : 'Здесь появятся ваши сообщения и черновики.'}</span>
               {query && <button type="button" onClick={() => setQuery('')}>Сбросить запрос</button>}
             </div>
           ) : (
@@ -976,49 +1059,6 @@ export function HistoryDrawer({
                     </button>
                   )}
                 </div>
-                {confirmAction?.recordId === record.id && (
-                  <div className="history-record-confirmation" role="dialog" aria-label="Подтвердить действие">
-                    <p>{confirmAction.type === 'cancel'
-                      ? 'Отменить это запланированное сообщение?'
-                      : confirmAction.type === 'send-now'
-                        ? record.status === 'failed'
-                          ? 'Повторно отправить это сообщение сейчас?'
-                          : 'Отправить это запланированное сообщение сейчас?'
-                        : record.status === 'failed'
-                          ? 'Удалить ошибочную запись из истории? Если Telegram уже принял расписание, это его не отменит.'
-                          : 'Удалить эту запись из истории?'}</p>
-                    <div className="history-record-confirmation-actions">
-                      <button
-                        type="button"
-                        className="history-record-confirmation-action is-secondary"
-                        onClick={() => setConfirmAction(null)}
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        className="history-record-confirmation-action is-primary"
-                        onClick={() => {
-                          if (confirmAction.type === 'cancel') {
-                            onCancel(record);
-                          } else if (confirmAction.type === 'send-now') {
-                            onSendNow(record);
-                          } else {
-                            onDelete(record);
-                          }
-                          setConfirmAction(null);
-                          if (isExpanded) setSelectedRecord(null);
-                        }}
-                      >
-                        {confirmAction.type === 'cancel'
-                          ? 'Подтвердить отмену'
-                          : confirmAction.type === 'send-now'
-                            ? 'Подтвердить отправку'
-                            : 'Подтвердить удаление'}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </article>
               </Fragment>
               );
@@ -1062,7 +1102,7 @@ export function HistoryDrawer({
           <div className="history-drawer-footer" aria-label="Панель действий истории">
             <div className="history-status-row">
             <div className="history-status-filters" role="tablist" aria-label="Статус записей">
-              {(['scheduled', 'sent', 'drafts'] as const).map((item) => (
+              {visibleStatusFilters.map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -1093,16 +1133,20 @@ export function HistoryDrawer({
                   type="button"
                   className="history-delete-button"
                   aria-label={selectedRecordMatchesDeleteCategory && selectedRecord
-                    ? statusFilter === 'scheduled' ? `Отменить ${selectedRecord.title}` : `Удалить ${selectedRecord.title}`
+                    ? statusFilter === 'scheduled'
+                      ? isLocalScheduleFailure(selectedRecord) ? `Удалить ошибку ${selectedRecord.title}` : `Отменить ${selectedRecord.title}`
+                      : `Удалить ${selectedRecord.title}`
                     : statusFilter === 'scheduled'
-                      ? 'Отменить запланированные публикации'
+                      ? scheduleCleanupAriaLabel
                       : statusFilter === 'sent' ? 'Удалить историю отправленных' : 'Удалить черновики'}
                   aria-haspopup="dialog"
                   aria-expanded={Boolean(bulkDeleteCategory)}
                   title={selectedRecordMatchesDeleteCategory && selectedRecord
-                    ? statusFilter === 'scheduled' ? `Отменить ${selectedRecord.title} в Telegram` : `Удалить ${selectedRecord.title}`
+                    ? statusFilter === 'scheduled'
+                      ? isLocalScheduleFailure(selectedRecord) ? `Удалить ошибку ${selectedRecord.title} из истории` : `Отменить ${selectedRecord.title} в Telegram`
+                      : `Удалить ${selectedRecord.title}`
                     : statusFilter === 'scheduled'
-                      ? 'Отменить запланированные публикации в Telegram'
+                      ? scheduleCleanupTitle
                       : statusFilter === 'sent' ? 'Удалить историю отправленных' : 'Удалить все черновики'}
                   onClick={() => {
                     const category = statusFilter;
@@ -1136,42 +1180,6 @@ export function HistoryDrawer({
                 <Download size={15} strokeWidth={1.8} aria-hidden="true" />
                 <span>Экспорт</span>
               </button>
-              {bulkDeleteCategory && (
-                <div
-                  className="history-bulk-delete-confirmation"
-                  role="alertdialog"
-                  aria-label={bulkDeleteCategory === 'scheduled'
-                    ? bulkDeleteRecord ? 'Подтвердить отмену публикации' : 'Подтвердить отмену очереди'
-                    : bulkDeleteRecord ? 'Подтвердить удаление записи' : 'Подтвердить удаление категории'}
-                >
-                  <p>{bulkDeletePrompt}</p>
-                  {bulkDeleteError && <p className="history-bulk-delete-error" role="alert">{bulkDeleteError}</p>}
-                  <div className="history-record-confirmation-actions">
-                    <button
-                      type="button"
-                      className="history-record-confirmation-action is-secondary"
-                      onClick={() => {
-                        setBulkDeleteCategory(null);
-                        setBulkDeleteRecordId(null);
-                        setBulkDeleteError('');
-                      }}
-                      disabled={bulkDeleteBusy}
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      type="button"
-                      className="history-record-confirmation-action is-primary"
-                      onClick={() => void confirmCategoryDelete()}
-                      disabled={bulkDeleteBusy}
-                    >
-                      {bulkDeleteBusy
-                        ? bulkDeleteCategory === 'scheduled' ? 'Отмена…' : 'Удаление…'
-                        : bulkDeleteActionLabel}
-                    </button>
-                  </div>
-                </div>
-              )}
               {isExportMenuOpen && (
                 <div className="history-export-menu" role="menu" aria-label="Формат экспорта">
                   <span className="history-export-menu-label">{exportMenuHeading}</span>
@@ -1201,6 +1209,108 @@ export function HistoryDrawer({
             </div>
           </div>
         </div>
+        {confirmAction && confirmActionRecord && (
+          <div
+            className="history-confirmation-backdrop"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setConfirmAction(null);
+            }}
+          >
+            <div
+              className="history-confirmation-modal"
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={confirmAction.type === 'cancel'
+                ? 'Подтвердить отмену публикации'
+                : confirmAction.type === 'send-now' ? 'Подтвердить отправку' : 'Подтвердить удаление'}
+            >
+              <p>{confirmActionPrompt}</p>
+              <div className="history-record-confirmation-actions">
+                <button
+                  type="button"
+                  className="history-record-confirmation-action is-secondary"
+                  autoFocus
+                  onClick={() => setConfirmAction(null)}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className="history-record-confirmation-action is-primary"
+                  onClick={() => {
+                    if (confirmAction.type === 'cancel') {
+                      onCancel(confirmActionRecord);
+                    } else if (confirmAction.type === 'send-now') {
+                      onSendNow(confirmActionRecord);
+                    } else {
+                      onDelete(confirmActionRecord);
+                    }
+                    setConfirmAction(null);
+                    if (selectedRecord?.id === confirmActionRecord.id) setSelectedRecord(null);
+                  }}
+                >
+                  {confirmAction.type === 'cancel'
+                    ? 'Отменить публикацию'
+                    : confirmAction.type === 'send-now'
+                      ? 'Отправить сейчас'
+                      : confirmActionRecord.status === 'draft' ? 'Удалить черновик' : 'Удалить запись'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {bulkDeleteCategory && (
+          <div
+            className="history-confirmation-backdrop"
+            onMouseDown={(event) => {
+              if (event.target !== event.currentTarget || bulkDeleteBusy) return;
+              setBulkDeleteCategory(null);
+              setBulkDeleteRecordId(null);
+              setBulkDeleteError('');
+            }}
+          >
+            <div
+              className="history-confirmation-modal"
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={bulkDeleteCategory === 'scheduled'
+                ? bulkDeleteRecord
+                  ? isLocalScheduleFailure(bulkDeleteRecord) ? 'Подтвердить удаление ошибки расписания' : 'Подтвердить отмену публикации'
+                  : localScheduleFailureRecords.length > 0 && queueCancellableRecords.length > 0
+                    ? 'Подтвердить очистку расписаний и ошибок'
+                    : localScheduleFailureRecords.length > 0 ? 'Подтвердить удаление ошибочных записей' : 'Подтвердить отмену очереди'
+                : bulkDeleteRecord ? 'Подтвердить удаление записи' : 'Подтвердить удаление категории'}
+            >
+              <p>{bulkDeletePrompt}</p>
+              {bulkDeleteError && <p className="history-bulk-delete-error" role="alert">{bulkDeleteError}</p>}
+              <div className="history-record-confirmation-actions">
+                <button
+                  type="button"
+                  className="history-record-confirmation-action is-secondary"
+                  autoFocus
+                  onClick={() => {
+                    setBulkDeleteCategory(null);
+                    setBulkDeleteRecordId(null);
+                    setBulkDeleteError('');
+                  }}
+                  disabled={bulkDeleteBusy}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className="history-record-confirmation-action is-primary"
+                  onClick={() => void confirmCategoryDelete()}
+                  disabled={bulkDeleteBusy}
+                >
+                  {bulkDeleteBusy
+                    ? bulkDeleteCategory === 'scheduled' ? 'Отмена…' : 'Удаление…'
+                    : bulkDeleteActionLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {previewImagePath && previewImagePosition && createPortal(
           <div
             className="message-attachment-preview"

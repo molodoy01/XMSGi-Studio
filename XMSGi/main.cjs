@@ -242,6 +242,7 @@ const {
   getTelegramStatus,
   waitForTelegramRateLimit,
   sendMessage,
+  getScheduleOperationIdentities,
   scheduleMessage,
   cancelScheduledMessage,
   shutdownTelegram,
@@ -1143,6 +1144,32 @@ ipcMain.handle('telegram-send', async (event, data) => {
 });
 
 
+ipcMain.handle('telegram-schedule-identities', async (event, data = {}) => {
+  assertTrustedRenderer(
+    event,
+    mainWindow?.webContents,
+    pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href
+  );
+
+  if (!data || !Array.isArray(data.operations) || data.operations.length > 2015) {
+    return { success: false, error: 'Schedule identity request is invalid.' };
+  }
+
+  try {
+    const operations = data.operations.map(validateSchedulePayload);
+    return {
+      success: true,
+      identities: await getScheduleOperationIdentities(operations),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Schedule identity could not be created.',
+    };
+  }
+});
+
+
 // -------------------------
 // Schedule message
 // -------------------------
@@ -1172,7 +1199,8 @@ ipcMain.handle('telegram-schedule', async (event, data) => {
     return {
       success: true,
       telegramMessageId: result.telegramMessageId ?? result.id,
-      confirmed: result.confirmed === true
+      confirmed: result.confirmed === true,
+      operationIdentity: result.operationIdentity,
     };
 
   } catch (error) {

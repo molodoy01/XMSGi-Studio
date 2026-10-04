@@ -1,4 +1,4 @@
-import { useEffect, useState, type PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren } from 'react';
 import { useLocale } from '@/lib/i18n';
 import { getTelegramStatusPresentation as getTelegramStatusPresentationFromModule } from './telegramStatusPresentation';
 import { HistoryDrawer } from './HistoryDrawer';
@@ -56,15 +56,6 @@ export function AppShell({
   const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
   const sectionLabel = view === 'planner' ? t('product.planner') : t('product.studio');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isHistoryOpen) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsHistoryOpen(false);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isHistoryOpen]);
 
   return (
     <div className={`product-shell ${view === 'planner' ? 'planner-shell' : 'studio-shell'}`} style={{ position: 'relative' }}>

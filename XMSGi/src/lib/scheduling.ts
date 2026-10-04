@@ -11,6 +11,7 @@ export type PendingScheduleInput = Pick<
   replyMarkup?: InlineKeyboardMarkup;
   silent?: boolean;
   effect?: string;
+  operationIdentity?: string;
 };
 
 export type TelegramScheduledMessage = {

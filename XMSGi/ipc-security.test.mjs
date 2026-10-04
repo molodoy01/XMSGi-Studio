@@ -96,6 +96,23 @@ describe('IPC security validation', () => {
     })).toThrow('idempotencyKey');
   });
 
+  it('allows attachment-only sends but rejects fully empty sends', () => {
+    expect(validateSendPayload({
+      chatId: 'me',
+      message: '',
+      attachments: ['C:\\media\\photo.jpg'],
+    })).toMatchObject({
+      message: '',
+      attachments: ['C:\\media\\photo.jpg'],
+    });
+
+    expect(() => validateSendPayload({
+      chatId: 'me',
+      message: '',
+      attachments: [],
+    })).toThrow('message is required');
+  });
+
   it('rejects invalid timestamps and scheduling payloads', () => {
     expect(() => validateTimestamp(1)).toThrow('targetTimestamp');
     expect(() => validateSchedulePayload({
@@ -103,6 +120,45 @@ describe('IPC security validation', () => {
       message: 'Reminder',
       targetTimestamp: 'tomorrow'
     })).toThrow('targetTimestamp');
+  });
+
+  it('allows attachment-only scheduled messages but still requires text without attachments', () => {
+    expect(validateSchedulePayload({
+      chatId: 'me',
+      message: '',
+      targetTimestamp: 2052547200,
+      attachments: ['C:/demo/photo.png'],
+    })).toMatchObject({
+      message: '',
+      attachments: ['C:/demo/photo.png'],
+    });
+
+    expect(() => validateSchedulePayload({
+      chatId: 'me',
+      message: '',
+      targetTimestamp: 2052547200,
+      attachments: [],
+    })).toThrow('message is required');
+  });
+
+  it('allows an empty optional cancel message only with a valid Telegram ID', () => {
+    expect(validateCancelPayload({
+      chatId: 'me',
+      telegramMessageId: '42',
+      message: '',
+      targetTimestamp: 2052547200,
+    })).toEqual({
+      chatId: 'me',
+      telegramMessageId: '42',
+      message: undefined,
+      targetTimestamp: 2052547200,
+    });
+
+    expect(() => validateCancelPayload({ chatId: 'me', message: '' })).toThrow('telegramMessageId');
+    expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: 'bad', message: '' })).toThrow('telegramMessageId');
+    expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: '42', message: null })).toThrow('message');
+    expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: '42', message: 'x'.repeat(4097) })).toThrow('too long');
+    expect(() => validateCancelPayload({ chatId: 'me', telegramMessageId: '42', message: '\0' })).toThrow('invalid character');
   });
 
   it('validates credentials without returning them as a login result', () => {

@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const { TelegramClient, Api } = require('teleproto');
 const { StringSession } = require('teleproto/sessions');
 const { normalizeDialogChats } = require('./telegram-dialogs.cjs');
@@ -1950,57 +1951,98 @@ function toTelegramFormattingEntities(entities = []) {
   });
 }
 
-function toDebugJson(value) {
-  const seen = new WeakSet();
-  return JSON.stringify(value, (key, currentValue) => {
-    if (typeof currentValue === 'bigint') return `${currentValue}n`;
-    if (Buffer.isBuffer(currentValue)) return `<Buffer ${currentValue.toString('hex')}>`;
-    if (currentValue && typeof currentValue === 'object') {
-      if (seen.has(currentValue)) return '[Circular]';
-      seen.add(currentValue);
-    }
-    return currentValue;
-  }, 2);
-}
+function getTelegramEntityIdentity(entities = []) {
+  const typeByClassName = {
+    MessageEntityBold: 'bold',
+    MessageEntityItalic: 'italic',
+    MessageEntityUnderline: 'underline',
+    MessageEntityStrike: 'strikethrough',
+    MessageEntityTextUrl: 'text_url',
+  };
 
-function logTelegramPayload(label, payload) {
-  console.log(`[Telegram ${label}] JSON payload:`);
-  console.log(toDebugJson(payload));
-}
-
-function logTelegramMarkupDiagnostics(label, sendOptions, clientAtStart) {
-  const buttons = sendOptions.buttons;
-  console.log(`[Telegram ${label}] sendOptions:`);
-  console.dir(sendOptions, { depth: null });
-  logTelegramPayload(`${label} sendOptions`, sendOptions);
-  console.log(`[Telegram ${label}] buttons type:`, {
-    constructor: buttons?.constructor?.name || typeof buttons,
-    className: buttons?.className,
-    subclassOfId: buttons?.SUBCLASS_OF_ID,
-    rows: buttons?.rows?.map((row) => ({
-      constructor: row?.constructor?.name,
-      className: row?.className,
-      buttons: row?.buttons?.map((button) => ({
-        constructor: button?.constructor?.name,
-        className: button?.className,
-        text: button?.text,
-        type: button?.type?.constructor?.name || button?.type?.className,
-        url: button?.type?.url,
-        data: button?.type?.data,
-      })),
-    })),
+  return entities.map((entity) => {
+    const type = typeByClassName[entity.className || entity.constructor?.name];
+    return type
+      ? { type, offset: entity.offset, length: entity.length, ...(type === 'text_url' ? { url: entity.url } : {}) }
+      : { type: entity.className || entity.constructor?.name || 'unknown', offset: entity.offset, length: entity.length };
   });
+}
 
-  try {
-    const rebuiltMarkup = buttons ? clientAtStart.buildReplyMarkup(buttons, true) : undefined;
-    console.log(`[Telegram ${label}] teleproto buildReplyMarkup result:`, {
-      constructor: rebuiltMarkup?.constructor?.name || typeof rebuiltMarkup,
-      className: rebuiltMarkup?.className,
-      rows: rebuiltMarkup?.rows?.length || 0,
-    });
-  } catch (error) {
-    console.error(`[Telegram ${label}] teleproto buildReplyMarkup failed:`, error);
-  }
+function getEffectIdentity(effect) {
+  const effectId = effect?.effectId ?? effect;
+  return effectId === undefined || effectId === null ? null : String(effectId);
+}
+
+function matchesScheduledOperation(scheduledMessage, operation) {
+  const messageTimestamp = scheduledMessage.date instanceof Date
+    ? Math.floor(scheduledMessage.date.getTime() / 1000)
+    : Number(scheduledMessage.date);
+  const mediaClassName = scheduledMessage.media?.className;
+  const expectedMarkup = operation.replyMarkup?.inline_keyboard?.length
+    ? operation.replyMarkup
+    : null;
+  const actualMarkup = fromTelegramInlineKeyboard(scheduledMessage.replyMarkup) ?? null;
+
+  return scheduledMessage.message === operation.message
+    && messageTimestamp === operation.targetTimestamp
+    && mediaClassName !== 'MessageMediaPhoto'
+    && mediaClassName !== 'MessageMediaDocument'
+    && JSON.stringify(getTelegramEntityIdentity(scheduledMessage.entities || []))
+      === JSON.stringify(operation.entities)
+    && JSON.stringify(actualMarkup) === JSON.stringify(expectedMarkup)
+    && (scheduledMessage.silent === true) === operation.silent
+    && getEffectIdentity(scheduledMessage.effect) === getEffectIdentity(operation.effect);
+}
+
+function hashFile(filePath, hashCache) {
+  if (hashCache?.has(filePath)) return hashCache.get(filePath);
+
+  const hashPromise = new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+  hashCache?.set(filePath, hashPromise);
+  return hashPromise;
+}
+
+async function createScheduleIdempotencyKey(target, operation, hashCache) {
+  const attachmentHashes = await Promise.all(operation.attachments.map((filePath) => hashFile(filePath, hashCache)));
+  const fingerprint = crypto.createHash('sha256').update(JSON.stringify({
+    target: String(target),
+    message: operation.message,
+    targetTimestamp: operation.targetTimestamp,
+    attachmentHashes,
+    entities: operation.entities,
+    replyMarkup: operation.replyMarkup ?? null,
+    silent: operation.silent,
+    effect: getEffectIdentity(operation.effect),
+  })).digest('hex');
+
+  return `stable:schedule:${fingerprint}`;
+}
+
+async function getScheduleOperationIdentities(operations) {
+  const hashCache = new Map();
+  return Promise.all(operations.map(async (operation) => {
+    try {
+      return await createScheduleIdempotencyKey(operation.chatId, operation, hashCache);
+    } catch {
+      return null;
+    }
+  }));
+}
+
+function logTelegramOperation(label, message, attachments = [], replyMarkup) {
+  const rows = Array.isArray(replyMarkup?.inline_keyboard) ? replyMarkup.inline_keyboard : [];
+  console.info(`[Telegram ${label}] started`, {
+    messageLength: typeof message === 'string' ? message.length : 0,
+    attachmentCount: attachments.length,
+    buttonRowCount: rows.length,
+    buttonCount: rows.reduce((count, row) => count + (Array.isArray(row) ? row.length : 0), 0),
+  });
 }
 
 async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, idempotencyKey) {
@@ -2009,20 +2051,13 @@ async function withTelegramInvokeDiagnostics(clientAtStart, label, operation, id
 
   clientAtStart.invoke = async function invokeWithDiagnostics(request, ...args) {
     applyTelegramIdempotency(request, idempotencyKey);
-    console.log(`[Telegram ${label}] final client.invoke request:`);
-    console.dir(request, { depth: null });
-    console.log(`[Telegram ${label}] final request summary:`, {
-      constructor: request?.constructor?.name,
-      className: request?.className,
-      replyMarkup: request?.replyMarkup?.className || request?.replyMarkup?.constructor?.name,
-      replyMarkupRows: request?.replyMarkup?.rows?.length || 0,
-      media: request?.media?.className || request?.media?.constructor?.name,
-      file: request?.file,
+    console.info(`[Telegram ${label}] request`, {
+      requestType: request?.className || request?.constructor?.name || 'unknown',
+      mediaType: request?.media?.className || request?.media?.constructor?.name || null,
+      buttonRowCount: request?.replyMarkup?.rows?.length || 0,
     });
-    logTelegramPayload(`${label} final invoke`, request);
     return originalInvoke.call(this, request, ...args);
   };
-
   try {
     return await operation();
   } finally {
@@ -2123,7 +2158,7 @@ async function sendMessageInternal(
         return response;
       };
 
-    logTelegramMarkupDiagnostics('send', { ...sendOptions, buttons: preparedMarkup }, clientAtStart);
+    logTelegramOperation('send', message, attachments, replyMarkup);
 
       await withTelegramInvokeDiagnostics(clientAtStart, 'send', () => telegramRequest(() => withTimeout(
         sendOperation(),
@@ -2139,7 +2174,11 @@ async function sendMessageInternal(
 
   } catch (error) {
 
-    console.error('Telegram send failed:', error?.code || error?.name || 'unknown', error);
+    console.error('Telegram send failed:', {
+      errorCode: error?.code || 'UNKNOWN',
+      errorType: error?.name || 'Error',
+      waitSeconds: Number.isFinite(error?.waitSeconds) ? error.waitSeconds : undefined,
+    });
 
     throw error;
   }
@@ -2192,28 +2231,33 @@ async function scheduleMessageInternal(
     );
   }
 
-  const existingScheduledMessages = await telegramRequest(() => withTimeout(
-    client.getScheduledMessages(target),
-    REQUEST_TIMEOUT,
-    'Checking existing Telegram schedule'
-  ));
+  const scheduleOperationDetails = {
+    message,
+    targetTimestamp: scheduledDate,
+    attachments,
+    entities,
+    replyMarkup,
+    silent: silent === true,
+    effect,
+  };
+  const scheduleIdempotencyKey = await createScheduleIdempotencyKey(target, scheduleOperationDetails);
 
-  const existingScheduledMessage = existingScheduledMessages.find((msg) => {
-    const msgTimestamp = msg.date instanceof Date
-      ? Math.floor(msg.date.getTime() / 1000)
-      : Number(msg.date);
-
-    return (
-      msg.message === message &&
-      Math.abs(msgTimestamp - scheduledDate) <= 10
-    );
-  });
+  let existingScheduledMessage = null;
+  if (attachments.length === 0) {
+    const existingScheduledMessages = await telegramRequest(() => withTimeout(
+      client.getScheduledMessages(target),
+      REQUEST_TIMEOUT,
+      'Checking existing Telegram schedule'
+    ));
+    existingScheduledMessage = existingScheduledMessages.find((msg) => matchesScheduledOperation(msg, scheduleOperationDetails)) ?? null;
+  }
 
   if (existingScheduledMessage) {
     return {
       id: existingScheduledMessage.id,
       telegramMessageId: existingScheduledMessage.id,
-      confirmed: true
+      confirmed: true,
+      operationIdentity: scheduleIdempotencyKey,
     };
   }
 
@@ -2260,13 +2304,13 @@ async function scheduleMessageInternal(
       return client.invoke(request);
     };
 
-  logTelegramMarkupDiagnostics('schedule', { ...sendOptions, buttons: preparedMarkup }, client);
+  logTelegramOperation('schedule', message, attachments, replyMarkup);
 
   const sendResult = await withTelegramInvokeDiagnostics(client, 'schedule', () => telegramRequest(() => withTimeout(
     scheduleOperation(),
     REQUEST_TIMEOUT,
     'Scheduling Telegram message'
-  )));
+  )), scheduleIdempotencyKey);
 
   let telegramMessageId = null;
 
@@ -2299,28 +2343,11 @@ async function scheduleMessageInternal(
       );
   }
 
-  if (!confirmedMessage) {
+  if (!confirmedMessage && attachments.length === 0) {
 
     confirmedMessage =
       scheduledMessages.find(
-        (msg) => {
-
-          const msgTimestamp =
-            msg.date instanceof Date
-              ? Math.floor(
-                  msg.date.getTime() /
-                    1000
-                )
-              : Number(msg.date);
-
-          return (
-            msg.message === message &&
-            Math.abs(
-              msgTimestamp -
-              scheduledDate
-            ) <= 10
-          );
-        }
+        (msg) => matchesScheduledOperation(msg, scheduleOperationDetails)
       );
   }
 
@@ -2345,7 +2372,9 @@ async function scheduleMessageInternal(
     telegramMessageId:
       confirmedMessage.id,
 
-    confirmed: true
+    confirmed: true,
+
+    operationIdentity: scheduleIdempotencyKey,
 
   };
 }
@@ -2531,6 +2560,7 @@ function cancelScheduledMessage(chatId, messageId, message, targetTimestamp) {
     getContacts,
     getAvailableEffects,
     resolveChat,
+    getScheduleOperationIdentities,
     sendMessage,
     scheduleMessage,
     cancelScheduledMessage,
@@ -2567,6 +2597,7 @@ module.exports = {
   isUsernameQuery,
   getAvailableEffects: (...args) => defaultCore.getAvailableEffects(...args),
   resolveChat: (...args) => defaultCore.resolveChat(...args),
+  getScheduleOperationIdentities: (...args) => defaultCore.getScheduleOperationIdentities(...args),
   sendMessage: (...args) => defaultCore.sendMessage(...args),
   scheduleMessage: (...args) => defaultCore.scheduleMessage(...args),
   cancelScheduledMessage: (...args) => defaultCore.cancelScheduledMessage(...args),

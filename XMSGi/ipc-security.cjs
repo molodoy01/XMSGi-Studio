@@ -135,12 +135,17 @@ function validateSchedulePayload(value) {
     invalidInput('schedule payload must be an object');
   }
 
+  const attachments = validateAttachments(value.attachments);
+  const message = attachments.length > 0
+    ? validateString(value.message, 'message', { max: MAX_MESSAGE_LENGTH, allowEmpty: true })
+    : validateMessage(value.message);
+
   return {
     chatId: validateChatId(value.chatId),
-    message: validateMessage(value.message),
-    entities: validateFormattingEntities(value.entities, value.message.length),
+    message,
+    entities: validateFormattingEntities(value.entities, message.length),
     targetTimestamp: validateTimestamp(value.targetTimestamp),
-    attachments: validateAttachments(value.attachments),
+    attachments,
     replyMarkup: validateReplyMarkup(value.replyMarkup),
     silent: value.silent === true,
     effect: validateEffect(value.effect)
@@ -195,7 +200,7 @@ function validateCancelPayload(value) {
     invalidInput('telegramMessageId has an invalid format');
   }
 
-  const message = value.message === undefined
+  const message = value.message === undefined || value.message === ''
     ? undefined
     : validateMessage(value.message);
   const targetTimestamp = value.targetTimestamp === undefined
@@ -210,15 +215,19 @@ function validateSendPayload(value) {
     invalidInput('send payload must be an object');
   }
 
+  const attachments = validateAttachments(value.attachments);
+  const message = attachments.length > 0
+    ? validateString(value.message, 'message', { max: MAX_MESSAGE_LENGTH, allowEmpty: true })
+    : validateMessage(value.message);
   const idempotencyKey = value.idempotencyKey === undefined
     ? undefined
     : validateString(value.idempotencyKey, 'idempotencyKey', { max: 128 });
 
   return {
     chatId: validateChatId(value.chatId),
-    message: validateMessage(value.message),
-    entities: validateFormattingEntities(value.entities, value.message.length),
-    attachments: validateAttachments(value.attachments),
+    message,
+    entities: validateFormattingEntities(value.entities, message.length),
+    attachments,
     replyMarkup: validateReplyMarkup(value.replyMarkup),
     silent: value.silent === true,
     effect: validateEffect(value.effect),

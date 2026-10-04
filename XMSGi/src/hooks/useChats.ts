@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Chat, ChatPermissions } from '@/types';
+import { createChatAvatarLoader } from '@/services/chatAvatarLoader';
 import {
   loadPersistentChats,
   loadHiddenChats,
@@ -17,6 +18,8 @@ export function useChats({ connected }: { connected: boolean }) {
   const [persistentChatsReady, setPersistentChatsReady] = useState(false);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [chatPermissions, setChatPermissions] = useState<Record<string, ChatPermissions>>({});
+  const avatarLoaderRef = useRef<ReturnType<typeof createChatAvatarLoader> | null>(null);
+  if (!avatarLoaderRef.current) avatarLoaderRef.current = createChatAvatarLoader();
   useEffect(() => {
     let cancelled = false;
 
@@ -55,18 +58,23 @@ export function useChats({ connected }: { connected: boolean }) {
   }, [selectedChat]);
 
   useEffect(() => {
-    if (!connected || !persistentChatsReady || typeof window.telegram?.getChats !== 'function') return;
+    if (!connected) {
+      avatarLoaderRef.current?.clear();
+      return;
+    }
+    if (!persistentChatsReady || typeof window.telegram?.getChats !== 'function') return;
 
+    let cancelled = false;
     const telegramApi = window.telegram;
 
     telegramApi
       .getChats()
       .then(async (result) => {
-        if (!result.success || !result.chats) return;
+        if (cancelled || !result.success || !result.chats) return;
 
         const hidden = loadHiddenChats();
 
-        const telegramChats: Chat[] = result.chats.map((chat) => ({
+        const telegramDialogs: Chat[] = result.chats.map((chat) => ({
           id: String(chat.id),
           name: chat.name,
           username: chat.username || '',
@@ -74,8 +82,18 @@ export function useChats({ connected }: { connected: boolean }) {
           avatarDataUrl: chat.avatarDataUrl || '',
         }));
 
-        const telegramChatIds = new Set(telegramChats.map((chat) => chat.id));
         const savedChats = await loadPersistentChats();
+        if (cancelled) return;
+        const savedAvatars = new Map(
+          savedChats
+            .filter((chat) => chat.avatarDataUrl)
+            .map((chat) => [chat.id, chat.avatarDataUrl!]),
+        );
+        const telegramChats = telegramDialogs.map((chat) => ({
+          ...chat,
+          avatarDataUrl: chat.avatarDataUrl || savedAvatars.get(chat.id) || '',
+        }));
+        const telegramChatIds = new Set(telegramChats.map((chat) => chat.id));
         const locallyAddedChats = savedChats.filter(
           (chat) => !telegramChatIds.has(chat.id)
         );
@@ -92,27 +110,18 @@ export function useChats({ connected }: { connected: boolean }) {
           return nextSelected;
         });
 
-        void Promise.all(
-          visibleChats.map(async (chat) => {
-            try {
-              const avatarResult = await telegramApi.getChatAvatar(chat.id);
-              const avatarDataUrl = avatarResult.success ? avatarResult.avatarDataUrl || '' : '';
-              return avatarDataUrl ? { id: chat.id, avatarDataUrl } : null;
-            } catch {
-              return null;
-            }
-          }),
-        ).then((avatars) => {
-          const avatarByChatId = new Map(
-            avatars
-              .filter((avatar): avatar is { id: string; avatarDataUrl: string } => Boolean(avatar))
-              .map((avatar) => [avatar.id, avatar.avatarDataUrl]),
-          );
-          if (avatarByChatId.size === 0) return;
+        const chatsNeedingAvatars = visibleChats
+          .filter((chat) => !chat.avatarDataUrl)
+          .map((chat) => chat.id);
+        void avatarLoaderRef.current!.load(
+          chatsNeedingAvatars,
+          (chatId) => telegramApi.getChatAvatar(chatId),
+        ).then((avatarById) => {
+          if (cancelled || avatarById.size === 0) return;
 
           setChats((current) => {
             const updatedChats = current.map((chat) => {
-              const avatarDataUrl = avatarByChatId.get(chat.id);
+              const avatarDataUrl = avatarById.get(chat.id);
               return avatarDataUrl ? { ...chat, avatarDataUrl } : chat;
             });
 
@@ -122,7 +131,7 @@ export function useChats({ connected }: { connected: boolean }) {
           setSelectedChat((current) => {
             if (!current) return current;
 
-            const avatarDataUrl = avatarByChatId.get(current.id);
+            const avatarDataUrl = avatarById.get(current.id);
             return avatarDataUrl ? { ...current, avatarDataUrl } : current;
           });
         });
@@ -131,6 +140,10 @@ export function useChats({ connected }: { connected: boolean }) {
       .catch(() => {
         // Keep locally saved chats if Telegram chat loading fails.
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [connected, persistentChatsReady]);
 
   useEffect(() => {

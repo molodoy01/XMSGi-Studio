@@ -505,30 +505,39 @@
   animation: history-backdrop-in 120ms ease-out;
 }
 
-.history-bulk-delete-confirmation {
+.history-confirmation-backdrop {
   position: absolute;
-  right: 0;
-  bottom: calc(100% + 7px);
-  z-index: 6;
+  inset: 0;
+  z-index: 8;
   display: grid;
-  width: min(310px, calc(100vw - 32px));
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(154, 168, 184, 0.18);
-  border-radius: 8px;
-  background: rgba(20, 24, 29, 0.98);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 6, 8, 0.48);
+  backdrop-filter: blur(2px);
+  animation: history-backdrop-in 140ms ease-out;
 }
 
-.history-bulk-delete-confirmation p {
+.history-confirmation-modal {
+  position: relative;
+  width: min(380px, 100%);
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(154, 168, 184, 0.2);
+  border-radius: 10px;
+  background: #171b20;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.48);
+}
+
+.history-confirmation-modal p {
   margin: 0;
   color: #dce2e8;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
-.history-bulk-delete-confirmation .history-record-confirmation-actions {
-  margin-top: 0;
+.history-confirmation-modal .history-record-confirmation-actions {
+  flex-wrap: nowrap;
+  margin-top: 4px;
 }
 
 .history-bulk-delete-error {
@@ -1216,25 +1225,9 @@
   color: #ff9b92;
 }
 
-.history-record-confirmation {
-  display: grid;
-  gap: 12px;
-  margin-top: 10px;
-  padding: 12px 14px;
-  border: 1px solid rgba(154, 168, 184, 0.18);
-  border-radius: 8px;
-  background: rgba(154, 168, 184, 0.035);
-}
-
-.history-record-confirmation p {
-  margin: 0;
-  color: #dce2e8;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .history-record-confirmation-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }

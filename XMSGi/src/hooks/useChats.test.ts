@@ -194,6 +194,117 @@ describe('useChats persistence merge', () => {
     });
   });
 
+  it('limits concurrent avatar requests while preserving all chats', async () => {
+    const telegramChats: Chat[] = Array.from({ length: 7 }, (_, index) => ({
+      id: `avatar-chat-${index}`,
+      name: `Avatar chat ${index}`,
+      type: 'private',
+    }));
+    const requests = new Map(telegramChats.map((chat) => [
+      chat.id,
+      createDeferred<{ success: boolean; avatarDataUrl?: string }>(),
+    ]));
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    const getChatAvatar = vi.fn((chatId: string) => {
+      activeRequests += 1;
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+      return requests.get(chatId)!.promise.finally(() => { activeRequests -= 1; });
+    });
+    window.telegram = {
+      loadSavedChats: vi.fn().mockResolvedValue([]),
+      saveSavedChats: vi.fn().mockResolvedValue({ success: true }),
+      getChats: vi.fn().mockResolvedValue({ success: true, chats: telegramChats }),
+      getChatAvatar,
+    } as unknown as Window['telegram'];
+
+    const { result } = renderHook(() => useChats({ connected: true }));
+
+    await waitFor(() => expect(getChatAvatar).toHaveBeenCalled());
+    expect(getChatAvatar).toHaveBeenCalledTimes(4);
+    expect(maxActiveRequests).toBe(4);
+
+    let resolvedCount = 0;
+    while (resolvedCount < telegramChats.length) {
+      const batch = telegramChats.slice(resolvedCount, resolvedCount + 4);
+      act(() => {
+        batch.forEach((chat) => requests.get(chat.id)!.resolve({
+          success: true,
+          avatarDataUrl: `avatar-${chat.id}`,
+        }));
+      });
+      resolvedCount += batch.length;
+      if (resolvedCount < telegramChats.length) {
+        await waitFor(() => expect(getChatAvatar).toHaveBeenCalledTimes(Math.min(resolvedCount + 4, telegramChats.length)));
+      }
+    }
+
+    await waitFor(() => expect(result.current.chats.filter((chat) => chat.avatarDataUrl)).toHaveLength(7));
+    expect(result.current.chats.map((chat) => chat.id)).toEqual(telegramChats.map((chat) => chat.id));
+    expect(maxActiveRequests).toBeLessThanOrEqual(4);
+  });
+
+  it('does not reload cached avatars on rerender or reconnect', async () => {
+    const persistedChats: Chat[] = [];
+    const getChatAvatar = vi.fn().mockResolvedValue({ success: true, avatarDataUrl: 'cached-avatar' });
+    window.telegram = {
+      loadSavedChats: vi.fn().mockImplementation(async () => persistedChats),
+      saveSavedChats: vi.fn().mockImplementation(async (chats: Chat[]) => {
+        persistedChats.splice(0, persistedChats.length, ...chats);
+        return { success: true };
+      }),
+      getChats: vi.fn().mockResolvedValue({ success: true, chats: [telegramDialog] }),
+      getChatAvatar,
+    } as unknown as Window['telegram'];
+
+    const { result, rerender } = renderHook(
+      ({ connected }) => useChats({ connected }),
+      { initialProps: { connected: true } },
+    );
+
+    await waitFor(() => expect(result.current.chats[0]?.avatarDataUrl).toBe('cached-avatar'));
+    expect(getChatAvatar).toHaveBeenCalledTimes(1);
+
+    rerender({ connected: true });
+    expect(getChatAvatar).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(persistedChats[0]?.avatarDataUrl).toBe('cached-avatar'));
+    rerender({ connected: false });
+    rerender({ connected: true });
+    await waitFor(() => expect(window.telegram.getChats).toHaveBeenCalledTimes(2));
+    expect(getChatAvatar).toHaveBeenCalledTimes(1);
+    expect(result.current.chats).toEqual([expect.objectContaining({
+      id: telegramDialog.id,
+      avatarDataUrl: 'cached-avatar',
+    })]);
+  });
+
+  it('keeps other chats and successful avatars when one avatar request fails', async () => {
+    const chats: Chat[] = [
+      { id: 'avatar-ok-1', name: 'Avatar one', type: 'private' },
+      { id: 'avatar-fails', name: 'Avatar failure', type: 'group' },
+      { id: 'avatar-ok-2', name: 'Avatar two', type: 'channel' },
+    ];
+    window.telegram = {
+      loadSavedChats: vi.fn().mockResolvedValue([]),
+      saveSavedChats: vi.fn().mockResolvedValue({ success: true }),
+      getChats: vi.fn().mockResolvedValue({ success: true, chats }),
+      getChatAvatar: vi.fn().mockImplementation(async (chatId: string) => {
+        if (chatId === 'avatar-fails') throw new Error('avatar unavailable');
+        return { success: true, avatarDataUrl: `avatar-${chatId}` };
+      }),
+    } as unknown as Window['telegram'];
+
+    const { result } = renderHook(() => useChats({ connected: true }));
+
+    await waitFor(() => expect(result.current.chats).toHaveLength(3));
+    await waitFor(() => expect(result.current.chats.find((chat) => chat.id === 'avatar-ok-2')?.avatarDataUrl)
+      .toBe('avatar-avatar-ok-2'));
+    expect(result.current.chats.map((chat) => chat.id)).toEqual(chats.map((chat) => chat.id));
+    expect(result.current.chats.find((chat) => chat.id === 'avatar-ok-1')?.avatarDataUrl).toBe('avatar-avatar-ok-1');
+    expect(result.current.chats.find((chat) => chat.id === 'avatar-fails')?.avatarDataUrl).toBe('');
+  });
+
   it('removes only the requested chat from the local list', async () => {
     const secondChat: Chat = {
       id: 'second-chat',
