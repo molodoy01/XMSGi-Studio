@@ -746,7 +746,7 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
     && (logoFlying || (!text.trim() && (!logoHasPlayedRef.current || logoIntroReady)));
   return (
     <div
-      className={`workspace-page-rich-text-editor ${toolbarActive && stageMode === 'editor' ? 'is-toolbar-active' : ''}`}
+      className={`workspace-page-rich-text-editor ${toolbarActive ? 'is-toolbar-active' : ''}`}
     >
       <div className="workspace-page-rich-text-stage">
         <div

@@ -1,6 +1,7 @@
-import { ArrowLeft, BatteryFull, ImagePlus, MessageCircle, Mic, Paperclip, Search, Send, Signal, SlidersHorizontal, Smartphone, Smile, Wifi, X } from 'lucide-react';
+import { ArrowLeft, BatteryFull, ImagePlus, MessageCircle, Mic, Monitor, Paperclip, Search, Send, Signal, SlidersHorizontal, Smartphone, Smile, Wifi, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, MutableRefObject } from 'react';
+import { ChatAvatar } from '@/components/ChatAvatar';
 import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
 import { toInlineKeyboardMarkup, type InlineButtonRow } from '@/lib/inlineKeyboard';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
@@ -24,7 +25,6 @@ export type ChatWallpaper = {
 
 const CHAT_WALLPAPER_STORAGE_KEY = 'xmsgi-chat-preview-wallpaper';
 const LEGACY_CHAT_WALLPAPER_STORAGE_KEY = 'awaitmsg-chat-preview-wallpaper';
-const PREVIEW_DEVICE_STORAGE_KEY = 'xmsgi-chat-preview-device';
 const MAX_WALLPAPERS = 5;
 const MAX_UPLOADED_WALLPAPERS = MAX_WALLPAPERS - 2;
 
@@ -92,14 +92,6 @@ function loadSavedWallpaper(): SavedWallpaper {
     };
   } catch {
     return { theme: 'telegram', image: '', accent: '' };
-  }
-}
-
-function loadSavedPreviewDevice(): PreviewDevice {
-  try {
-    return window.localStorage.getItem(PREVIEW_DEVICE_STORAGE_KEY) === 'mobile' ? 'mobile' : 'web';
-  } catch {
-    return 'web';
   }
 }
 
@@ -240,7 +232,7 @@ export function ChatPreviewStand({
   onWallpaperChange,
 }: ChatPreviewStandProps) {
   const savedWallpaper = useMemo(loadSavedWallpaper, []);
-  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(loadSavedPreviewDevice);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
   const [wallpaperTheme, setWallpaperTheme] = useState<WallpaperTheme>(savedWallpaper.theme);
   const [customWallpaperImage, setCustomWallpaperImage] = useState(savedWallpaper.image);
   const [lastUploadedWallpaper, setLastUploadedWallpaper] = useState(savedWallpaper.image);
@@ -442,11 +434,7 @@ export function ChatPreviewStand({
   const handlePreviewDeviceChange = (nextDevice: PreviewDevice) => {
     if (nextDevice === previewDevice) return;
     setPreviewDevice(nextDevice);
-    try {
-      window.localStorage.setItem(PREVIEW_DEVICE_STORAGE_KEY, nextDevice);
-    } catch {
-      // Keep preview switching usable when local storage is unavailable.
-    }
+    setWallpaperPickerOpen(false);
   };
 
   const handlePreviewScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -506,9 +494,11 @@ export function ChatPreviewStand({
   return (
     <div className={`chat-preview-stand is-${previewDevice} ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''}`}>
       <div className="chat-preview-toolbar">
-        <span className="chat-preview-toolbar-label">Live chat preview</span>
+        <span className="chat-preview-toolbar-label">
+          {previewDevice === 'mobile' ? 'Live preview' : 'Live chat preview'}
+        </span>
         {wallpaperPickerOpen && (
-          <div className="chat-preview-wallpaper-quick-picker" aria-label="Choose chat background">
+          <div className={`chat-preview-wallpaper-quick-picker ${previewDevice === 'web' ? 'is-inline' : ''}`} aria-label="Choose chat background">
             <button
               type="button"
               className={`chat-preview-wallpaper-quick-choice is-default ${wallpaperTheme === 'telegram' ? 'is-selected' : ''}`}
@@ -588,9 +578,7 @@ export function ChatPreviewStand({
                   className={`chat-preview-chat-list-item ${selectedChat?.id === chat.id ? 'is-selected' : ''}`}
                   onClick={() => onSelectChat(chat)}
                 >
-                  <span className="chat-preview-chat-list-avatar" aria-hidden="true">
-                    {chat.avatarDataUrl ? <img src={chat.avatarDataUrl} alt="" /> : chat.name.slice(0, 1).toUpperCase()}
-                  </span>
+                  <ChatAvatar name={chat.name} src={chat.avatarDataUrl} className="chat-preview-chat-list-avatar" />
                   <span className="chat-preview-chat-list-copy">
                     <strong>{chat.name}</strong>
                     <span>{chat.name === 'Saved Messages' ? 'Saved Messages' : chat.type || 'Chat'}</span>
@@ -620,11 +608,12 @@ export function ChatPreviewStand({
               <ArrowLeft size={20} strokeWidth={2} aria-hidden="true" />
             </button>
           )}
-          {activePreviewHistory?.chat.avatarDataUrl ? (
-            <img className="chat-preview-avatar" src={activePreviewHistory.chat.avatarDataUrl} alt="" />
-          ) : (
-            <div className="chat-preview-avatar" aria-hidden="true">{previewTitle.slice(0, 1).toUpperCase()}</div>
-          )}
+          <ChatAvatar
+            as="div"
+            name={previewTitle}
+            src={activePreviewHistory?.chat.avatarDataUrl || selectedChat?.avatarDataUrl}
+            className="chat-preview-avatar"
+          />
           <div className="chat-preview-header-copy">
             <strong>{previewTitle}</strong>
             <span><i className="chat-preview-status-dot" aria-hidden="true" />{previewType === 'private' ? 'online' : previewType}</span>
@@ -658,22 +647,27 @@ export function ChatPreviewStand({
                   aria-pressed={previewDevice === 'mobile'}
                   title={previewDevice === 'mobile' ? 'Switch to Web preview' : 'Switch to Mobile preview'}
                 >
-                  <Smartphone size={17} strokeWidth={1.8} aria-hidden="true" />
+                  {previewDevice === 'mobile'
+                    ? <Monitor size={17} strokeWidth={1.8} aria-hidden="true" />
+                    : <Smartphone size={17} strokeWidth={1.8} aria-hidden="true" />}
                 </button>
+                {previewDevice === 'web' && (
+                  <button
+                    type="button"
+                    className={`chat-preview-expand ${chatListOpen ? 'is-active' : ''}`}
+                    onClick={() => { onToggleChatList(); setPreviewOptionsOpen(false); }}
+                    aria-label={chatListOpen ? 'Hide chats' : 'Show chats'}
+                    title={chatListOpen ? 'Hide chats' : 'Show chats'}
+                  >
+                    {chatListOpen ? <span aria-hidden="true">×</span> : <MessageCircle size={17} strokeWidth={1.8} aria-hidden="true" />}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className={`chat-preview-expand ${chatListOpen ? 'is-active' : ''}`}
-                  onClick={() => { onToggleChatList(); setPreviewOptionsOpen(false); }}
-                  aria-label={chatListOpen ? 'Hide chats' : 'Show chats'}
-                  title={chatListOpen ? 'Hide chats' : 'Show chats'}
-                >
-                  {chatListOpen ? <span aria-hidden="true">×</span> : <MessageCircle size={17} strokeWidth={1.8} aria-hidden="true" />}
-                </button>
-                <button
-                  type="button"
-                  className="chat-preview-expand"
+                  className={`chat-preview-expand ${wallpaperPickerOpen ? 'is-active' : ''}`}
                   onClick={() => { setWallpaperPickerOpen((current) => !current); setPreviewOptionsOpen(false); }}
                   aria-label="Choose chat background"
+                  aria-pressed={wallpaperPickerOpen}
                   title="Choose chat background"
                 >
                   <ImagePlus size={17} strokeWidth={1.8} aria-hidden="true" />

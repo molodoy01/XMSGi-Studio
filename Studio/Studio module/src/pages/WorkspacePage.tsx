@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { ChatAvatar } from '@/components/ChatAvatar';
 import { ChatRemoveModal } from '@/components/ChatRemoveModal';
 import { ChatPreviewStand, type ChatWallpaper } from '@/components/ChatPreviewStand';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
@@ -348,6 +349,11 @@ const CHAT_WALLPAPER_STORAGE_KEY = 'xmsgi-chat-preview-wallpaper';
 const LEGACY_CHAT_WALLPAPER_STORAGE_KEY = 'awaitmsg-chat-preview-wallpaper';
 const DRAFT_STORE_FALLBACK_KEY = 'xmsgi-draft-store-fallback';
 const LEGACY_DRAFT_STORE_FALLBACK_KEY = 'awaitmsg-draft-store-fallback';
+const DEFAULT_TEMPLATE_SEEDED_KEY = 'xmsgi-default-template-seeded-v1';
+const DEFAULT_DRAFT_SEEDED_KEY = 'xmsgi-default-draft-seeded-v1';
+const DEFAULT_DRAFT_ID = 'xmsgi-default-draft-00-55';
+const DEFAULT_DRAFT_NAME = 'Draft 00:55';
+const DEFAULT_DRAFT_BODY = '💣 **ДЕЙСТВУЙ**\n\n🔥 **[Название]**\n🚀 [Главный результат]\n⚡ [Ключевая фишка]\n\n😈 Остальное увидишь сам.\n\n👉 @username\n';
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024;
 const MAX_ATTACHMENTS_TOTAL_SIZE = 200 * 1024 * 1024;
@@ -358,6 +364,72 @@ type PreviewLayout = {
 };
 
 const DEFAULT_PREVIEW_LAYOUT: PreviewLayout = { visible: true };
+
+function loadTemplatesWithDefault(): Template[] {
+  const templates = loadTemplates();
+
+  try {
+    if (window.localStorage.getItem(DEFAULT_TEMPLATE_SEEDED_KEY) === '1') return templates;
+
+    if (!templates.some((template) => template.name === DEFAULT_DRAFT_NAME && template.body === DEFAULT_DRAFT_BODY)) {
+      const defaultTemplate = createTemplate({ name: DEFAULT_DRAFT_NAME, body: DEFAULT_DRAFT_BODY });
+      templates.push(defaultTemplate);
+      saveTemplates(templates);
+    }
+
+    window.localStorage.setItem(DEFAULT_TEMPLATE_SEEDED_KEY, '1');
+  } catch {
+    // Keep the editor available if defaults cannot be written to storage.
+  }
+
+  return templates;
+}
+
+function seedDefaultDraft(store: PersistedDraftStore): { store: PersistedDraftStore; added: boolean } {
+  try {
+    if (window.localStorage.getItem(DEFAULT_DRAFT_SEEDED_KEY) === '1') return { store, added: false };
+
+    const alreadyPresent = store.savedDrafts.some((draft) => (
+      draft.id === DEFAULT_DRAFT_ID
+      || (draft.name === DEFAULT_DRAFT_NAME && draft.body === DEFAULT_DRAFT_BODY)
+    ));
+    if (alreadyPresent) {
+      window.localStorage.setItem(DEFAULT_DRAFT_SEEDED_KEY, '1');
+      return { store, added: false };
+    }
+  } catch {
+    return { store, added: false };
+  }
+
+  const now = new Date().toISOString();
+  const defaultDraft: SavedDraft = {
+    id: DEFAULT_DRAFT_ID,
+    name: DEFAULT_DRAFT_NAME,
+    body: DEFAULT_DRAFT_BODY,
+    color: 'coral',
+    entities: [],
+    attachments: [],
+    selectedChat: null,
+    inlineButtons: [],
+    date: '',
+    time: '',
+    repeatMode: 'none',
+    repeatDays: [],
+    repeatOccurrences: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return { store: { ...store, savedDrafts: [...store.savedDrafts, defaultDraft] }, added: true };
+}
+
+function markDefaultDraftSeeded() {
+  try {
+    window.localStorage.setItem(DEFAULT_DRAFT_SEEDED_KEY, '1');
+  } catch {
+    // The saved draft remains available for the current session.
+  }
+}
 
 function isLivePreviewSurface() {
   const portMatches = ['4175', '4176'].includes(window.location.port);
@@ -643,7 +715,7 @@ export function WorkspacePage({
   const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>(
     () => initialDraftRef.current?.inlineButtons ?? [],
   );
-  const [templates, setTemplates] = useState<Template[]>(() => loadTemplates());
+  const [templates, setTemplates] = useState<Template[]>(loadTemplatesWithDefault);
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>(() => loadSavedDrafts());
   const savedDraftsRef = useRef(savedDrafts);
   const [draftStoreReady, setDraftStoreReady] = useState(false);
@@ -918,6 +990,23 @@ export function WorkspacePage({
     window.localStorage.setItem(LEGACY_PREVIEW_LAYOUT_KEY, serialized);
   }, [previewLayout]);
 
+  useEffect(() => {
+    const preventEditorReload = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'r') return;
+      const workspace = workspaceRef.current;
+      if (!workspace || workspace.closest('[aria-hidden="true"]')) return;
+      const editorShell = workspace.querySelector('.workspace-page-editor-shell');
+      const targetIsInEditor = event.target instanceof Node && editorShell?.contains(event.target);
+      const focusIsInEditor = editorShell?.contains(document.activeElement);
+      if (!targetIsInEditor && !focusIsInEditor) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    window.addEventListener('keydown', preventEditorReload, true);
+    return () => window.removeEventListener('keydown', preventEditorReload, true);
+  }, []);
 
   const togglePreviewVisibility = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -1011,7 +1100,12 @@ export function WorkspacePage({
       if (!draftStorage) {
         const fallbackStore = readWorkspaceDraftStoreFallback();
         if (fallbackStore) {
-          applyPersistedDraftStore(fallbackStore);
+          const seeded = seedDefaultDraft(fallbackStore);
+          if (seeded.added) {
+            writeWorkspaceDraftStoreFallback(seeded.store);
+            markDefaultDraftSeeded();
+          }
+          applyPersistedDraftStore(seeded.store);
           return;
         }
 
@@ -1022,8 +1116,10 @@ export function WorkspacePage({
             savedDrafts: [],
             workspaceDraft: null,
           };
-          writeWorkspaceDraftStoreFallback(emptyStore);
-          applyPersistedDraftStore(emptyStore);
+          const seeded = seedDefaultDraft(emptyStore);
+          writeWorkspaceDraftStoreFallback(seeded.store);
+          if (seeded.added) markDefaultDraftSeeded();
+          applyPersistedDraftStore(seeded.store);
           return;
         }
 
@@ -1057,6 +1153,18 @@ export function WorkspacePage({
             throw new Error(migrated.error || 'Existing drafts could not be migrated. The original data was kept.');
           }
           store = migrated.store;
+        }
+
+        const seeded = seedDefaultDraft(store);
+        store = seeded.store;
+        if (seeded.added) {
+          const saved = await draftStorage.save(store);
+          if (saved.success) {
+            store = saved.store ?? store;
+            markDefaultDraftSeeded();
+          } else {
+            setDraftStoreError(saved.error || 'The default draft could not be saved yet.');
+          }
         }
 
         if (cancelled) return;
@@ -2134,9 +2242,7 @@ export function WorkspacePage({
                     <button type="button" className="workspace-page-chat-trigger" onClick={openChatSelection} aria-label="Choose chat" title="Choose a chat or channel">
                       {selectedChat ? (
                         <>
-                          <span className="workspace-page-chat-trigger-avatar" aria-hidden="true">
-                            {selectedChat.avatarDataUrl ? <img src={selectedChat.avatarDataUrl} alt="" /> : selectedChat.name.slice(0, 1).toUpperCase()}
-                          </span>
+                          <ChatAvatar name={selectedChat.name} src={selectedChat.avatarDataUrl} className="workspace-page-chat-trigger-avatar" />
                           <span className="workspace-page-chat-trigger-copy">
                             <strong>{selectedChat.name}</strong>
                             <span>{selectedChat.name === 'Saved Messages' ? 'Saved Messages' : selectedChat.type || 'Chat'}</span>

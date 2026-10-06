@@ -19,7 +19,6 @@
 
 .settings-view-content h1 {
   margin: 0;
-  margin-left: 20px;
   color: rgba(235, 240, 244, 0.8);
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: clamp(2.2rem, 5vw, 4.2rem);

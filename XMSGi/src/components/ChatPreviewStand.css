@@ -206,6 +206,7 @@
 }
 
 .chat-preview-toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -230,16 +231,18 @@
 .chat-preview-wallpaper-quick-picker {
   position: absolute;
   z-index: 20;
-  top: 28px;
+  top: calc(100% + 2px);
   right: 0;
+  left: auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   min-height: 30px;
   padding: 2px 0 6px;
   overflow-x: auto;
   max-width: 100%;
-  transform: translateY(-100%);
+  transform: none;
   scrollbar-width: thin;
 }
 
@@ -393,15 +396,16 @@
 
 .chat-preview-avatar {
   display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  margin-top: 6px;
   place-items: center;
   overflow: hidden;
   border-radius: 50%;
   background: #4b6d7b;
   color: #f1f6f7;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 

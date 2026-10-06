@@ -49,11 +49,21 @@ function renderChatPreviewStand(attachments: { name: string; path: string; previ
 }
 
 function openWallpaperPicker(container: HTMLElement) {
+  if (container.querySelector('.chat-preview-wallpaper-quick-picker')) return;
   act(() => {
     (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
   });
   act(() => {
-    (container.querySelector('[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+    (container.querySelector('button[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+  });
+}
+
+function switchToWebPreview(container: HTMLElement) {
+  act(() => {
+    (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+  });
+  act(() => {
+    (container.querySelector('[aria-label="Switch to Web preview"]') as HTMLButtonElement).click();
   });
 }
 
@@ -63,20 +73,39 @@ describe('ChatPreviewStand wallpaper picker', () => {
     window.localStorage.clear();
   });
 
-  it('groups chat and wallpaper actions under one settings button', () => {
+  it('shows wallpaper presets in the web preview and groups chat controls under settings', () => {
     const { container, onToggleChatList, unmount } = renderChatPreviewStand();
 
     try {
+      switchToWebPreview(container);
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-web')).toBe(true);
+      expect(container.querySelector('.chat-preview-toolbar-label')?.textContent?.trim()).toBe('Live chat preview');
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).toBeNull();
       expect(container.querySelectorAll('.chat-preview-header-actions > button')).toHaveLength(1);
       expect(container.querySelector('[aria-label="Show chats"]')).toBeNull();
-      expect(container.querySelector('[aria-label="Choose chat background"]')).toBeNull();
+      expect(container.querySelector('button[aria-label="Choose chat background"]')).toBeNull();
 
       act(() => {
         (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
       });
 
       expect(container.querySelector('[aria-label="Show chats"]')).not.toBeNull();
-      expect(container.querySelector('[aria-label="Choose chat background"]')).not.toBeNull();
+      const wallpaperToggle = container.querySelector('button[aria-label="Choose chat background"]') as HTMLButtonElement;
+      expect(wallpaperToggle.getAttribute('aria-pressed')).toBe('false');
+      act(() => wallpaperToggle.click());
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).not.toBeNull();
+
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      act(() => {
+        (container.querySelector('button[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+      });
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).toBeNull();
+
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
 
       act(() => {
         (container.querySelector('[aria-label="Show chats"]') as HTMLButtonElement).click();
@@ -84,6 +113,62 @@ describe('ChatPreviewStand wallpaper picker', () => {
 
       expect(onToggleChatList).toHaveBeenCalledTimes(1);
       expect(container.querySelector('.chat-preview-options-menu')).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  it('keeps the wallpaper picker toggle in mobile preview', () => {
+    const { container, unmount } = renderChatPreviewStand();
+
+    try {
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-mobile')).toBe(true);
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).toBeNull();
+      expect(container.querySelector('.chat-preview-toolbar-label')?.textContent?.trim()).toBe('Live preview');
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      expect(container.querySelector('[aria-label="Show chats"]')).toBeNull();
+      act(() => {
+        (container.querySelector('button[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+      });
+
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).not.toBeNull();
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')?.classList.contains('is-inline')).toBe(false);
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      act(() => {
+        (container.querySelector('button[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+      });
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  it('applies a web background and lets the user reopen the toolbar palette', () => {
+    const { container, unmount } = renderChatPreviewStand();
+
+    try {
+      switchToWebPreview(container);
+      openWallpaperPicker(container);
+      act(() => {
+        (container.querySelector('[aria-label="Graphite background"]') as HTMLButtonElement).click();
+      });
+
+      expect(container.querySelector('.chat-preview-window')?.classList.contains('theme-graphite')).toBe(true);
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).toBeNull();
+
+      act(() => {
+        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      act(() => {
+        (container.querySelector('.chat-preview-options-menu button[aria-label="Choose chat background"]') as HTMLButtonElement).click();
+      });
+
+      expect(container.querySelector('.chat-preview-wallpaper-quick-picker')).not.toBeNull();
+      expect(container.querySelector('.chat-preview-toolbar')?.contains(container.querySelector('.chat-preview-wallpaper-quick-picker'))).toBe(true);
     } finally {
       unmount();
     }
@@ -157,12 +242,6 @@ describe('ChatPreviewStand wallpaper picker', () => {
     const scrollbar = container.querySelector('[role="scrollbar"]') as HTMLDivElement;
 
     try {
-      act(() => {
-        (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
-      });
-      act(() => {
-        (container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click();
-      });
       act(() => feed.dispatchEvent(new Event('scroll')));
 
       expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-mobile')).toBe(true);
@@ -185,28 +264,22 @@ describe('ChatPreviewStand wallpaper picker', () => {
     try {
       const openSettings = container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement;
       act(() => openSettings.click());
-      act(() => (container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click());
-
-      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-chat-list-open')).toBe(false);
-
-      act(() => openSettings.click());
       act(() => (container.querySelector('[aria-label="Switch to Web preview"]') as HTMLButtonElement).click());
 
       expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-chat-list-open')).toBe(false);
       expect(container.querySelector('.chat-preview-chat-list')).toBeNull();
+
+      act(() => (container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click());
+      act(() => (container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click());
+      expect(container.querySelector('.chat-preview-stand')?.classList.contains('is-chat-list-open')).toBe(false);
     } finally {
       unmount();
     }
   });
 
-  it('restores the selected preview device after remounting', () => {
+  it('starts in mobile preview after remounting regardless of the previous selection', () => {
     const firstPreview = renderChatPreviewStand();
-    act(() => {
-      (firstPreview.container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
-    });
-    act(() => {
-      (firstPreview.container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click();
-    });
+    switchToWebPreview(firstPreview.container);
     firstPreview.unmount();
 
     const secondPreview = renderChatPreviewStand();

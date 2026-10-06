@@ -92,4 +92,27 @@ describe('ChatPicker global username result flow', () => {
     expect(onRemoveChat).toHaveBeenCalledWith(chat);
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it('renders a dedicated scrollbar for the full chat list and tracks its position', () => {
+    const chats: Chat[] = Array.from({ length: 12 }, (_, index) => ({
+      id: `chat-${index}`,
+      name: `Chat ${index + 1}`,
+      type: 'private',
+    }));
+    renderPicker(vi.fn(), chats);
+
+    const viewport = document.querySelector('.chat-picker-scroll-area') as HTMLDivElement;
+    const scrollbar = document.querySelector('.chat-picker-scrollbar');
+    expect(viewport.querySelectorAll('.chat-option')).toHaveLength(12);
+    expect(scrollbar).not.toBeNull();
+    expect(scrollbar).toHaveAttribute('role', 'scrollbar');
+
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 120 });
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 600 });
+    viewport.scrollTop = 84;
+    fireEvent.scroll(viewport);
+
+    expect(scrollbar).toHaveAttribute('aria-valuenow', '84');
+    expect(scrollbar).toHaveAttribute('aria-valuemax', '480');
+  });
 });

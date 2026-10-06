@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Chat } from '@/types';
+import { ChatAvatar } from '@/components/ChatAvatar';
 
 interface Props {
   chats: Chat[];
@@ -102,9 +103,7 @@ export function ChatPicker({
               setOpen(false);
             }}
           >
-            <span className="chat-option-avatar" aria-hidden="true">
-              {chat.avatarDataUrl ? <img src={chat.avatarDataUrl} alt="" /> : chat.name.slice(0, 1).toUpperCase()}
-            </span>
+            <ChatAvatar name={chat.name} src={chat.avatarDataUrl} className="chat-option-avatar" />
             <span className="chat-option-copy">
               <strong className="chat-option-name">{chat.name}</strong>
               <span className="chat-option-type">{chat.name === 'Saved Messages' ? 'Saved Messages' : chat.type || 'Chat'}</span>

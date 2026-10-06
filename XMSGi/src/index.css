@@ -1499,6 +1499,7 @@ body:has(.auth-panel) {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: radial-gradient(ellipse 72% 44% at 50% 0%, #101216 0%, transparent 72%), #030405;
 }
 
 .product-shell-content {
@@ -1512,7 +1513,6 @@ body:has(.auth-panel) {
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(ellipse 72% 44% at 50% 0%, #101216 0%, transparent 72%), #030405;
 }
 
 .product-shell.studio-shell > .product-shell-content {
@@ -1552,16 +1552,13 @@ body:has(.product-shell.studio-shell) {
   height: 64px;
   margin-left: calc(50% - 50vw);
   padding: 0 29.5px;
+  background: radial-gradient(ellipse 38% 150% at 50% 0%, rgba(154, 168, 184, 0.08) 0%, transparent 72%);
 }
 
 .topbar-placeholder {
   flex: 0 0 64px;
   visibility: hidden;
   pointer-events: none;
-}
-
-.studio-shell > .topbar {
-  background: radial-gradient(ellipse 38% 150% at 50% 0%, rgba(154, 168, 184, 0.08) 0%, transparent 72%);
 }
 
 .settings-action.product-mode-switch {
@@ -1626,7 +1623,7 @@ body:has(.product-shell.studio-shell) {
 }
 
 .topbar .brand {
-  transform: skewX(-4deg);
+  transform: translateX(-50%) skewX(-4deg);
   transform-origin: center;
 }
 
@@ -1955,7 +1952,6 @@ body:has(.product-shell.studio-shell) {
 
 .settings-view-content h1 {
   margin: 0;
-  margin-left: 20px;
   color: rgba(235, 240, 244, 0.6);
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: clamp(2.2rem, 5vw, 4.2rem);
@@ -7423,12 +7419,59 @@ textarea:active,
   color: rgba(154, 168, 184, 0.72);
 }
 
-.chat-picker-menu::-webkit-scrollbar {
-  width: 6px;
+.chat-picker-menu {
+  max-height: min(240px, calc(100vh - 120px)) !important;
+  overflow: hidden !important;
 }
 
-.chat-picker-menu::-webkit-scrollbar-track {
-  background: transparent;
+.chat-picker-scroll-area {
+  max-height: inherit;
+  padding-right: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.chat-picker-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-picker-scrollbar {
+  position: absolute;
+  z-index: 12;
+  top: 6px;
+  right: 3px;
+  bottom: 6px;
+  width: 9px;
+  border-left: 1px solid rgba(154, 168, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(154, 168, 184, 0.12);
+  cursor: pointer;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.chat-picker-scrollbar:focus-visible {
+  box-shadow: 0 0 0 2px rgba(154, 168, 184, 0.24);
+}
+
+.chat-picker-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  left: 1px;
+  width: 6px;
+  min-height: 20px;
+  border-radius: inherit;
+  background: rgba(196, 210, 222, 0.82);
+  box-shadow: 0 0 3px rgba(196, 210, 222, 0.16);
+  cursor: grab;
+}
+
+.chat-picker-scrollbar:active .chat-picker-scrollbar-thumb {
+  background: rgba(220, 230, 238, 0.94);
+  cursor: grabbing;
 }
 
 .moment-field + .action-button:not(.schedule-success),
@@ -7461,7 +7504,7 @@ textarea:active,
 .chat-picker-menu::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(154, 168, 184, 0.26);
+  background: rgba(196, 210, 222, 0.82);
   background-clip: padding-box;
 }
 

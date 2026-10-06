@@ -102,6 +102,7 @@ describe('ChatPreviewStand DOM behavior', () => {
     expect(screen.queryByRole('button', { name: 'Switch to Mobile preview' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
+    expect(screen.getByRole('button', { name: 'Switch to Web preview' }).querySelector('svg')).toHaveClass('lucide-monitor');
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Web preview' }));
     expect(preview).toHaveClass('is-web');
     expect(screen.queryByRole('button', { name: 'Switch to Web preview' })).not.toBeInTheDocument();
