@@ -21,6 +21,7 @@ import { loadSavedDrafts, loadTemplates, saveTemplates } from '@/lib/storage';
 import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
 import type {
   Chat,
+  DraftAttachment,
   DraftColor,
   PersistedDraftStore,
   PreviewChatHistory,
@@ -330,15 +331,45 @@ type WorkspaceDraft = {
   repeatOccurrences?: number;
 };
 
-type WorkspaceAttachment = {
-  name: string;
-  path: string;
-  size?: number;
-  previewUrl?: string;
-};
+type WorkspaceAttachment = DraftAttachment;
 
 export function hasDraftContent(body: string, attachments: WorkspaceAttachment[] = []): boolean {
   return body.trim().length > 0 || attachments.some((attachment) => Boolean(attachment.path || attachment.previewUrl || attachment.name));
+}
+
+export function remapAttachmentPositions(
+  attachments: WorkspaceAttachment[],
+  previousText: string,
+  nextText: string,
+): WorkspaceAttachment[] {
+  if (previousText === nextText || attachments.length === 0) return attachments;
+
+  let prefixLength = 0;
+  while (
+    prefixLength < previousText.length
+    && prefixLength < nextText.length
+    && previousText[prefixLength] === nextText[prefixLength]
+  ) prefixLength += 1;
+
+  let suffixLength = 0;
+  while (
+    suffixLength < previousText.length - prefixLength
+    && suffixLength < nextText.length - prefixLength
+    && previousText[previousText.length - suffixLength - 1] === nextText[nextText.length - suffixLength - 1]
+  ) suffixLength += 1;
+
+  const previousEditEnd = previousText.length - suffixLength;
+  const nextEditEnd = nextText.length - suffixLength;
+  const lengthDelta = nextText.length - previousText.length;
+
+  return attachments.map((attachment) => {
+    const position = attachment.position < prefixLength
+      ? attachment.position
+      : attachment.position >= previousEditEnd
+        ? attachment.position + lengthDelta
+        : nextEditEnd;
+    return position === attachment.position ? attachment : { ...attachment, position: Math.max(0, position) };
+  });
 }
 
 const WORKSPACE_DRAFT_KEY = 'xmsgi-workspace-draft';
@@ -543,9 +574,19 @@ function getDraftStorageApi() {
 export function normalizeAttachments(value: unknown): WorkspaceAttachment[] {
   if (!Array.isArray(value)) return [];
 
-  return value.flatMap((attachment) => {
+  return value.flatMap((attachment, index) => {
     if (typeof attachment === 'string') {
-      return [{ name: attachment, path: attachment }];
+      const name = attachment.split(/[\\/]/).pop() || attachment;
+      const mimeType = inferAttachmentMimeType(name);
+      return [{
+        id: `legacy-${index}-${name}`,
+        type: mimeType.startsWith('image/') ? 'image' : 'file',
+        name,
+        mimeType,
+        path: attachment,
+        size: 0,
+        position: 0,
+      }];
     }
 
     if (
@@ -556,16 +597,48 @@ export function normalizeAttachments(value: unknown): WorkspaceAttachment[] {
       const path = typeof attachment.path === 'string' ? attachment.path : typeof attachment.previewUrl === 'string' ? attachment.previewUrl : '';
       if (!path) return [];
 
+      const mimeType = typeof attachment.mimeType === 'string' && attachment.mimeType
+        ? attachment.mimeType
+        : inferAttachmentMimeType(attachment.name);
+      const type = attachment.type === 'image' || attachment.type === 'file'
+        ? attachment.type
+        : mimeType.startsWith('image/') ? 'image' : 'file';
+
       return [{
+        id: typeof attachment.id === 'string' && attachment.id ? attachment.id : `legacy-${index}-${attachment.name}`,
+        type,
         name: attachment.name,
+        mimeType,
         path,
-        size: typeof attachment.size === 'number' && attachment.size >= 0 ? attachment.size : undefined,
+        size: typeof attachment.size === 'number' && attachment.size >= 0 ? attachment.size : 0,
         previewUrl: typeof attachment.previewUrl === 'string' ? attachment.previewUrl : undefined,
+        position: typeof attachment.position === 'number' && Number.isFinite(attachment.position)
+          ? Math.max(0, attachment.position)
+          : 0,
       }];
     }
 
     return [];
   });
+}
+
+function inferAttachmentMimeType(name: string) {
+  const extension = name.split('.').pop()?.toLowerCase();
+  const imageMimeTypes: Record<string, string> = {
+    avif: 'image/avif',
+    gif: 'image/gif',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+  };
+  return extension ? imageMimeTypes[extension] ?? 'application/octet-stream' : 'application/octet-stream';
+}
+
+function createAttachmentId() {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `attachment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function normalizeDraftChat(value: unknown): Chat | null {
@@ -584,7 +657,13 @@ function normalizeDraftChat(value: unknown): Chat | null {
 }
 
 function isImageAttachment(attachment: WorkspaceAttachment) {
-  return /\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name);
+  return attachment.type === 'image' || attachment.mimeType.startsWith('image/');
+}
+
+function formatAttachmentSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
 function readFileAsDataUrl(file: File) {
@@ -1755,10 +1834,7 @@ export function WorkspacePage({
     setPublishAction('schedule');
     setDraftBody(message.text);
     setDraftEntities(message.entities ?? []);
-    replaceAttachments((message.attachments ?? []).map((path) => ({
-      name: path.split(/[\\/]/).pop() || path,
-      path,
-    })));
+    replaceAttachments(normalizeAttachments(message.attachments ?? []));
     setInlineButtons((message.replyMarkup?.inline_keyboard ?? []).map((row) => row.map((button) => ({
       id: crypto.randomUUID(),
       label: button.text,
@@ -2053,7 +2129,7 @@ export function WorkspacePage({
     closeTemplateEditor();
   };
 
-  const handleAddFiles = async (files: File[]) => {
+  const handleAddFiles = async (files: File[], position = draftBody.length) => {
     if (!files.length) return;
 
     const selectionGeneration = attachmentSelectionGenerationRef.current;
@@ -2091,23 +2167,32 @@ export function WorkspacePage({
     currentPendingUsage.size += reservedSize;
     pendingAttachmentUsageRef.current.set(selectionGeneration, currentPendingUsage);
 
+    const safePosition = Math.max(0, Math.min(position, draftBody.length));
     const copiedAttachments = await Promise.all(acceptedFiles.map(async (file) => {
+      const mimeType = file.type || inferAttachmentMimeType(file.name);
+      const type = mimeType.startsWith('image/') ? 'image' : 'file';
       try {
         const draftStorage = getDraftStorageApi();
         if (!draftStorage) {
           const dataUrl = await readFileAsDataUrl(file);
-          return { name: file.name, path: dataUrl, size: file.size, previewUrl: dataUrl };
+          return {
+            id: createAttachmentId(), type, name: file.name, mimeType, path: dataUrl,
+            size: file.size, previewUrl: type === 'image' ? dataUrl : undefined, position: safePosition,
+          };
         }
 
         const result = await draftStorage.copyAttachment(file);
         return result.success && result.attachment
-          ? result.attachment
+          ? {
+              id: createAttachmentId(), type, name: file.name, mimeType,
+              path: result.attachment.path, size: result.attachment.size, position: safePosition,
+            }
           : { error: result.error || `${file.name} could not be stored.` };
       } catch (error) {
         return { error: error instanceof Error ? error.message : `${file.name} could not be stored.` };
       }
     }));
-    const storedAttachments = copiedAttachments.filter((item): item is { name: string; path: string; size: number } => 'path' in item);
+    const storedAttachments = copiedAttachments.filter((item): item is WorkspaceAttachment => 'path' in item);
     const copyErrors = copiedAttachments.filter((item): item is { error: string } => 'error' in item);
     const pendingUsage = pendingAttachmentUsageRef.current.get(selectionGeneration);
     if (pendingUsage) {
@@ -2133,12 +2218,12 @@ export function WorkspacePage({
     input.value = '';
   };
 
-  const handleRemoveAttachment = (index: number) => {
-    const previewUrl = attachments[index]?.previewUrl;
+  const handleRemoveAttachment = (attachmentId: string) => {
+    const previewUrl = attachments.find((attachment) => attachment.id === attachmentId)?.previewUrl;
     if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
       URL.revokeObjectURL(previewUrl);
     }
-    replaceAttachments(attachments.filter((_, attachmentIndex) => attachmentIndex !== index));
+    replaceAttachments(attachments.filter((attachment) => attachment.id !== attachmentId));
   };
 
   const showAttachmentPreview = (image: HTMLImageElement, name: string, src: string) => {
@@ -2266,11 +2351,12 @@ export function WorkspacePage({
                     entities={draftEntities}
                     maxLength={maxDraftLength}
                     stageMode={stageMode}
-                    onPasteImages={(files) => void handleAddFiles(files)}
+                    onAddFiles={(files, position) => void handleAddFiles(files, position)}
                     onChange={(nextText, nextEntities) => {
                       const limited = nextText.length > maxDraftLength
                         ? sliceRichText(nextText, nextEntities, 0, maxDraftLength)
                         : { text: nextText, entities: nextEntities };
+                      setAttachments((current) => remapAttachmentPositions(current, draftBody, limited.text));
                       setDraftBody(limited.text);
                       setDraftEntities(limited.entities);
                     }}
@@ -2358,58 +2444,74 @@ export function WorkspacePage({
 
               </div>
 
-              <div
-                className={`workspace-page-attachment-tray ${attachments.length === 0 ? 'is-empty' : ''}`}
-                aria-label="Attached files"
-                aria-hidden={attachments.length === 0}
-              >
-                <div className="workspace-page-media-items">
-                  {attachments.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="workspace-page-attachment-card">
-                      {isImageAttachment(file) && (file.path || file.previewUrl) ? (
-                        <img
-                          src={file.previewUrl || toFileUrl(file.path)}
-                          alt=""
-                          className="workspace-page-attachment-thumbnail"
-                          tabIndex={0}
-                          aria-label={`Preview ${file.name}`}
-                          onMouseEnter={(event) => {
-                            if (attachmentPreviewTimerRef.current !== null) {
-                              window.clearTimeout(attachmentPreviewTimerRef.current);
-                            }
-                            const image = event.currentTarget;
-                            attachmentPreviewTimerRef.current = window.setTimeout(() => {
-                              attachmentPreviewTimerRef.current = null;
-                              showAttachmentPreview(image, file.name, file.previewUrl || toFileUrl(file.path));
-                            }, 1000);
-                          }}
-                          onMouseLeave={() => {
-                            if (attachmentPreviewTimerRef.current !== null) {
-                              window.clearTimeout(attachmentPreviewTimerRef.current);
-                              attachmentPreviewTimerRef.current = null;
-                            }
-                            setAttachmentPreview(null);
-                          }}
-                          onFocus={(event) => showAttachmentPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
-                          onBlur={() => setAttachmentPreview(null)}
-                        />
-                      ) : (
-                        <div className="workspace-page-attachment-file-mark">FILE</div>
-                      )}
-                      <span className="workspace-page-attachment-name">{file.name}</span>
-                      <button
-                        type="button"
-                        className="workspace-page-attachment-remove"
-                        onClick={() => handleRemoveAttachment(index)}
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                <div
+                  className={`workspace-page-attachment-tray ${attachments.length === 0 ? 'is-empty' : ''}`}
+                  aria-label="Attached files"
+                  aria-hidden={attachments.length === 0}
+                >
+                  <div className="workspace-page-media-items">
+                    {attachments
+                      .slice()
+                      .sort((left, right) => left.position - right.position)
+                      .map((file) => (
+                        <div
+                          key={file.id}
+                          className="workspace-page-attachment-card"
+                          data-position={file.position}
+                          title={`${file.name} · ${file.mimeType} · ${formatAttachmentSize(file.size)}`}
+                        >
+                          {isImageAttachment(file) ? (
+                            <img
+                              src={file.previewUrl || toFileUrl(file.path)}
+                              alt=""
+                              className="workspace-page-attachment-thumbnail"
+                              tabIndex={0}
+                              aria-label={`Preview ${file.name}`}
+                              onMouseEnter={(event) => {
+                                if (attachmentPreviewTimerRef.current !== null) {
+                                  window.clearTimeout(attachmentPreviewTimerRef.current);
+                                }
+                                const image = event.currentTarget;
+                                attachmentPreviewTimerRef.current = window.setTimeout(() => {
+                                  attachmentPreviewTimerRef.current = null;
+                                  showAttachmentPreview(image, file.name, file.previewUrl || toFileUrl(file.path));
+                                }, 1000);
+                              }}
+                              onMouseLeave={() => {
+                                if (attachmentPreviewTimerRef.current !== null) {
+                                  window.clearTimeout(attachmentPreviewTimerRef.current);
+                                  attachmentPreviewTimerRef.current = null;
+                                }
+                                setAttachmentPreview(null);
+                              }}
+                              onFocus={(event) => showAttachmentPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
+                              onBlur={() => setAttachmentPreview(null)}
+                            />
+                          ) : (
+                            <div className="workspace-page-attachment-file-mark">
+                              {file.name.split('.').pop()?.slice(0, 4).toUpperCase() || 'FILE'}
+                            </div>
+                          )}
+                          <span className="workspace-page-attachment-copy">
+                            <span className="workspace-page-attachment-name">{file.name}</span>
+                            <span className="workspace-page-attachment-metadata">
+                              {file.mimeType} · {formatAttachmentSize(file.size)}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            className="workspace-page-attachment-remove"
+                            onClick={() => handleRemoveAttachment(file.id)}
+                            aria-label={`Remove ${file.name}`}
+                            title={`Remove ${file.name}`}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                  </div>
                 </div>
 
-              </div>
               <div className="workspace-page-action-row workspace-page-schedule-row">
                 <div className="workspace-page-media-row">
                   <button

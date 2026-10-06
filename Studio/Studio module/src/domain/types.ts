@@ -2,6 +2,17 @@ export type AccountType = 'personal' | 'workspace' | 'channel' | 'service';
 export type ChannelProvider = 'telegram' | 'instagram' | 'vk' | 'discord' | 'linkedin' | 'custom';
 export type PublishStatus = 'draft' | 'ready' | 'scheduled' | 'sending' | 'sent' | 'failed';
 
+export interface DraftAttachment {
+  id: string;
+  type: 'image' | 'file';
+  name: string;
+  mimeType: string;
+  size: number;
+  path: string;
+  previewUrl?: string;
+  position: number;
+}
+
 export interface Account {
   id: string;
   type: AccountType;
@@ -45,7 +56,7 @@ export interface Draft {
   postId?: string;
   contentBody: string;
   richText?: string;
-  attachments?: Array<{ name: string; path: string; size?: number }>;
+  attachments?: DraftAttachment[];
   metadata?: Record<string, unknown>;
   lastSavedAt: string;
 }

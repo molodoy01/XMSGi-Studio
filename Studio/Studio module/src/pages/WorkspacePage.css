@@ -22,23 +22,38 @@
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle::after {
   position: absolute;
-  z-index: 0;
-  inset: -1px;
-  border: 1px solid rgba(154, 168, 184, 0.22);
-  border-radius: 0 11px 11px 0;
-  background: transparent;
+  z-index: 2;
+  inset: -3px;
+  box-sizing: border-box;
+  border-radius: 13px;
+  padding: 2px;
+  background: conic-gradient(
+    from calc(var(--rim-angle, 0deg) - 27deg),
+    transparent 0deg 8deg,
+    rgba(169, 220, 255, calc(0.24 + var(--glow-strength) * 0.92)) 18deg,
+    rgba(238, 250, 255, calc(0.52 + var(--glow-strength) * 0.8)) 28deg,
+    rgba(188, 231, 250, calc(0.24 + var(--glow-strength) * 0.9)) 42deg,
+    transparent 58deg 360deg
+  );
   content: '';
-  opacity: 0;
+  opacity: var(--rim-opacity, 0);
   pointer-events: none;
-  transition: opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  filter:
+    blur(calc(0.6px + var(--beam-spread) * 2px))
+    drop-shadow(0 0 calc(5px + var(--glow-strength) * 12px) rgba(211, 242, 255, 0.9));
+  transform: scale(calc(1 + var(--glow-strength) * 0.12));
+  transform-origin: center;
+  transition: opacity 320ms linear, filter 140ms ease, transform 140ms ease;
 }
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:hover::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:focus-visible::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle.is-active::after {
-  opacity: 1;
-  border-color: rgba(139, 205, 242, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(139, 205, 242, 0.14);
+  --rim-opacity: 0.45;
 }
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle .workspace-page-publish-trigger-arrow {
@@ -1058,6 +1073,22 @@
   overflow: hidden;
   --workspace-rich-text-underline-gradient: linear-gradient(90deg, transparent, rgba(var(--editor-outline-secondary), 0.72) 18%, rgba(var(--editor-outline-bright), 0.98) 50%, rgba(var(--editor-outline-secondary), 0.72) 82%, transparent);
   --workspace-rich-text-underline-shadow: drop-shadow(0 0 3px rgba(var(--editor-outline), 0.22));
+}
+
+.workspace-page-rich-text-editor.is-drag-over .workspace-page-rich-text-stage::before {
+  position: absolute;
+  z-index: 4;
+  inset: 8px;
+  display: grid;
+  border: 2px dashed rgba(198, 250, 255, 0.78);
+  border-radius: 8px;
+  background: rgba(16, 28, 32, 0.76);
+  color: #e8fbff;
+  content: 'Drop files here to attach';
+  font-size: 12px;
+  font-weight: 600;
+  place-items: center;
+  pointer-events: none;
 }
 
 .workspace-page-rich-text-stage::after {
@@ -3844,11 +3875,15 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-attachment-tray {
   display: flex;
   align-items: center;
+  flex: 0 0 54px;
+  height: 54px;
   min-height: 54px;
+  max-height: 54px;
   margin: 0 18px;
-  padding: 8px 0;
+  padding: 1px 0;
   border-top: 0;
   border-bottom: 1px solid rgba(154, 168, 184, 0.1);
+  overflow: hidden;
 }
 
 .workspace-page-attachment-tray.is-empty {
@@ -3859,10 +3894,136 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-attachment-tray .workspace-page-media-items {
   width: 100%;
   max-width: none;
-  min-height: 38px;
+  height: 51px;
+  min-height: 51px;
   overflow-x: auto;
+  overflow-y: hidden;
   flex-wrap: nowrap;
-  padding: 0 2px;
+  gap: 8px;
+  padding: 0 28px 0 12px;
+  scroll-padding-left: 12px;
+  scroll-padding-right: 28px;
+  scrollbar-color: rgba(154, 168, 184, 0.36) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+.workspace-page-attachment-tray .workspace-page-media-items::-webkit-scrollbar {
+  width: 0;
+  height: 6px;
+}
+
+.workspace-page-attachment-tray .workspace-page-media-items::-webkit-scrollbar-button,
+.workspace-page-attachment-tray .workspace-page-media-items::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.workspace-page-attachment-tray .workspace-page-media-items::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(154, 168, 184, 0.06);
+}
+
+.workspace-page-attachment-tray .workspace-page-media-items::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(154, 168, 184, 0.34);
+  background-clip: padding-box;
+}
+
+.workspace-page-attachment-card {
+  position: relative;
+  display: flex;
+  flex: 0 0 clamp(172px, calc((100% - 24px) / 4), 220px);
+  align-items: center;
+  gap: 7px;
+  width: clamp(172px, calc((100% - 24px) / 4), 220px);
+  max-width: none;
+  min-width: 0;
+  height: 38px;
+  min-height: 34px;
+  padding: 2px 26px 2px 4px;
+  border: 1px solid rgba(154, 168, 184, 0.1);
+  border-radius: 6px;
+  background: rgba(17, 19, 22, 0.24);
+}
+
+.workspace-page-attachment-thumbnail,
+.workspace-page-attachment-file-mark {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+}
+
+.workspace-page-attachment-thumbnail {
+  border: 1px solid rgba(154, 168, 184, 0.1);
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+.workspace-page-attachment-copy {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.workspace-page-attachment-name,
+.workspace-page-attachment-metadata {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-page-attachment-name {
+  color: rgba(226, 230, 235, 0.88);
+  font-size: 10px;
+}
+
+.workspace-page-attachment-metadata {
+  color: rgba(190, 202, 212, 0.82);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.workspace-page-attachment-file-mark {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(154, 168, 184, 0.08);
+  background: rgba(154, 168, 184, 0.08);
+  color: rgba(226, 230, 235, 0.8);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.workspace-page-attachment-remove {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(226, 230, 235, 0.7);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.workspace-page-attachment-remove:hover,
+.workspace-page-attachment-remove:focus-visible {
+  background: rgba(255, 94, 94, 0.12);
+  color: #fff;
 }
 
 .workspace-page-media-label {
@@ -6377,7 +6538,6 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   box-shadow: 0 0 0 1px rgba(225, 238, 246, 0.28);
 }
 
-
 .workspace-page-submit-actions .workspace-page-publish-main {
   flex: 0 0 90px !important;
   width: 90px !important;
@@ -6680,16 +6840,10 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     display: flex;
     max-width: 100%;
     min-height: 34px;
-    padding: 6px 9px;
-    border: 1px solid var(--line);
-    border-radius: 0;
+    padding: 2px 26px 2px 4px;
+    border: 1px solid rgba(154, 168, 184, 0.16);
+    border-radius: 6px;
     background: rgba(17, 19, 22, 0.42);
-  }
-
-  .workspace-page-attachment-thumbnail,
-  .workspace-page-attachment-file-mark,
-  .workspace-page-attachment-remove {
-    display: none;
   }
 
   .workspace-page-attachment-name {
@@ -7554,17 +7708,22 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     overscroll-behavior: contain;
   }
 
-  .workspace-page-editor-panel {
+  .workspace-page-rich-text-stage {
+    min-height: 0;
+  }
+
+  .workspace-page .workspace-page-editor-panel {
     width: 100%;
-    height: auto;
+    height: min(720px, calc(100dvh - 172px));
     min-width: 0;
     min-height: 440px;
+    max-height: min(720px, calc(100dvh - 172px));
     max-width: none;
     flex: 0 0 auto;
     align-items: stretch;
   }
 
-  .workspace-page-preview-panel {
+  .workspace-page .workspace-page-preview-panel {
     width: 100%;
     height: min(560px, 72vh);
     min-width: 0;
@@ -7587,11 +7746,13 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     padding-left: 16px;
   }
 
-  .workspace-page-editor-panel {
+  .workspace-page .workspace-page-editor-panel {
+    height: min(700px, calc(100dvh - 152px));
     min-height: 420px;
+    max-height: min(700px, calc(100dvh - 152px));
   }
 
-  .workspace-page-preview-panel {
+  .workspace-page .workspace-page-preview-panel {
     height: min(520px, 70vh);
     min-height: 340px;
   }

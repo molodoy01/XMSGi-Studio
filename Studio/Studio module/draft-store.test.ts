@@ -83,6 +83,39 @@ describe('Electron draft file store', () => {
     expect(store.load()).toMatchObject({ success: true, needsMigration: false, schemaMigrated: false, store: baseStore() });
   });
 
+  it('round-trips attachment metadata while moving bytes into managed storage', async () => {
+    const { directory, store } = createTempStore();
+    const sourcePath = join(directory, 'photo.png');
+    writeFileSync(sourcePath, 'image-bytes');
+    const copied = store.copyAttachment(sourcePath);
+    expect(copied.success).toBe(true);
+    const attachment = {
+      id: 'attachment-photo',
+      type: 'image',
+      name: 'photo.png',
+      mimeType: 'image/png',
+      size: 11,
+      path: copied.attachment.path,
+      previewUrl: 'data:image/png;base64,AA==',
+      position: 7,
+    };
+    const draft = baseStore();
+    draft.savedDrafts[0].attachments = [attachment];
+    draft.workspaceDraft.attachments = [attachment];
+
+    await store.save(draft);
+    const saved = store.load().store;
+
+    expect(saved.savedDrafts[0].attachments[0]).toMatchObject({
+      ...attachment,
+      path: expect.stringContaining('attachments'),
+    });
+    expect(saved.workspaceDraft.attachments[0]).toMatchObject({
+      ...attachment,
+      path: expect.stringContaining('attachments'),
+    });
+  });
+
   it('migrates schema v1 to the current version once and preserves a backup', () => {
     const { store } = createTempStore();
     const previousVersion = { ...baseStore('Saved before version 2'), schemaVersion: 1 };

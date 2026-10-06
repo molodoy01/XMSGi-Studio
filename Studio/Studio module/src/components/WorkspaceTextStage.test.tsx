@@ -125,6 +125,32 @@ function renderStage(overrides: Partial<React.ComponentProps<typeof WorkspaceTex
   };
 }
 
+function renderRichTextEditor(overrides: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const onChange = vi.fn();
+  const defaults: React.ComponentProps<typeof RichTextEditor> = {
+    text: '',
+    entities: [],
+    onChange,
+    maxLength: 4096,
+  };
+
+  act(() => root.render(<RichTextEditor {...defaults} {...overrides} />));
+
+  return {
+    container,
+    editor: container.querySelector('[contenteditable="true"]') as HTMLDivElement,
+    onChange,
+    root,
+    unmount: () => {
+      act(() => root.unmount());
+      container.remove();
+    },
+  };
+}
+
 function createLogoHarness() {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -257,15 +283,15 @@ describe('WorkspaceTextStage editor flows', () => {
       ...savedDraftA,
       id: 'draft-one-attachment',
       name: 'One attachment',
-      attachments: [{ name: 'photo.png', path: '/tmp/photo.png', size: 1234 }],
+      attachments: [{ id: 'photo', type: 'image' as const, name: 'photo.png', mimeType: 'image/png', path: '/tmp/photo.png', size: 1234, position: 0 }],
     };
     const draftWithTwoAttachments = {
       ...savedDraftA,
       id: 'draft-2',
       name: 'Two attachments',
       attachments: [
-        { name: 'photo.png', path: '/tmp/photo.png', size: 1234 },
-        { name: 'brief.pdf', path: '/tmp/brief.pdf', size: 4567 },
+        { id: 'photo', type: 'image' as const, name: 'photo.png', mimeType: 'image/png', path: '/tmp/photo.png', size: 1234, position: 0 },
+        { id: 'brief', type: 'file' as const, name: 'brief.pdf', mimeType: 'application/pdf', path: '/tmp/brief.pdf', size: 4567, position: 0 },
       ],
     };
 
@@ -999,6 +1025,170 @@ describe('WorkspaceTextStage editor flows', () => {
 
     act(() => root.unmount());
     container.remove();
+  });
+
+  it('converts completed Markdown while typing and keeps the caret in place', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onChange = vi.fn();
+
+    act(() => {
+      root.render(<RichTextEditor text="" entities={[]} onChange={onChange} maxLength={4096} />);
+    });
+
+    const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
+    const source = 'Start **Жирный**';
+    editor.textContent = source;
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(editor.firstChild!, source.length);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    act(() => editor.dispatchEvent(new Event('input', { bubbles: true })));
+
+    expect(onChange).toHaveBeenLastCalledWith('Start Жирный', [{ type: 'bold', offset: 6, length: 6 }]);
+    expect(editor.textContent).toBe('Start Жирный');
+    expect(editor.querySelector('strong')?.textContent).toBe('Жирный');
+    expect(selection?.isCollapsed).toBe(true);
+    expect(editor.contains(selection?.anchorNode ?? null)).toBe(true);
+
+    const caretRange = document.createRange();
+    caretRange.selectNodeContents(editor);
+    caretRange.setEnd(selection!.anchorNode!, selection!.anchorOffset);
+    expect(caretRange.toString()).toBe('Start Жирный');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('converts pasted Markdown but preserves ordinary asterisks', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onChange = vi.fn();
+
+    act(() => {
+      root.render(<RichTextEditor text="" entities={[]} onChange={onChange} maxLength={4096} />);
+    });
+
+    const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const clipboardData = {
+      items: [],
+      getData: vi.fn((type: string) => type === 'text/plain' ? '**Жирный** и 2 * 2 = 4' : '<strong>ignored</strong>'),
+    };
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', { value: clipboardData });
+
+    act(() => editor.dispatchEvent(pasteEvent));
+
+    expect(clipboardData.getData).toHaveBeenCalledWith('text/plain');
+    expect(pasteEvent.defaultPrevented).toBe(true);
+    expect(onChange).toHaveBeenLastCalledWith('Жирный и 2 * 2 = 4', [{ type: 'bold', offset: 0, length: 6 }]);
+    expect(editor.textContent).toBe('Жирный и 2 * 2 = 4');
+    expect(editor.querySelector('strong')?.textContent).toBe('Жирный');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('drops one image into the draft and prevents the browser from opening it', () => {
+    const onAddFiles = vi.fn();
+    const { container, editor, unmount } = renderRichTextEditor({ onAddFiles });
+    editor.textContent = 'Draft text';
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(editor.firstChild!, 5);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const image = new File(['image-bytes'], 'photo.png', { type: 'image/png' });
+    const dataTransfer = { types: ['Files'], files: [image], dropEffect: 'none' };
+    const dragOver = new Event('dragover', { bubbles: true, cancelable: true });
+    Object.defineProperty(dragOver, 'dataTransfer', { value: dataTransfer });
+    act(() => container.querySelector('.workspace-page-rich-text-editor')?.dispatchEvent(dragOver));
+    expect(container.querySelector('.workspace-page-rich-text-editor')?.classList.contains('is-drag-over')).toBe(true);
+
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
+    act(() => container.querySelector('.workspace-page-rich-text-editor')?.dispatchEvent(drop));
+
+    expect(drop.defaultPrevented).toBe(true);
+    expect(onAddFiles).toHaveBeenCalledWith([image], 5);
+    expect(container.querySelector('.workspace-page-rich-text-editor')?.classList.contains('is-drag-over')).toBe(false);
+    unmount();
+  });
+
+  it('drops multiple files as one attachment batch', () => {
+    const onAddFiles = vi.fn();
+    const { container, unmount } = renderRichTextEditor({ onAddFiles });
+    const image = new File(['image-bytes'], 'photo.png', { type: 'image/png' });
+    const documentFile = new File(['report-bytes'], 'report.pdf', { type: 'application/pdf' });
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: { types: ['Files'], files: [image, documentFile], dropEffect: 'none' },
+    });
+
+    act(() => container.querySelector('.workspace-page-rich-text-editor')?.dispatchEvent(drop));
+
+    expect(drop.defaultPrevented).toBe(true);
+    expect(onAddFiles).toHaveBeenCalledWith([image, documentFile], 0);
+    unmount();
+  });
+
+  it('pastes clipboard images as attachments without inserting binary data into text', () => {
+    const onAddFiles = vi.fn();
+    const onChange = vi.fn();
+    const { container, editor, unmount } = renderRichTextEditor({ onAddFiles, onChange });
+    const image = new File(['clipboard-image'], 'clipboard.png', { type: 'image/png' });
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: {
+        items: [{ kind: 'file', type: 'image/png', getAsFile: () => image }],
+        files: [image],
+        getData: () => '',
+      },
+    });
+
+    act(() => editor.dispatchEvent(paste));
+
+    expect(paste.defaultPrevented).toBe(true);
+    expect(onAddFiles).toHaveBeenCalledWith([image], 0);
+    expect(editor.textContent).toBe('');
+    expect(onChange).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('keeps ordinary plain-text paste working', () => {
+    const onChange = vi.fn();
+    const { editor, unmount } = renderRichTextEditor({ onChange });
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { items: [], files: [], getData: (type: string) => type === 'text/plain' ? 'ordinary pasted text' : '' },
+    });
+
+    act(() => editor.dispatchEvent(paste));
+
+    expect(paste.defaultPrevented).toBe(true);
+    expect(editor.textContent).toBe('ordinary pasted text');
+    expect(onChange).toHaveBeenLastCalledWith('ordinary pasted text', []);
+    unmount();
   });
 
   it('adds pasted clipboard images as attachments instead of dropping them', () => {

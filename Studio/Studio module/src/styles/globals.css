@@ -26,6 +26,19 @@ body {
   scrollbar-color: rgba(154, 168, 184, 0.35) transparent;
 }
 
+html:has(.workspace-page),
+body:has(.workspace-page),
+body:has(.workspace-page) #root {
+  height: 100%;
+  min-height: 0;
+}
+
+html:has(.workspace-page),
+body:has(.workspace-page) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
 html:has(.auth-panel),
 body:has(.auth-panel) {
   overflow: hidden;

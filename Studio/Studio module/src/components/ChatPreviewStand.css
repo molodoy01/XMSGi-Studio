@@ -15,8 +15,9 @@
 }
 
 .chat-preview-stand.is-web > .chat-preview-toolbar {
-  flex: 0 0 auto;
-  min-height: 32px;
+  position: relative;
+  flex: 0 0 56px;
+  min-height: 56px;
 }
 
 .chat-preview-chat-list {
@@ -331,12 +332,13 @@
 }
 
 .chat-preview-stand.is-web .chat-preview-toolbar-label {
-  transform: none;
+  transform: translateY(15px);
 }
 
 .chat-preview-stand.is-web .chat-preview-wallpaper-quick-picker.is-inline {
   position: absolute;
-  top: 6px;
+  top: auto;
+  bottom: 0;
   right: 8px;
   left: auto;
   z-index: 20;

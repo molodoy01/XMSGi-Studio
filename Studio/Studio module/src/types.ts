@@ -1,4 +1,7 @@
 import type { InlineButtonRow } from './lib/inlineKeyboard';
+import type { DraftAttachment } from './domain/types';
+
+export type { DraftAttachment } from './domain/types';
 
 export interface Chat {
   id: string;
@@ -25,7 +28,7 @@ export interface SavedDraft {
   body: string;
   color?: DraftColor;
   entities?: RichTextEntity[];
-  attachments?: Array<{ name: string; path: string; size?: number }>;
+  attachments?: DraftAttachment[];
   selectedChat?: Chat | null;
   inlineButtons?: InlineButtonRow[];
   date?: string;

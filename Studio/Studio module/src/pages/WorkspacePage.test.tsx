@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
-import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
+import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, remapAttachmentPositions, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -304,15 +304,34 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('treats attachment-only drafts as valid content', () => {
-    expect(hasDraftContent('', [{ name: 'demo.png', path: 'C:/demo/demo.png' }])).toBe(true);
-    expect(hasDraftContent('', [{ name: 'demo.png', path: '', previewUrl: 'data:image/png;base64,AAA' }])).toBe(true);
+    expect(hasDraftContent('', normalizeAttachments([{ name: 'demo.png', path: 'C:/demo/demo.png' }]))).toBe(true);
+    expect(hasDraftContent('', normalizeAttachments([{ name: 'demo.png', previewUrl: 'data:image/png;base64,AAA' }]))).toBe(true);
     expect(hasDraftContent('', [])).toBe(false);
   });
 
   it('keeps browser fallback attachments that only have previewUrl data', () => {
     expect(normalizeAttachments([{ name: 'demo.png', previewUrl: 'data:image/png;base64,AAA' }])).toEqual([
-      { name: 'demo.png', path: 'data:image/png;base64,AAA', size: undefined, previewUrl: 'data:image/png;base64,AAA' },
+      {
+        id: 'legacy-0-demo.png',
+        type: 'image',
+        name: 'demo.png',
+        mimeType: 'image/png',
+        path: 'data:image/png;base64,AAA',
+        size: 0,
+        previewUrl: 'data:image/png;base64,AAA',
+        position: 0,
+      },
     ]);
+  });
+
+  it('keeps attachments anchored to their text when the body changes', () => {
+    const attachments = normalizeAttachments([
+      { id: 'before', name: 'before.png', path: '/before.png', position: 3 },
+      { id: 'after', name: 'after.png', path: '/after.png', position: 6 },
+    ]);
+
+    expect(remapAttachmentPositions(attachments, 'Hello world', 'Hello brave world').map(({ id, position }) => ({ id, position })))
+      .toEqual([{ id: 'before', position: 3 }, { id: 'after', position: 12 }]);
   });
 
   it('opens the compact schedule shell by default for the active preview state', async () => {

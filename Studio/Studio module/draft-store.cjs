@@ -78,10 +78,29 @@ function normalizeAttachments(value) {
       || (attachment.size !== undefined && (!Number.isFinite(attachment.size) || attachment.size < 0))) {
       throw new Error('Draft contains an invalid attachment reference.');
     }
+    const extension = attachment.name.split('.').pop()?.toLowerCase();
+    const imageMimeTypes = {
+      avif: 'image/avif',
+      gif: 'image/gif',
+      jpeg: 'image/jpeg',
+      jpg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+    };
+    const mimeType = typeof attachment.mimeType === 'string' && attachment.mimeType
+      ? attachment.mimeType
+      : imageMimeTypes[extension] || 'application/octet-stream';
     return {
+      id: typeof attachment.id === 'string' && attachment.id ? attachment.id : crypto.randomUUID(),
+      type: attachment.type === 'image' || attachment.type === 'file'
+        ? attachment.type
+        : mimeType.startsWith('image/') ? 'image' : 'file',
       name: attachment.name,
+      mimeType,
       path: attachment.path,
-      ...(attachment.size === undefined ? {} : { size: attachment.size }),
+      size: attachment.size === undefined ? 0 : attachment.size,
+      ...(typeof attachment.previewUrl === 'string' ? { previewUrl: attachment.previewUrl } : {}),
+      position: Number.isFinite(attachment.position) ? Math.max(0, attachment.position) : 0,
     };
   });
 }

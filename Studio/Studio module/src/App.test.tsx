@@ -202,7 +202,18 @@ describe('App media publishing', () => {
     }
   });
 
-  it('passes attachments to Telegram when sending', async () => {
+  it('passes text, rich-text entities and attachments separately to Telegram when sending', async () => {
+    localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
+      body: 'Media post',
+      entities: [{ type: 'bold', offset: 6, length: 4 }],
+      attachments: [],
+      savedAt: '12:00',
+      date: getTomorrowLocalDate(),
+      time: '18:30',
+      repeatMode: 'none',
+      repeatDays: [],
+      repeatOccurrences: 1,
+    }));
     const { unmount } = await renderApp();
     await attachImage();
 
@@ -216,9 +227,35 @@ describe('App media publishing', () => {
       'telegram',
       'Media post',
       ['/managed/photo.png'],
-      [],
+      [{ type: 'bold', offset: 6, length: 4 }],
       undefined,
     );
+    unmount();
+  });
+
+  it('shows attachments under the editor line and removes them without changing text', async () => {
+    const { unmount } = await renderApp();
+    await attachImage();
+
+    const editor = document.querySelector('[aria-label="Post content"]') as HTMLElement;
+    const tray = document.querySelector('.workspace-page-attachment-tray') as HTMLElement;
+    const card = tray.querySelector('.workspace-page-attachment-card');
+    const actionRow = document.querySelector('.workspace-page-action-row') as HTMLElement;
+
+    expect(tray.classList.contains('is-empty')).toBe(false);
+    expect(card).not.toBeNull();
+    expect(card?.querySelector('.workspace-page-attachment-thumbnail')).not.toBeNull();
+    expect(card?.textContent).toContain('image/png');
+    expect(actionRow.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+
+    const messageBeforeRemove = editor.textContent;
+    await act(async () => {
+      (tray.querySelector('[aria-label="Remove photo.png"]') as HTMLButtonElement).click();
+    });
+
+    expect(tray.classList.contains('is-empty')).toBe(true);
+    expect(tray.querySelector('.workspace-page-attachment-card')).toBeNull();
+    expect(editor.textContent).toBe(messageBeforeRemove);
     unmount();
   });
 

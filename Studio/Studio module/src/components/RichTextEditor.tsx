@@ -10,6 +10,7 @@ interface Props {
   text: string;
   entities: RichTextEntity[];
   onChange: (text: string, entities: RichTextEntity[]) => void;
+  onAddFiles?: (files: File[], position: number) => void;
   onPasteImages?: (files: File[]) => void;
   inputRef?: MutableRefObject<HTMLDivElement | null>;
   stageContent?: ReactNode;
@@ -19,7 +20,112 @@ interface Props {
 
 type FormatCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough' | 'insertUnorderedList' | 'insertOrderedList' | 'removeFormat';
 
-export function RichTextEditor({ text, entities, onChange, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
+function getEditorCaretOffset(editor: HTMLElement, fallbackOffset: number) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return fallbackOffset;
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.startContainer) && range.startContainer !== editor) return fallbackOffset;
+
+  const rawOffset = getEditorTextOffset(editor, range.startContainer, range.startOffset);
+  if (rawOffset === null) return fallbackOffset;
+  return editorHtmlToRichText(editor).sourceOffsetMap[rawOffset] ?? rawOffset;
+}
+
+function countEditorText(node: Node): number {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent?.length ?? 0;
+  if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') return 1;
+
+  let length = 0;
+  node.childNodes.forEach((child) => { length += countEditorText(child); });
+  return length;
+}
+
+function getEditorTextOffset(root: HTMLElement, targetNode: Node, targetOffset: number): number | null {
+  let length = 0;
+  let found = false;
+
+  const visit = (node: Node): boolean => {
+    if (node === targetNode) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        length += Math.max(0, Math.min(targetOffset, node.textContent?.length ?? 0));
+      } else {
+        const childLimit = Math.max(0, Math.min(targetOffset, node.childNodes.length));
+        for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
+          length += countEditorText(node.childNodes[childIndex]);
+        }
+      }
+      found = true;
+      return true;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      length += node.textContent?.length ?? 0;
+      return false;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
+      length += 1;
+      return false;
+    }
+
+    for (const child of Array.from(node.childNodes)) {
+      if (visit(child)) return true;
+    }
+    return false;
+  };
+
+  visit(root);
+  return found ? length : null;
+}
+
+function getEditorBoundaryAtTextOffset(root: HTMLElement, targetOffset: number): { node: Node; offset: number } {
+  let length = 0;
+  let boundary: { node: Node; offset: number } | null = null;
+
+  const visit = (node: Node): boolean => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const nodeLength = node.textContent?.length ?? 0;
+      if (targetOffset <= length + nodeLength) {
+        boundary = { node, offset: Math.max(0, targetOffset - length) };
+        return true;
+      }
+      length += nodeLength;
+      return false;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
+      if (targetOffset <= length + 1 && node.parentNode) {
+        const childIndex = Array.prototype.indexOf.call(node.parentNode.childNodes, node) as number;
+        boundary = { node: node.parentNode, offset: childIndex + (targetOffset > length ? 1 : 0) };
+        return true;
+      }
+      length += 1;
+      return false;
+    }
+
+    for (const child of Array.from(node.childNodes)) {
+      if (visit(child)) return true;
+    }
+    return false;
+  };
+
+  visit(root);
+  return boundary ?? { node: root, offset: root.childNodes.length };
+}
+
+function restoreEditorSelection(root: HTMLElement, start: number, end: number) {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  const startBoundary = getEditorBoundaryAtTextOffset(root, start);
+  const endBoundary = getEditorBoundaryAtTextOffset(root, end);
+  const range = document.createRange();
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
@@ -30,6 +136,7 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
   const [linkInput, setLinkInput] = useState('');
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [editorFocused, setEditorFocused] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [logoFlying, setLogoFlying] = useState(false);
   const [logoGlowActive, setLogoGlowActive] = useState(false);
   const [logoGlowFinishing, setLogoGlowFinishing] = useState(false);
@@ -256,20 +363,44 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
 
   const emitChange = () => {
     if (!editorRef.current) return;
-    sanitizeEditorDom(editorRef.current);
-    const value = editorHtmlToRichText(editorRef.current);
+    const editor = editorRef.current;
+    sanitizeEditorDom(editor);
+    const selection = window.getSelection();
+    const selectionRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectionOffsets = selectionRange
+      && (selectionRange.startContainer === editor || editor.contains(selectionRange.startContainer))
+      && (selectionRange.endContainer === editor || editor.contains(selectionRange.endContainer))
+      ? {
+          start: getEditorTextOffset(editor, selectionRange.startContainer, selectionRange.startOffset),
+          end: getEditorTextOffset(editor, selectionRange.endContainer, selectionRange.endOffset),
+        }
+      : null;
+
+    const value = editorHtmlToRichText(editor);
     const limited = value.text.length > maxLength
       ? sliceRichText(value.text, value.entities, 0, maxLength)
       : value;
 
-    if (limited !== value) {
-      editorRef.current.innerHTML = richTextToHtml(limited.text, limited.entities);
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(editorRef.current);
-      range.collapse(false);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
+    if (value.markdownChanged || limited.text !== value.text) {
+      editor.innerHTML = richTextToHtml(limited.text, limited.entities);
+      if (limited.text !== value.text) {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      } else {
+        const mapOffset = (sourceOffset: number | null) => {
+          if (sourceOffset === null) return limited.text.length;
+          const safeOffset = Math.max(0, Math.min(sourceOffset, value.sourceOffsetMap.length - 1));
+          return Math.min(value.sourceOffsetMap[safeOffset] ?? limited.text.length, limited.text.length);
+        };
+        restoreEditorSelection(
+          editor,
+          mapOffset(selectionOffsets?.start ?? null),
+          mapOffset(selectionOffsets?.end ?? null),
+        );
+      }
     }
     onChange(limited.text, limited.entities);
   };
@@ -292,11 +423,12 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
 
-    const clipboardFiles = Array.from(event.clipboardData.items)
-      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    const clipboardItems = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
       .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null);
-    const pastedImages = clipboardFiles.map((file) => {
+    const clipboardFiles = clipboardItems.length > 0 ? clipboardItems : Array.from(event.clipboardData.files ?? []);
+    const preparedFiles = clipboardFiles.map((file) => {
       if (file.name) return file;
       const extension = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
       return new File([file], `pasted-image-${Date.now()}.${extension}`, {
@@ -304,8 +436,11 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
         lastModified: file.lastModified,
       });
     });
-
-    if (pastedImages.length > 0) onPasteImages?.(pastedImages);
+    const attachmentPosition = editorRef.current ? getEditorCaretOffset(editorRef.current, text.length) : text.length;
+    if (preparedFiles.length > 0) {
+      if (onAddFiles) onAddFiles(preparedFiles, attachmentPosition);
+      else onPasteImages?.(preparedFiles.filter((file) => file.type.startsWith('image/')));
+    }
 
     const readyText = normalizeEditorText(event.clipboardData.getData('text/plain') || '')
       .replace(/\r\n/g, '\n')
@@ -325,6 +460,32 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
     selection.removeAllRanges();
     selection.addRange(range);
     emitChange();
+  };
+
+  const isFileDrag = (event: React.DragEvent<HTMLDivElement>) => (
+    stageMode === 'editor' && Array.from(event.dataTransfer.types).includes('Files')
+  );
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+    setDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(false);
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length > 0) onAddFiles?.(files, editorRef.current ? getEditorCaretOffset(editorRef.current, text.length) : text.length);
   };
 
   const placeCaretAtStart = () => {
@@ -746,7 +907,11 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
     && (logoFlying || (!text.trim() && (!logoHasPlayedRef.current || logoIntroReady)));
   return (
     <div
-      className={`workspace-page-rich-text-editor ${toolbarActive ? 'is-toolbar-active' : ''}`}
+      className={`workspace-page-rich-text-editor ${toolbarActive ? 'is-toolbar-active' : ''} ${dragOver ? 'is-drag-over' : ''}`}
+      onDragEnter={(event) => { if (isFileDrag(event)) setDragOver(true); }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div className="workspace-page-rich-text-stage">
         <div
