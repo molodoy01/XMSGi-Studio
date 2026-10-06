@@ -1,6 +1,6 @@
 import { ArrowLeft, BatteryFull, ImagePlus, MessageCircle, Mic, Paperclip, Search, Send, Signal, SlidersHorizontal, Smartphone, Smile, Wifi, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
+import type { CSSProperties, MutableRefObject } from 'react';
 import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
 import { toInlineKeyboardMarkup, type InlineButtonRow } from '@/lib/inlineKeyboard';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
@@ -24,6 +24,7 @@ export type ChatWallpaper = {
 
 const CHAT_WALLPAPER_STORAGE_KEY = 'xmsgi-chat-preview-wallpaper';
 const LEGACY_CHAT_WALLPAPER_STORAGE_KEY = 'awaitmsg-chat-preview-wallpaper';
+const PREVIEW_DEVICE_STORAGE_KEY = 'xmsgi-chat-preview-device';
 const MAX_WALLPAPERS = 5;
 const MAX_UPLOADED_WALLPAPERS = MAX_WALLPAPERS - 2;
 
@@ -91,6 +92,14 @@ function loadSavedWallpaper(): SavedWallpaper {
     };
   } catch {
     return { theme: 'telegram', image: '', accent: '' };
+  }
+}
+
+function loadSavedPreviewDevice(): PreviewDevice {
+  try {
+    return window.localStorage.getItem(PREVIEW_DEVICE_STORAGE_KEY) === 'mobile' ? 'mobile' : 'web';
+  } catch {
+    return 'web';
   }
 }
 
@@ -231,7 +240,7 @@ export function ChatPreviewStand({
   onWallpaperChange,
 }: ChatPreviewStandProps) {
   const savedWallpaper = useMemo(loadSavedWallpaper, []);
-  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('web');
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>(loadSavedPreviewDevice);
   const [wallpaperTheme, setWallpaperTheme] = useState<WallpaperTheme>(savedWallpaper.theme);
   const [customWallpaperImage, setCustomWallpaperImage] = useState(savedWallpaper.image);
   const [lastUploadedWallpaper, setLastUploadedWallpaper] = useState(savedWallpaper.image);
@@ -380,9 +389,10 @@ export function ChatPreviewStand({
   ));
   const hasDraft = Boolean(draftText.trim() || attachments.length);
   const wallpaperImage = customWallpaperImage;
-  const wallpaperStyle = wallpaperTheme === 'custom' && wallpaperImage
-    ? { backgroundImage: `url(${wallpaperImage})` }
-    : undefined;
+  const wallpaperStyle = {
+    ...(wallpaperTheme === 'custom' && wallpaperImage ? { backgroundImage: `url(${wallpaperImage})` } : {}),
+    '--chat-preview-wallpaper-accent': wallpaperAccent || (wallpaperTheme === 'graphite' ? '#60727f' : '#6e9d9b'),
+  } as CSSProperties;
 
   const handleWallpaperFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -432,6 +442,11 @@ export function ChatPreviewStand({
   const handlePreviewDeviceChange = (nextDevice: PreviewDevice) => {
     if (nextDevice === previewDevice) return;
     setPreviewDevice(nextDevice);
+    try {
+      window.localStorage.setItem(PREVIEW_DEVICE_STORAGE_KEY, nextDevice);
+    } catch {
+      // Keep preview switching usable when local storage is unavailable.
+    }
   };
 
   const handlePreviewScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {

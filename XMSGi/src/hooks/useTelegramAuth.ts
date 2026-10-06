@@ -47,6 +47,7 @@ export function useTelegramAuth({
   const [connected, setConnected] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
   const [returningUserName, setReturningUserName] = useState('');
+  const [returningUserUsername, setReturningUserUsername] = useState('');
   const [connecting, setConnecting] = useState(true);
   const [connectionResolved, setConnectionResolved] = useState(false);
   const [authStep, setAuthStep] = useState<'phone' | 'code' | 'password'>('phone');
@@ -140,6 +141,13 @@ export function useTelegramAuth({
       setSignedOut(false);
       setShowAuthForm(false);
       setAuthError('');
+      if (typeof window.telegram?.getAuthState === 'function') {
+        const authResult = await window.telegram.getAuthState();
+        if (authResult.success && authResult.authState) {
+          setReturningUserName(authResult.authState.userName || '');
+          setReturningUserUsername(authResult.authState.username || '');
+        }
+      }
     } catch (error) {
       setAuthError(
         error instanceof Error
@@ -167,6 +175,7 @@ export function useTelegramAuth({
       setSignedOut(true);
       setShowAuthForm(false);
       setReturningUserName(result.authState?.userName || returningUserName);
+      setReturningUserUsername(result.authState?.username || returningUserUsername);
       setIsConfirmingLogout(false);
       setIsSettingsOpen(false);
       setChats([]);
@@ -184,7 +193,7 @@ export function useTelegramAuth({
     } finally {
       setAuthBusy(false);
     }
-  }, [returningUserName, setChats, setIsSettingsOpen, setSelectedChat, t]);
+  }, [returningUserName, returningUserUsername, setChats, setIsSettingsOpen, setSelectedChat, t]);
 
   const handleWelcomeBack = useCallback(async () => {
     if (authBusy) return;
@@ -205,6 +214,7 @@ export function useTelegramAuth({
       setConnected(result.authState.connected);
       setShowAuthForm(false);
       setReturningUserName(result.authState.userName || returningUserName);
+      setReturningUserUsername(result.authState.username || returningUserUsername);
       setConnectionResolved(true);
     } catch (error) {
       setAuthError(
@@ -216,7 +226,7 @@ export function useTelegramAuth({
       setConnecting(false);
       setAuthBusy(false);
     }
-  }, [authBusy, returningUserName, t]);
+  }, [authBusy, returningUserName, returningUserUsername, t]);
 
   const handleForgetAccount = useCallback(async () => {
     if (authBusy) return;
@@ -235,6 +245,7 @@ export function useTelegramAuth({
       setConnected(false);
       setSignedOut(false);
       setReturningUserName('');
+      setReturningUserUsername('');
       setIsConfirmingLogout(false);
       setChats([]);
       void savePersistentChats([]);
@@ -276,6 +287,7 @@ export function useTelegramAuth({
           setSignedOut(authState.signedOut);
           setConnected(authState.connected);
           setReturningUserName(authState.userName || '');
+          setReturningUserUsername(authState.username || '');
 
           if (!hasSession || authState.signedOut) {
             setConnecting(false);
@@ -428,6 +440,7 @@ export function useTelegramAuth({
     setSignedOut,
     returningUserName,
     setReturningUserName,
+    returningUserUsername,
     connecting,
     setConnecting,
     connectionResolved,

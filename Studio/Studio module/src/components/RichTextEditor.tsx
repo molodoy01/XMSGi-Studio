@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
-import { Eraser, ImagePlus } from 'lucide-react';
+import { Eraser } from 'lucide-react';
 import editorLogo from '@/assets/logo.png';
 import type { RichTextEntity } from '@/types';
 import { editorHtmlToRichText, normalizeEditorText, richTextToHtml, sanitizeEditorDom, sliceRichText } from '@/lib/richText';
@@ -21,7 +21,6 @@ type FormatCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough' | 'insert
 
 export function RichTextEditor({ text, entities, onChange, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
   const logoImageRef = useRef<HTMLImageElement | null>(null);
@@ -696,6 +695,49 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
 
   const remainingCharacters = getRemainingMessageLength(text.length, maxLength);
   const counterTone = getMessageCounterTone(remainingCharacters);
+  useEffect(() => {
+    const updateHighlightFromPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const inWorkspace = event.target.closest('.workspace-page');
+      const interactiveTarget = event.target.closest('button, a[href], input, textarea, select, [contenteditable="true"], [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="checkbox"], [role="switch"], [role="combobox"], [role="spinbutton"], [tabindex]:not([tabindex="-1"])');
+      let scrollContainer = event.target instanceof HTMLElement ? event.target : event.target.parentElement;
+      let isExternalScrollInteraction = false;
+
+      while (scrollContainer && scrollContainer !== document.body && scrollContainer !== document.documentElement && !scrollContainer.closest('.workspace-page')) {
+        const styles = window.getComputedStyle(scrollContainer);
+        const canScrollVertically = ['auto', 'scroll', 'overlay'].includes(styles.overflowY)
+          && scrollContainer.scrollHeight > scrollContainer.clientHeight;
+        const canScrollHorizontally = ['auto', 'scroll', 'overlay'].includes(styles.overflowX)
+          && scrollContainer.scrollWidth > scrollContainer.clientWidth;
+        if (canScrollVertically || canScrollHorizontally) {
+          isExternalScrollInteraction = true;
+          break;
+        }
+        scrollContainer = scrollContainer.parentElement;
+      }
+
+      if (inWorkspace && interactiveTarget) {
+        setToolbarActive(true);
+        return;
+      }
+      if (!inWorkspace && (isExternalScrollInteraction || event.target.closest('dialog, [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="tree"], [role="grid"]'))) return;
+      if (interactiveTarget) return;
+      if (toolbarActive) setToolbarActive(false);
+    };
+    const activateHighlightFromWorkspaceClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest('.workspace-page') && event.target.closest('button, a[href], input, textarea, select, [contenteditable="true"], [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="checkbox"], [role="switch"], [role="combobox"], [role="spinbutton"], [tabindex]:not([tabindex="-1"])')) {
+        setToolbarActive(true);
+      }
+    };
+
+    document.addEventListener('pointerdown', updateHighlightFromPointerDown);
+    document.addEventListener('click', activateHighlightFromWorkspaceClick);
+    return () => {
+      document.removeEventListener('pointerdown', updateHighlightFromPointerDown);
+      document.removeEventListener('click', activateHighlightFromWorkspaceClick);
+    };
+  }, [toolbarActive]);
   const isLogoIntroActive = stageMode === 'editor'
     && editorFocused
     && ((!text.trim() && (!logoHasPlayedRef.current || logoIntroReady)) || logoGlowActive || logoFlying || logoGlowFinishing);
@@ -704,13 +746,7 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
     && (logoFlying || (!text.trim() && (!logoHasPlayedRef.current || logoIntroReady)));
   return (
     <div
-      className={`workspace-page-rich-text-editor ${stageMode === 'editor' && toolbarActive ? 'is-toolbar-active' : ''}`}
-      onFocus={() => setToolbarActive(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setToolbarActive(false);
-        }
-      }}
+      className={`workspace-page-rich-text-editor ${toolbarActive && stageMode === 'editor' ? 'is-toolbar-active' : ''}`}
     >
       <div className="workspace-page-rich-text-stage">
         <div
@@ -727,6 +763,7 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
           spellCheck
           aria-hidden={stageMode !== 'editor'}
           onFocus={() => {
+            setToolbarActive(true);
             setEditorFocused(true);
             if (!text.trim()) placeCaretAtStart();
           }}
@@ -838,55 +875,38 @@ export function RichTextEditor({ text, entities, onChange, onPasteImages, inputR
           </form>
         )}
       </div>
-      <div className="workspace-page-rich-text-toolbar" aria-label="Link tools">
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(event) => {
-            const files = Array.from(event.currentTarget.files ?? []);
-            if (files.length > 0) onPasteImages?.(files);
-            event.currentTarget.value = '';
-          }}
-        />
-        <span
-          className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
-          aria-live="polite"
-        >
-          {remainingCharacters}
-        </span>
-        <div className="workspace-page-rich-text-toolbar-actions">
-          <button
-            type="button"
-            className="workspace-page-rich-text-link-trigger"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => imageInputRef.current?.click()}
-            aria-label="Add photo"
-            title="Add photo"
+      <div
+        className="workspace-page-rich-text-toolbar"
+        aria-label="Link tools"
+        aria-hidden={stageMode !== 'editor'}
+      >
+          <span
+            className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
+            aria-live="polite"
           >
-            <ImagePlus size={17} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`workspace-page-rich-text-link-trigger ${linkPopoverOpen ? 'is-open' : ''}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              setLinkPopoverOpen((open) => !open);
-              if (!linkPopoverOpen) {
-                requestAnimationFrame(() => {
-                  linkInputRef.current?.focus();
-                });
-              }
-            }}
-            aria-label="Insert link"
-            aria-expanded={linkPopoverOpen}
-            title="Insert link"
-          >
-            <span className="workspace-page-rich-text-link-trigger__icon" aria-hidden="true">↗</span>
-          </button>
-        </div>
+            {remainingCharacters}
+          </span>
+          <div className="workspace-page-rich-text-toolbar-actions">
+            <span className="workspace-page-rich-text-photo-slot" aria-hidden="true" />
+            <button
+              type="button"
+              className={`workspace-page-rich-text-link-trigger ${linkPopoverOpen ? 'is-open' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setLinkPopoverOpen((open) => !open);
+                if (!linkPopoverOpen) {
+                  requestAnimationFrame(() => {
+                    linkInputRef.current?.focus();
+                  });
+                }
+              }}
+              aria-label="Insert link"
+              aria-expanded={linkPopoverOpen}
+              title="Insert link"
+            >
+              <span className="workspace-page-rich-text-link-trigger__icon" aria-hidden="true">↗</span>
+            </button>
+          </div>
       </div>
     </div>
   );

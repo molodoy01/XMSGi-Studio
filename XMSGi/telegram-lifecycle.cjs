@@ -59,7 +59,7 @@ function runShared(state, key, operation) {
   return promise;
 }
 
-function withTimeout(operation, timeoutMs, onTimeout, timerApi = {}) {
+function withTimeout(operation, timeoutMs, operationLabel, timerApi = {}) {
   const setTimer = timerApi.setTimeout || setTimeout;
   const clearTimer = timerApi.clearTimeout || clearTimeout;
 
@@ -69,8 +69,10 @@ function withTimeout(operation, timeoutMs, onTimeout, timerApi = {}) {
       if (settled) return;
 
       settled = true;
-      if (onTimeout) onTimeout();
-      const error = new Error(`Operation timed out after ${timeoutMs} ms`);
+      const timeoutLabel = typeof operationLabel === 'string' && operationLabel.trim()
+        ? operationLabel
+        : 'Operation';
+      const error = new Error(`${timeoutLabel} timed out after ${timeoutMs} ms`);
       error.code = 'OPERATION_TIMEOUT';
       reject(error);
     }, timeoutMs);

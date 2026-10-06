@@ -4,6 +4,11 @@ import App from './App.tsx';
 import './index.css';
 import { LocaleProvider } from '@/lib/i18n';
 
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+window.scrollTo(0, 0);
+
 const DevPreviewHarness = import.meta.env.DEV
   ? lazy(() => import('./DevPreviewHarness.tsx'))
   : null;

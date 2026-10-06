@@ -39,6 +39,10 @@ function getLocalTimezoneLabel() {
   return `${country} · ${offset}`;
 }
 
+function formatLocalDate(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
 function getDraftAttachmentSummary(draft: SavedDraft): string {
   const attachments = draft.attachments ?? [];
   if (attachments.length === 0) return '';
@@ -49,6 +53,7 @@ interface Props {
   mode: 'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons';
   scheduleFocus?: 'repeat' | 'time' | null;
   onModeChange: (mode: 'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons') => void;
+  onScheduleDone?: () => void;
   selectedChat: Chat | null;
   chats: Chat[];
   selectedChats: Chat[];
@@ -110,6 +115,7 @@ export function WorkspaceTextStage({
   mode,
   scheduleFocus = null,
   onModeChange,
+  onScheduleDone,
   chats,
   selectedChats,
   onChatSelectionChange,
@@ -224,6 +230,10 @@ export function WorkspaceTextStage({
   const toggleChat = (chat: Chat) => {
     onChatSelectionChange([chat]);
   };
+  const activateChatOption = (chat: Chat, selected: boolean) => {
+    if (selected) onChatSelectionDone();
+    else toggleChat(chat);
+  };
   const toggleFavoriteChat = (chat: Chat) => {
     setFavoriteChatIds((current) => current.includes(chat.id)
       ? current.filter((id) => id !== chat.id)
@@ -263,6 +273,10 @@ export function WorkspaceTextStage({
     }
   };
   const scheduleDateInputRef = useRef<HTMLInputElement | null>(null);
+  const scheduleDayInputRef = useRef<HTMLInputElement | null>(null);
+  const scheduleMonthInputRef = useRef<HTMLInputElement | null>(null);
+  const scheduleYearInputRef = useRef<HTMLInputElement | null>(null);
+  const scheduleTimeInputRef = useRef<HTMLInputElement | null>(null);
   const timePickerButtonRef = useRef<HTMLButtonElement | null>(null);
   const openScheduleDatePicker = () => {
     const input = scheduleDateInputRef.current;
@@ -350,10 +364,16 @@ export function WorkspaceTextStage({
     monthly: `Every month${date ? ` · day ${new Date(`${date}T12:00:00`).getDate()}` : ''}`,
   }[repeatMode];
   const quickTimePresets = [
-    { label: '+1m', minutes: 0 },
+    { label: 'Now', minutes: 0 },
     { label: '+15m', minutes: 15 },
     { label: '+30m', minutes: 30 },
     { label: '+1h', minutes: 60 },
+  ];
+  const quickDatePresets = [
+    { label: 'Today', days: 0 },
+    { label: '+1 day', days: 1 },
+    { label: '+1 week', days: 7 },
+    { label: '+1 month', months: 1 },
   ];
   const repeatModePresets: Array<{ label: string; value: ScheduleRepeatOptions['mode'] }> = [
     { label: "Doesn't repeat", value: 'none' },
@@ -450,6 +470,7 @@ export function WorkspaceTextStage({
                 </button>
                 <div className="workspace-page-schedule-inline-value workspace-page-schedule-date-value">
                   <input
+                    ref={scheduleDayInputRef}
                     aria-label="Day"
                     className="workspace-page-schedule-segment"
                     type="text"
@@ -458,9 +479,15 @@ export function WorkspaceTextStage({
                     value={currentDateSegments.day}
                     onChange={(event) => updateScheduleDateSegment('day', event.target.value)}
                     onBlur={commitScheduleDate}
+                    onKeyDown={(event) => {
+                      if (event.key !== ' ') return;
+                      event.preventDefault();
+                      scheduleMonthInputRef.current?.focus();
+                    }}
                   />
                   <span className="workspace-page-schedule-separator">/</span>
                   <input
+                    ref={scheduleMonthInputRef}
                     aria-label="Month"
                     className="workspace-page-schedule-segment"
                     type="text"
@@ -469,9 +496,15 @@ export function WorkspaceTextStage({
                     value={currentDateSegments.month}
                     onChange={(event) => updateScheduleDateSegment('month', event.target.value)}
                     onBlur={commitScheduleDate}
+                    onKeyDown={(event) => {
+                      if (event.key !== ' ') return;
+                      event.preventDefault();
+                      scheduleYearInputRef.current?.focus();
+                    }}
                   />
                   <span className="workspace-page-schedule-separator">/</span>
                   <input
+                    ref={scheduleYearInputRef}
                     aria-label="Year"
                     className="workspace-page-schedule-segment workspace-page-schedule-segment-year"
                     type="text"
@@ -480,6 +513,11 @@ export function WorkspaceTextStage({
                     value={currentDateSegments.year}
                     onChange={(event) => updateScheduleDateSegment('year', event.target.value)}
                     onBlur={commitScheduleDate}
+                    onKeyDown={(event) => {
+                      if (event.key !== ' ') return;
+                      event.preventDefault();
+                      scheduleTimeInputRef.current?.focus();
+                    }}
                   />
                 </div>
                   </div>
@@ -518,6 +556,7 @@ export function WorkspaceTextStage({
                       document.body,
                     )}
                     <input
+                      ref={scheduleTimeInputRef}
                       aria-label="Schedule time"
                       type="time"
                       value={time || ''}
@@ -532,20 +571,64 @@ export function WorkspaceTextStage({
             )}
 
             {activeScheduleFocus === 'time' ? (
-              <div className="workspace-page-schedule-quick-panel">
-                <div className="workspace-page-schedule-options-heading">Quick time</div>
-                <div className="workspace-page-schedule-quick-row">
-                  {quickTimePresets.map((preset) => (
-                    <button key={preset.label} type="button" aria-label={`Set time ${preset.label}`} onClick={() => {
-                      const scheduledAt = getScheduleDateTimeAfter(preset.minutes);
-                      setDate(scheduledAt.date);
-                      setTime(scheduledAt.time);
-                    }}>
-                      {preset.label}
-                    </button>
-                  ))}
+              <>
+                <div className="workspace-page-schedule-quick-panel workspace-page-schedule-quick-date-panel">
+                  <div className="workspace-page-schedule-options-heading">Quick date</div>
+                  <div className="workspace-page-schedule-quick-row">
+                    {quickDatePresets.map((preset) => (
+                      <button key={preset.label} type="button" aria-label={`Set date ${preset.label}`} onClick={() => {
+                        const selectedDate = preset.days === 0
+                          ? new Date()
+                          : date ? new Date(`${date}T12:00:00`) : new Date();
+                        if (Number.isNaN(selectedDate.getTime())) return;
+
+                        if (preset.months) {
+                          const originalDay = selectedDate.getDate();
+                          selectedDate.setDate(1);
+                          selectedDate.setMonth(selectedDate.getMonth() + preset.months);
+                          const finalDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+                          selectedDate.setDate(Math.min(originalDay, finalDay));
+                        } else if (preset.days) {
+                          selectedDate.setDate(selectedDate.getDate() + preset.days);
+                        }
+
+                        setDate(formatLocalDate(selectedDate));
+                      }}>
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="workspace-page-schedule-quick-panel workspace-page-schedule-quick-time-panel">
+                  <div className="workspace-page-schedule-options-heading">Quick time</div>
+                  <div className="workspace-page-schedule-quick-row">
+                    {quickTimePresets.map((preset) => (
+                      <button key={preset.label} type="button" aria-label={`Set time ${preset.label}`} onClick={() => {
+                        if (preset.label === 'Now') {
+                          const scheduledAt = getScheduleDateTimeAfter(0);
+                          setDate(scheduledAt.date);
+                          setTime(scheduledAt.time);
+                          return;
+                        }
+
+                        const selectedSchedule = new Date(`${date}T${time}:00`);
+                        if (!date || !time || Number.isNaN(selectedSchedule.getTime())) {
+                          const scheduledAt = getScheduleDateTimeAfter(preset.minutes);
+                          setDate(scheduledAt.date);
+                          setTime(scheduledAt.time);
+                          return;
+                        }
+
+                        selectedSchedule.setMinutes(selectedSchedule.getMinutes() + preset.minutes);
+                        setDate(formatLocalDate(selectedSchedule));
+                        setTime(`${String(selectedSchedule.getHours()).padStart(2, '0')}:${String(selectedSchedule.getMinutes()).padStart(2, '0')}`);
+                      }}>
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <section className="workspace-page-schedule-repeat-panel">
                 <div className="workspace-page-schedule-row-heading workspace-page-schedule-repeat-heading">
@@ -616,7 +699,10 @@ export function WorkspaceTextStage({
         <div className="workspace-page-stage-actions workspace-page-template-stage-footer workspace-page-schedule-footer">
           <button type="button" className="workspace-page-stage-secondary" onClick={() => onModeChange('editor')}>← Back</button>
           <div className="workspace-page-template-stage-footer-actions">
-            <button type="button" className="workspace-page-stage-primary" onClick={() => onModeChange('editor')}>Done</button>
+            <button type="button" className="workspace-page-stage-primary" onClick={() => {
+              onScheduleDone?.();
+              onModeChange('editor');
+            }}>Done</button>
           </div>
         </div>
       </div>
@@ -779,11 +865,11 @@ export function WorkspaceTextStage({
                 role="option"
                 aria-selected={selected}
                 tabIndex={0}
-                onClick={() => toggleChat(chat)}
+                onClick={() => activateChatOption(chat, selected)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    toggleChat(chat);
+                    activateChatOption(chat, selected);
                   }
                 }}
               >

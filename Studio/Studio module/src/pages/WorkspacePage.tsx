@@ -65,6 +65,7 @@ type WorkspacePageProps = {
   handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: RichTextEntity[], replyMarkup?: ReturnType<typeof toInlineKeyboardMarkup>) => Promise<boolean>;
   publishingDraft: boolean;
   onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryDraftUseHandler?: (handler: ((draft: SavedDraft) => void) | null) => void;
   onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
   onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
   onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
@@ -278,6 +279,29 @@ const FOOTER_STATUS_DURATION_MS = {
   chatLookupError: 7000,
   previewHistoryError: 10000,
 } as const;
+
+function getPreviewHistoryErrorPresentation(error: unknown) {
+  const errorRecord = error !== null && typeof error === 'object'
+    ? error as Record<string, unknown>
+    : null;
+  const errorText = typeof error === 'string'
+    ? error
+    : [errorRecord?.code, errorRecord?.error, errorRecord?.message]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ');
+
+  if (/CHAT_(?:WRITE_)?FORBIDDEN|CHAT_ADMIN_REQUIRED|CHAT_RESTRICTED|CHANNEL_(?:PRIVATE|FORBIDDEN)|USER_(?:IS_)?BLOCKED|USER_BANNED|RIGHTS_FORBIDDEN|PERMISSION/i.test(errorText)) {
+    return {
+      message: "You don't have access to this chat. Check your Telegram permissions or choose another chat.",
+      retryable: false,
+    };
+  }
+
+  return {
+    message: "The chat preview couldn't load history. Check your connection and try again.",
+    retryable: true,
+  };
+}
 
 function useTimedStatus(
   message: string,
@@ -543,6 +567,7 @@ export function WorkspacePage({
   handleSendDraftNow,
   publishingDraft,
   onRegisterHistoryDraftOpener,
+  onRegisterHistoryDraftUseHandler,
   onRegisterHistoryDraftClearHandler,
   onRegisterHistoryDraftDeleteHandler,
   onRegisterHistoryRescheduleHandler,
@@ -552,6 +577,7 @@ export function WorkspacePage({
   const bodyInputRef = useRef<HTMLDivElement | null>(null);
   const focusRescheduledEditorAtEndRef = useRef(false);
   const historyDraftOpenerRef = useRef<(draft: SavedDraft) => void>(() => undefined);
+  const historyDraftUseRef = useRef<(draft: SavedDraft) => void>(() => undefined);
   const historyDraftClearerRef = useRef<() => Promise<boolean>>(async () => false);
   const historyDraftDeleterRef = useRef<(draftId: string) => Promise<boolean>>(async () => false);
   const historyRescheduleHandlerRef = useRef<(message: ScheduledMessage) => void>(() => undefined);
@@ -635,6 +661,7 @@ export function WorkspacePage({
   const [scheduleFocus, setScheduleFocus] = useState<'repeat' | 'time' | null>(() => {
     return isLivePreviewSurface() ? 'time' : null;
   });
+  const [scheduleSelectionConfirmed, setScheduleSelectionConfirmed] = useState(false);
   const [, setStageTab] = useState<'editor' | 'templates' | 'drafts' | 'buttons'>('editor');
   const [workspaceSelectedChats, setWorkspaceSelectedChats] = useState<Chat[]>([]);
   const workspaceChatOriginRef = useRef<Chat | null>(null);
@@ -656,6 +683,7 @@ export function WorkspacePage({
   const [previewHistory, setPreviewHistory] = useState<PreviewChatHistory | null>(null);
   const [previewHistoryLoading, setPreviewHistoryLoading] = useState(false);
   const [previewHistoryError, setPreviewHistoryError] = useState('');
+  const [previewHistoryErrorRetryable, setPreviewHistoryErrorRetryable] = useState(false);
   const [previewHistoryRetry, setPreviewHistoryRetry] = useState(0);
   const [chatLookupError, setChatLookupError] = useState('');
   const [chatWallpaper, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
@@ -1130,6 +1158,7 @@ export function WorkspacePage({
       setPreviewHistory(null);
       setPreviewHistoryLoading(false);
       setPreviewHistoryError('');
+      setPreviewHistoryErrorRetryable(false);
       return () => {
         cancelled = true;
       };
@@ -1141,6 +1170,7 @@ export function WorkspacePage({
       setPreviewHistory(null);
       setPreviewHistoryLoading(false);
       setPreviewHistoryError('');
+      setPreviewHistoryErrorRetryable(false);
       return () => {
         cancelled = true;
       };
@@ -1149,20 +1179,31 @@ export function WorkspacePage({
     setPreviewHistory(null);
     setPreviewHistoryLoading(true);
     setPreviewHistoryError('');
+    setPreviewHistoryErrorRetryable(false);
     telegramApi
       .getChatHistory({ chatId: selectedChat.id, limit: 25 })
       .then((result) => {
         if (cancelled) return;
 
-        setPreviewHistory(result.success ? result.history ?? null : null);
-        setPreviewHistoryError(result.success ? '' : result.error || 'Telegram history could not be loaded.');
+        if (result.success) {
+          setPreviewHistory(result.history ?? null);
+          setPreviewHistoryError('');
+          setPreviewHistoryErrorRetryable(false);
+        } else {
+          const errorPresentation = getPreviewHistoryErrorPresentation(result.error);
+          setPreviewHistory(null);
+          setPreviewHistoryError(errorPresentation.message);
+          setPreviewHistoryErrorRetryable(errorPresentation.retryable);
+        }
         setPreviewHistoryLoading(false);
       })
       .catch((error) => {
         if (cancelled) return;
 
+        const errorPresentation = getPreviewHistoryErrorPresentation(error);
         setPreviewHistory(null);
-        setPreviewHistoryError(error instanceof Error ? error.message : 'Telegram history could not be loaded.');
+        setPreviewHistoryError(errorPresentation.message);
+        setPreviewHistoryErrorRetryable(errorPresentation.retryable);
         setPreviewHistoryLoading(false);
       });
 
@@ -1359,6 +1400,7 @@ export function WorkspacePage({
   const openScheduleStage = (focus: 'repeat' | 'time' | null = null) => {
     const isSameFocusOpen = stageMode === 'schedule' && scheduleFocus === focus;
 
+    setScheduleSelectionConfirmed(false);
     setPublishAction('schedule');
     setPublishMenuOpen(false);
 
@@ -1375,6 +1417,7 @@ export function WorkspacePage({
   const scheduleDraft = () => {
     if (!selectedChat || !canSchedule) return;
 
+    setScheduleSelectionConfirmed(false);
     scheduleSubmissionPendingRef.current = true;
     scheduleSubmissionStartedRef.current = false;
     handleSchedule({
@@ -1410,12 +1453,14 @@ export function WorkspacePage({
       setSavedAt(nextDraft.savedAt);
     })) return;
     showPublishFeedback('Черновик сохранён', 'success');
+    setScheduleSelectionConfirmed(false);
     setPublishAction('draft');
     setPublishMenuOpen(false);
   };
 
   const choosePublishAction = (action: PublishAction) => {
     setPublishAction(action);
+    setScheduleSelectionConfirmed(false);
     if (action !== 'schedule') {
       rescheduleSourceRef.current = null;
       setRescheduleSource(null);
@@ -1448,6 +1493,8 @@ export function WorkspacePage({
         return;
       }
       if (stageMode === 'schedule') {
+        scheduleDraft();
+      } else if (scheduleSelectionConfirmed) {
         scheduleDraft();
       } else {
         openScheduleStage();
@@ -1563,6 +1610,27 @@ export function WorkspacePage({
     setStageMode('draft');
   };
 
+  const useDraftInComposer = (draft: SavedDraft) => {
+    const draftChat = draft.selectedChat && chats.find((chat) => chat.id === draft.selectedChat?.id);
+    if (draftChat) setSelectedChat(draftChat);
+    setDraftBody(draft.body);
+    setDraftEntities(draft.entities ?? []);
+    replaceAttachments(draft.attachments ?? []);
+    setInlineButtons(draft.inlineButtons ?? []);
+    if (draft.date) setDate(draft.date);
+    if (draft.time) setTime(draft.time);
+    setRepeatMode(draft.repeatMode ?? 'none');
+    setRepeatDays(draft.repeatDays ?? []);
+    setRepeatOccurrences(draft.repeatOccurrences ?? 1);
+    rescheduleSourceRef.current = null;
+    setRescheduleSource(null);
+    setScheduleSelectionConfirmed(false);
+    setPublishAction('send');
+    setStageTab('editor');
+    focusRescheduledEditorAtEndRef.current = true;
+    changeStageMode('editor');
+  };
+
   const rescheduleMessage = (message: ScheduledMessage) => {
     const chat = chats.find((item) => item.id === message.chatId);
     const scheduledAt = new Date(message.when);
@@ -1575,6 +1643,7 @@ export function WorkspacePage({
     rescheduleSourceRef.current = message;
     setRescheduleSource(message);
     focusRescheduledEditorAtEndRef.current = true;
+    setScheduleSelectionConfirmed(false);
     setPublishAction('schedule');
     setDraftBody(message.text);
     setDraftEntities(message.entities ?? []);
@@ -1600,6 +1669,7 @@ export function WorkspacePage({
   };
 
   historyDraftOpenerRef.current = openDraftEditor;
+  historyDraftUseRef.current = useDraftInComposer;
   historyRescheduleHandlerRef.current = rescheduleMessage;
 
   useEffect(() => {
@@ -1616,6 +1686,12 @@ export function WorkspacePage({
     onRegisterHistoryDraftOpener((draft) => historyDraftOpenerRef.current(draft));
     return () => onRegisterHistoryDraftOpener(null);
   }, [onRegisterHistoryDraftOpener]);
+
+  useEffect(() => {
+    if (!onRegisterHistoryDraftUseHandler) return;
+    onRegisterHistoryDraftUseHandler((draft) => historyDraftUseRef.current(draft));
+    return () => onRegisterHistoryDraftUseHandler(null);
+  }, [onRegisterHistoryDraftUseHandler]);
 
   useEffect(() => {
     if (!onRegisterHistoryDraftClearHandler) return;
@@ -2050,7 +2126,7 @@ export function WorkspacePage({
                   </div>
                 </div>
 
-                <div className="workspace-page-editor-shell">
+                <div className={`workspace-page-editor-shell${publishAction === 'schedule' ? ' is-scheduled' : publishAction === 'draft' ? ' is-draft' : ''}`}>
               <div className="workspace-page-editor-canvas">
                 <div className="workspace-page-form-row">
                   <label className="workspace-page-field-label" aria-label="Channel selector" />
@@ -2097,6 +2173,7 @@ export function WorkspacePage({
                         mode={stageMode}
                         scheduleFocus={scheduleFocus}
                         onModeChange={changeStageMode}
+                        onScheduleDone={() => setScheduleSelectionConfirmed(true)}
                         selectedChat={selectedChat}
                         chats={chats}
                         selectedChats={workspaceSelectedChats}
@@ -2281,12 +2358,9 @@ export function WorkspacePage({
                             <stop offset="1" stopColor="#e0edf4" />
                           </linearGradient>
                         </defs>
-                        <path d="M1.8 12s3.4 5.8 10.2 5.8S22.2 12 22.2 12" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="4.2" strokeLinecap="round" />
-                        <path d="M1.8 12s3.4 5.8 10.2 5.8S22.2 12 22.2 12" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="3.1" strokeLinecap="round" />
-                        <path d="M6.2 18.8 5.3 20.1M12 19.1v1.5M17.8 18.8l.9 1.3" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.75" strokeLinecap="round" />
-                        <g className="workspace-page-preview-eyelashes" fill="none" strokeLinecap="round">
-                          <path d="M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8" stroke="#c2d8e5" strokeWidth="1.75" />
-                        </g>
+                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="2.65" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.22" />
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2298,11 +2372,9 @@ export function WorkspacePage({
                             <stop offset="1" stopColor="#e0edf4" />
                           </linearGradient>
                         </defs>
-                        <path d="M1.8 12s3.4-5.8 10.2-5.8S22.2 12 22.2 12s-3.4 5.8-10.2 5.8S1.8 12 1.8 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M1.8 12s3.4-5.8 10.2-5.8S22.2 12 22.2 12s-3.4 5.8-10.2 5.8S1.8 12 1.8 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2.8 10.4c2-2 5-3.6 9.2-3.6s7.2 1.6 9.2 3.6" fill="none" stroke="rgba(250, 253, 255, 0.5)" strokeWidth="0.65" strokeLinecap="round" />
-                        <circle cx="12" cy="12" r="3.2" fill="#18252e" stroke="url(#workspace-preview-metal)" strokeWidth="1.1" />
-                        <circle cx="10.9" cy="10.9" r="0.75" fill="#f5fbff" opacity="0.8" />
+                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="2.8" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.2" />
                       </svg>
                     )}
                   </button>
@@ -2326,9 +2398,9 @@ export function WorkspacePage({
                   {(publishAction === 'draft' || stageMode === 'draft') && (
                     <button
                       type="button"
-                      className="workspace-page-mode-button workspace-page-mode-button-template"
+                      className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'draft' ? 'is-active' : ''}`}
                       onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
-                      aria-pressed={publishAction === 'draft'}
+                      aria-pressed={stageMode === 'draft'}
                       title="Open saved drafts"
                     >
                       Draft
@@ -2361,7 +2433,7 @@ export function WorkspacePage({
                 <div className="workspace-page-submit-actions" ref={publishMenuRef}>
                   <button
                     type="button"
-                    className={`workspace-page-action-button workspace-page-publish-trigger workspace-page-publish-main ${successPulse && lastAction === 'sent' ? 'is-active' : ''}`}
+                    className={`workspace-page-action-button workspace-page-publish-trigger workspace-page-publish-main ${publishAction === 'schedule' ? 'is-scheduled' : publishAction === 'draft' ? 'is-draft' : 'is-send'} ${successPulse && lastAction === 'sent' ? 'is-active' : ''}`}
                     onClick={handlePrimaryPublish}
                     onPointerMove={updateIconRimPointer}
                     onPointerLeave={clearIconRimPointer}
@@ -2415,7 +2487,7 @@ export function WorkspacePage({
                     <div className="workspace-page-publish-menu workspace-page-publish-menu-compact" role="menu" aria-label="Publish action">
                       <button
                         type="button"
-                        className={`workspace-page-publish-option ${publishAction === 'send' ? 'is-selected' : ''}`}
+                        className={`workspace-page-publish-option is-send ${publishAction === 'send' ? 'is-selected' : ''}`}
                         autoFocus={publishAction === 'send'}
                         onClick={() => choosePublishAction('send')}
                         role="menuitemradio"
@@ -2485,7 +2557,7 @@ export function WorkspacePage({
                         Retry
                       </button>
                     )}
-                    {previewHistoryError && publishFooterStatus.message === previewHistoryError && (
+                    {previewHistoryError && previewHistoryErrorRetryable && publishFooterStatus.message === previewHistoryError && (
                       <button type="button" className="workspace-page-send-retry" onClick={() => setPreviewHistoryRetry((retry) => retry + 1)} disabled={previewHistoryLoading}>
                         Retry
                       </button>

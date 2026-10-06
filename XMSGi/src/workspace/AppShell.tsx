@@ -4,6 +4,16 @@ import { getTelegramStatusPresentation as getTelegramStatusPresentationFromModul
 import { HistoryDrawer } from './HistoryDrawer';
 import type { HistoryItem, HistorySource } from './historyModel';
 
+const HISTORY_DRAWER_OPEN_STORAGE_KEY = 'xmsgi-history-drawer-open';
+
+function loadHistoryDrawerOpen() {
+  try {
+    return window.localStorage.getItem(HISTORY_DRAWER_OPEN_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 /* eslint-disable react-refresh/only-export-components */
 export { getTelegramStatusPresentationFromModule as getTelegramStatusPresentation };
 /* eslint-enable react-refresh/only-export-components */
@@ -11,7 +21,10 @@ export { getTelegramStatusPresentationFromModule as getTelegramStatusPresentatio
 type AppShellProps = PropsWithChildren<{
   view: 'studio' | 'planner';
   onViewChange: (view: 'studio' | 'planner') => void;
+  settingsOpen?: boolean;
+  onCloseSettings?: () => void;
   connected: boolean;
+  headerPending?: boolean;
   authBusy: boolean;
   isConfirmingLogout: boolean;
   setIsConfirmingLogout: React.Dispatch<React.SetStateAction<boolean>>;
@@ -25,6 +38,7 @@ type AppShellProps = PropsWithChildren<{
   onHistorySendNow: (record: HistoryItem) => void;
   onHistoryDelete: (record: HistoryItem) => void;
   onHistoryOpenDraft: (record: HistoryItem) => void;
+  onHistoryUseDraft?: (record: HistoryItem) => void;
   onHistoryClearSent: (source: HistorySource | 'all') => void;
   onHistoryClearDrafts?: () => Promise<boolean>;
   onHistoryCancelQueue?: (records: HistoryItem[]) => Promise<boolean>;
@@ -34,7 +48,10 @@ export function AppShell({
   children,
   view,
   onViewChange,
+  settingsOpen = false,
+  onCloseSettings,
   connected,
+  headerPending = false,
   authBusy,
   isConfirmingLogout,
   setIsConfirmingLogout,
@@ -48,6 +65,7 @@ export function AppShell({
   onHistorySendNow,
   onHistoryDelete,
   onHistoryOpenDraft,
+  onHistoryUseDraft,
   onHistoryClearSent,
   onHistoryClearDrafts,
   onHistoryCancelQueue,
@@ -55,27 +73,71 @@ export function AppShell({
   const { t } = useLocale();
   const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
   const sectionLabel = view === 'planner' ? t('product.planner') : t('product.studio');
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(loadHistoryDrawerOpen);
+  const updateHistoryOpen = (nextIsOpen: boolean) => {
+    setIsHistoryOpen(nextIsOpen);
+    try {
+      if (nextIsOpen) window.localStorage.setItem(HISTORY_DRAWER_OPEN_STORAGE_KEY, 'true');
+      else window.localStorage.removeItem(HISTORY_DRAWER_OPEN_STORAGE_KEY);
+    } catch {
+      // The drawer still works when local storage is unavailable.
+    }
+  };
 
   return (
     <div className={`product-shell ${view === 'planner' ? 'planner-shell' : 'studio-shell'}`} style={{ position: 'relative' }}>
+      {!connected && headerPending && (
+        <div className="topbar topbar-placeholder" aria-hidden="true" />
+      )}
       {connected && (
         <header className="topbar">
           <div className="topbar-identity">
             <span className="brand" aria-label="XMSGi"><span>XMSGi</span></span>
           </div>
 
-          <button
-            type="button"
-            className="settings-action product-mode-switch"
-            aria-label={nextViewLabel}
-            aria-pressed={view === 'planner'}
-            onClick={() => onViewChange(view === 'planner' ? 'studio' : 'planner')}
-          >
-            <span className="action-label">{nextViewLabel}</span>
-          </button>
+          {!settingsOpen && (
+            <button
+              type="button"
+              className="settings-action product-mode-switch"
+              aria-label={nextViewLabel}
+              aria-pressed={view === 'planner'}
+              onClick={() => onViewChange(view === 'planner' ? 'studio' : 'planner')}
+            >
+              <span className="action-label">{nextViewLabel}</span>
+            </button>
+          )}
 
           <div className="topbar-actions">
+            {settingsOpen ? (
+              <button type="button" className="settings-action" onClick={onCloseSettings} aria-label={t('settings.done')}>
+                <span className="action-label">{t('settings.done')}</span>
+              </button>
+            ) : (
+              <>
+            <button
+              type="button"
+              className="settings-action"
+              onClick={() => updateHistoryOpen(true)}
+              title="Posts"
+              aria-label="Posts"
+            >
+              <span className="action-label">Posts</span>
+            </button>
+
+            <button
+              type="button"
+              className="settings-action"
+              onClick={() => {
+                setShowAuthForm(false);
+                setIsConfirmingLogout(false);
+                onOpenSettings();
+              }}
+              title={t('topbar.settings')}
+              aria-label={t('topbar.settings')}
+            >
+              <span className="action-label">{t('topbar.settings')}</span>
+            </button>
+
             <div className="logout-action-group">
               <button
                 className="account-action"
@@ -101,34 +163,12 @@ export function AppShell({
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              className="settings-action"
-              onClick={() => setIsHistoryOpen(true)}
-              title="История"
-              aria-label="История"
-            >
-              <span className="action-label">История</span>
-            </button>
-
-            <button
-              type="button"
-              className="settings-action"
-              onClick={() => {
-                setShowAuthForm(false);
-                setIsConfirmingLogout(false);
-                onOpenSettings();
-              }}
-              title={t('topbar.settings')}
-              aria-label={t('topbar.settings')}
-            >
-              <span className="action-label">{t('topbar.settings')}</span>
-            </button>
+              </>
+            )}
           </div>
         </header>
       )}
-      {connected && (
+      {connected && !settingsOpen && (
         <span className="product-section-title product-section-title-detached" aria-current="page">
           {sectionLabel}
         </span>
@@ -136,13 +176,14 @@ export function AppShell({
       <main className="product-shell-content">{children}</main>
       <HistoryDrawer
         isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
+        onClose={() => updateHistoryOpen(false)}
         records={historyRecords}
         onCancel={onHistoryCancel}
         onReschedule={onHistoryReschedule}
         onSendNow={onHistorySendNow}
         onDelete={onHistoryDelete}
         onOpenDraft={onHistoryOpenDraft}
+        onUseDraft={onHistoryUseDraft}
         onClearSent={onHistoryClearSent}
         onClearDrafts={onHistoryClearDrafts}
         onCancelQueue={onHistoryCancelQueue}

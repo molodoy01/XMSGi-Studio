@@ -13,6 +13,7 @@ declare global {
     signedOut: boolean;
     connected: boolean;
     userName: string;
+    username?: string;
     state: string;
   }
 

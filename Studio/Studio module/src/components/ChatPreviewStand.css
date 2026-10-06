@@ -291,6 +291,7 @@
 
 .chat-preview-toolbar-label {
   margin-right: auto;
+  transform: translateY(15px);
   color: #8798a9;
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -318,6 +319,16 @@
   max-width: 100%;
   transform: translateY(-100%);
   scrollbar-width: thin;
+}
+
+.chat-preview-stand.is-web .chat-preview-wallpaper-quick-picker {
+  right: 13px;
+}
+
+.chat-preview-stand.is-mobile .chat-preview-wallpaper-quick-picker {
+  top: 64px;
+  right: max(6px, calc((100% - 320px) / 2 + 6px));
+  gap: 4px;
 }
 
 .chat-preview-wallpaper-quick-choice {
@@ -562,6 +573,23 @@
   backdrop-filter: none;
 }
 
+.chat-preview-stand.is-web .chat-preview-header {
+  background: rgba(23, 33, 43, 0.42);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.chat-preview-stand.is-web .chat-preview-header::before {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  left: 9px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(174, 198, 218, 0.34) 12%, rgba(174, 198, 218, 0.34) 88%, transparent);
+  content: '';
+  pointer-events: none;
+}
+
 .chat-preview-header::after {
   position: absolute;
   right: 0;
@@ -571,6 +599,13 @@
   content: '';
   background: rgba(123, 143, 165, 0.16);
   pointer-events: none;
+}
+
+.chat-preview-stand.is-web .chat-preview-header::after {
+  right: 9px;
+  bottom: 8px;
+  left: 9px;
+  background: linear-gradient(90deg, transparent, rgba(174, 198, 218, 0.34) 12%, rgba(174, 198, 218, 0.34) 88%, transparent);
 }
 
 .chat-preview-window.theme-telegram {
@@ -968,6 +1003,40 @@ img.chat-preview-avatar {
   border-top: 1px solid rgba(123, 143, 165, 0.14);
   background: #17212b;
   color: #8b9bab;
+}
+
+.chat-preview-stand.is-web .chat-preview-composer {
+  flex-basis: 42px;
+  gap: 10px;
+  margin: 6px 12px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--chat-preview-wallpaper-accent) 46%, transparent);
+  border-top: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chat-preview-wallpaper-accent) 20%, rgba(10, 16, 22, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: color-mix(in srgb, var(--chat-preview-wallpaper-accent) 30%, #e8edf3);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+}
+
+.chat-preview-stand.is-web .chat-preview-composer-input {
+  height: 36px;
+  padding: 0 8px;
+  background: transparent;
+  color: #d5e0e8;
+}
+
+.chat-preview-stand.is-web .chat-preview-composer-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--chat-preview-wallpaper-accent) 42%, #dce6ed);
+}
+
+.chat-preview-stand.is-web .chat-preview-composer-action svg {
+  display: block;
 }
 
 .chat-preview-composer-input {
@@ -1495,4 +1564,54 @@ img.chat-preview-avatar {
   -webkit-backdrop-filter: blur(12px) saturate(135%);
   color: #f5faff;
   transform: translateY(-0.5px) scale(1.02);
+}
+
+@media (max-width: 760px) {
+  .chat-preview-stand.is-web .chat-preview-window-shell,
+  .chat-preview-stand.is-mobile .chat-preview-window-shell {
+    gap: 0;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-scrollbar-track,
+  .chat-preview-stand.is-mobile .chat-preview-scrollbar-track {
+    display: none;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-window,
+  .chat-preview-stand.is-mobile .chat-preview-window {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-mobile-system-bar,
+  .chat-preview-stand.is-mobile .chat-preview-mobile-system-bar,
+  .chat-preview-stand.is-web .chat-preview-header,
+  .chat-preview-stand.is-mobile .chat-preview-header,
+  .chat-preview-stand.is-web .chat-preview-composer,
+  .chat-preview-stand.is-mobile .chat-preview-composer,
+  .chat-preview-stand.is-web .chat-preview-mobile-home-indicator,
+  .chat-preview-stand.is-mobile .chat-preview-mobile-home-indicator,
+  .chat-preview-stand.is-web .chat-preview-service-date,
+  .chat-preview-stand.is-mobile .chat-preview-service-date {
+    display: none;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-window.is-chat-list-open,
+  .chat-preview-stand.is-mobile .chat-preview-window.is-chat-list-open {
+    display: flex;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-window.is-chat-list-open .chat-preview-wallpaper,
+  .chat-preview-stand.is-mobile .chat-preview-window.is-chat-list-open .chat-preview-wallpaper {
+    display: flex;
+  }
+
+  .chat-preview-stand.is-web .chat-preview-window.is-chat-list-open .chat-preview-chat-list,
+  .chat-preview-stand.is-mobile .chat-preview-window.is-chat-list-open .chat-preview-chat-list {
+    display: none;
+  }
 }

@@ -230,19 +230,23 @@ describe('telegram account storage adapter', () => {
       SESSION_STRING_ENCRYPTED: 'ZW5jcnlwdGVkOnNlc3Npb24='
     });
 
-    expect(adapter.saveAccountSecrets({ userName: 'Alex Johnson' })).toBe(true);
+    expect(adapter.saveAccountSecrets({ userName: 'Alex Johnson', username: '@alex_j' })).toBe(true);
     expect(adapter.getTelegramAuthState()).toEqual({
       hasSession: true,
       signedOut: false,
-      userName: 'Alex Johnson'
+      userName: 'Alex Johnson',
+      username: 'alex_j'
     });
     expect(JSON.parse(files.get(getConfigPath()))).toMatchObject({
       TELEGRAM_USER_NAME: 'Alex Johnson',
+      TELEGRAM_USERNAME: 'alex_j',
       SESSION_STRING_ENCRYPTED: 'ZW5jcnlwdGVkOnNlc3Npb24='
     });
 
     expect(adapter.setTelegramSignedOut(true)).toBe(true);
-    expect(adapter.getTelegramAuthState().userName).toBe('Alex Johnson');
+    expect(adapter.getTelegramAuthState()).toMatchObject({ userName: 'Alex Johnson', username: 'alex_j' });
+    expect(adapter.clearAccountSecrets()).toBe(true);
+    expect(adapter.getTelegramAuthState()).not.toHaveProperty('username');
   });
 
   it('does not overwrite a corrupted config during save', () => {

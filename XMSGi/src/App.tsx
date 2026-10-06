@@ -8,10 +8,30 @@ import { normalizeScheduledMessages } from './workspace/historyModel';
 import type { HistoryItem, HistorySource } from './workspace/historyModel';
 import { SchedulePage } from './pages/SchedulePage';
 import { SettingsPage } from './pages/SettingsPage';
-import type { TelegramStatusSnapshot } from './hooks/useTelegramAuth';
 
 type AppRoute = '/' | '/settings';
 type ProductView = 'studio' | 'planner';
+
+const PRODUCT_VIEW_STORAGE_KEY = 'xmsgi-product-view';
+const SETTINGS_RETURN_VIEW_STORAGE_KEY = 'xmsgi-settings-return-view';
+
+function readStoredProductView(key: string): ProductView | null {
+  try {
+    const value = window.sessionStorage.getItem(key);
+    return value === 'studio' || value === 'planner' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredProductView(key: string, value: ProductView | null) {
+  try {
+    if (value) window.sessionStorage.setItem(key, value);
+    else window.sessionStorage.removeItem(key);
+  } catch {
+    // Keep navigation usable when session storage is unavailable.
+  }
+}
 
 function getCurrentHashPath(): AppRoute {
   const hash = window.location.hash.replace(/^#/, '').trim();
@@ -28,8 +48,13 @@ function App() {
   const [message, setMessage] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [route, setRoute] = useState<AppRoute>(getCurrentHashPath());
-  const [productView, setProductView] = useState<ProductView>('studio');
-  const [activeAccountId, setActiveAccountId] = useState<'account-1' | 'account-2'>(() => 'account-1');
+  const [productView, setProductView] = useState<ProductView>(
+    () => readStoredProductView(PRODUCT_VIEW_STORAGE_KEY) ?? 'studio',
+  );
+  const settingsReturnViewRef = useRef<ProductView | null>(
+    readStoredProductView(SETTINGS_RETURN_VIEW_STORAGE_KEY),
+  );
+  const [activeAccountId] = useState<'account-1' | 'account-2'>(() => 'account-1');
   const [telegramApiId, setTelegramApiId] = useState('');
   const [telegramApiHash, setTelegramApiHash] = useState('');
   const [telegramCredentialsBusy, setTelegramCredentialsBusy] = useState(false);
@@ -49,11 +74,15 @@ function App() {
   const studioNotifications = useNotifications();
   const [studioMessage, setStudioMessage] = useState('');
   const studioDraftOpenerRef = useRef<((draft: SavedDraft) => void) | null>(null);
+  const studioDraftUseRef = useRef<((draft: SavedDraft) => void) | null>(null);
   const studioDraftClearerRef = useRef<(() => Promise<boolean>) | null>(null);
   const studioDraftDeleterRef = useRef<((draftId: string) => Promise<boolean>) | null>(null);
   const studioHistoryReschedulerRef = useRef<((message: StudioScheduledMessage) => void) | null>(null);
   const registerHistoryDraftOpener = useCallback((opener: ((draft: SavedDraft) => void) | null) => {
     studioDraftOpenerRef.current = opener;
+  }, []);
+  const registerHistoryDraftUseHandler = useCallback((handler: ((draft: SavedDraft) => void) | null) => {
+    studioDraftUseRef.current = handler;
   }, []);
   const registerHistoryRescheduleHandler = useCallback((handler: ((message: StudioScheduledMessage) => void) | null) => {
     studioHistoryReschedulerRef.current = handler;
@@ -74,6 +103,7 @@ function App() {
     connected,
     signedOut,
     returningUserName,
+    returningUserUsername,
     connecting,
     connectionResolved,
     authStep,
@@ -270,27 +300,14 @@ function App() {
     }
   };
 
-  const studioConnected = connected && !signedOut && activeAccountId === 'account-1';
-  const activeStudioStatus: TelegramStatusSnapshot = activeAccountId === 'account-1'
-    ? telegramStatus
-    : {
-      accountId: 'account-2',
-      status: 'auth required',
-      category: 'auth',
-      error: 'Account 2 is not connected.',
-    };
-  const handleAccountChange = (accountId: 'account-1' | 'account-2') => {
-    if (accountId !== 'account-1') {
-      return;
-    }
-
-    setActiveAccountId('account-1');
-    try {
-      window.localStorage.setItem('xmsgi_active_account_id', 'account-1');
-    } catch {
-      // Keep the active slot for the current session if storage is unavailable.
+  const useHistoryDraft = (record: HistoryItem) => {
+    setProductView(record.source === 'workspace' ? 'studio' : 'planner');
+    if (record.original.kind === 'saved-draft') {
+      studioDraftUseRef.current?.(record.original.draft);
     }
   };
+
+  const studioConnected = connected && !signedOut && activeAccountId === 'account-1';
 
   useEffect(() => {
     if (isSettingsOpen) {
@@ -312,12 +329,27 @@ function App() {
   }, []);
 
   useEffect(() => {
+    writeStoredProductView(PRODUCT_VIEW_STORAGE_KEY, productView);
+  }, [productView]);
+
+  useEffect(() => {
     if (route === '/settings') {
+      if (settingsReturnViewRef.current === null) {
+        settingsReturnViewRef.current = productView;
+        writeStoredProductView(SETTINGS_RETURN_VIEW_STORAGE_KEY, productView);
+      }
       setIsSettingsOpen(true);
+      setProductView('planner');
     } else {
       setIsSettingsOpen(false);
+      const returnView = settingsReturnViewRef.current;
+      if (returnView !== null) {
+        settingsReturnViewRef.current = null;
+        writeStoredProductView(SETTINGS_RETURN_VIEW_STORAGE_KEY, null);
+        setProductView(returnView);
+      }
     }
-  }, [route]);
+  }, [productView, route]);
 
   const navigate = (nextRoute: AppRoute) => {
     const target = nextRoute === '/' ? '#/' : `#${nextRoute}`;
@@ -327,17 +359,26 @@ function App() {
     setRoute(nextRoute);
   };
 
+  const closeSettings = () => {
+    setShowAuthForm(false);
+    setIsSettingsOpen(false);
+    navigate('/');
+  };
+
   const renderSettingsPage = () => (
     <SettingsPage
-      onClose={() => {
-        setShowAuthForm(false);
-        setIsSettingsOpen(false);
-        navigate('/');
-      }}
+      onClose={closeSettings}
       accountName={returningUserName}
-      telegramStatus={activeStudioStatus}
-      activeAccountId={activeAccountId}
-      onAccountChange={handleAccountChange}
+      telegramUsername={returningUserUsername}
+      telegramConnected={connected && !signedOut}
+      telegramConnecting={connecting}
+      telegramAuthStep={authStep}
+      telegramPhoneNumber={phoneNumber}
+      telegramPhoneCode={phoneCode}
+      telegramTwoFactorPassword={twoFactorPassword}
+      telegramAuthBusy={authBusy}
+      telegramAuthError={authError}
+      telegramStatus={telegramStatus}
       geminiSettings={geminiSettings}
       settingsKey={settingsKey}
       settingsBusy={settingsBusy}
@@ -353,6 +394,12 @@ function App() {
       telegramCredentialsError={telegramCredentialsError}
       onTelegramApiIdChange={setTelegramApiId}
       onTelegramApiHashChange={setTelegramApiHash}
+      onTelegramPhoneNumberChange={setPhoneNumber}
+      onTelegramPhoneCodeChange={setPhoneCode}
+      onTelegramTwoFactorPasswordChange={setTwoFactorPassword}
+      onTelegramAuth={handleTelegramAuth}
+      onTelegramReconnect={handleWelcomeBack}
+      onTelegramDisconnect={handleDisconnect}
       onSaveTelegramCredentials={async () => {
         setTelegramCredentialsBusy(true);
         setTelegramCredentialsError('');
@@ -400,7 +447,10 @@ function App() {
     <AppShell
       view={productView}
       onViewChange={setProductView}
+      settingsOpen={route === '/settings'}
+      onCloseSettings={closeSettings}
       connected={connected && !signedOut}
+      headerPending={connecting || !connectionResolved}
       authBusy={authBusy}
       isConfirmingLogout={isConfirmingLogout}
       setIsConfirmingLogout={setIsConfirmingLogout}
@@ -419,7 +469,6 @@ function App() {
         setShowAuthForm(false);
         setIsConfirmingLogout(false);
         setIsSettingsOpen(true);
-        setProductView('planner');
         navigate('/settings');
       }}
       historyRecords={historyRecords}
@@ -428,6 +477,7 @@ function App() {
       onHistorySendNow={sendHistoryRecordNow}
       onHistoryDelete={deleteHistoryRecord}
       onHistoryOpenDraft={openHistoryDraft}
+      onHistoryUseDraft={useHistoryDraft}
       onHistoryClearSent={clearHistorySent}
       onHistoryClearDrafts={clearHistoryDrafts}
       onHistoryCancelQueue={cancelHistoryQueue}
@@ -443,6 +493,7 @@ function App() {
             closeNotification: studioNotifications.closeNotification,
           }}
           onRegisterHistoryDraftOpener={registerHistoryDraftOpener}
+          onRegisterHistoryDraftUseHandler={registerHistoryDraftUseHandler}
           onRegisterHistoryDraftClearHandler={registerHistoryDraftClearHandler}
           onRegisterHistoryDraftDeleteHandler={registerHistoryDraftDeleteHandler}
           onRegisterHistoryRescheduleHandler={registerHistoryRescheduleHandler}

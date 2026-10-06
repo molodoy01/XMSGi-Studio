@@ -4,9 +4,16 @@ import type { TelegramStatusSnapshot } from '@/hooks/useTelegramAuth';
 type SettingsPageProps = {
   onClose: () => void;
   accountName: string;
+  telegramUsername: string;
+  telegramConnected: boolean;
+  telegramConnecting: boolean;
+  telegramAuthStep: 'phone' | 'code' | 'password';
+  telegramPhoneNumber: string;
+  telegramPhoneCode: string;
+  telegramTwoFactorPassword: string;
+  telegramAuthBusy: boolean;
+  telegramAuthError: string;
   telegramStatus: TelegramStatusSnapshot;
-  activeAccountId: 'account-1' | 'account-2';
-  onAccountChange: (accountId: 'account-1' | 'account-2') => void;
   geminiSettings: {
     hasKey: boolean;
     maskedKey: string;
@@ -28,14 +35,27 @@ type SettingsPageProps = {
   onTelegramApiIdChange: (value: string) => void;
   onTelegramApiHashChange: (value: string) => void;
   onSaveTelegramCredentials: () => void;
+  onTelegramPhoneNumberChange: (value: string) => void;
+  onTelegramPhoneCodeChange: (value: string) => void;
+  onTelegramTwoFactorPasswordChange: (value: string) => void;
+  onTelegramAuth: () => void;
+  onTelegramReconnect: () => void;
+  onTelegramDisconnect: () => void;
 };
 
 export function SettingsPage({
   onClose,
   accountName,
+  telegramUsername,
+  telegramConnected,
+  telegramConnecting,
+  telegramAuthStep,
+  telegramPhoneNumber,
+  telegramPhoneCode,
+  telegramTwoFactorPassword,
+  telegramAuthBusy,
+  telegramAuthError,
   telegramStatus,
-  activeAccountId,
-  onAccountChange,
   geminiSettings,
   settingsKey,
   settingsBusy,
@@ -52,14 +72,27 @@ export function SettingsPage({
   onTelegramApiIdChange,
   onTelegramApiHashChange,
   onSaveTelegramCredentials,
+  onTelegramPhoneNumberChange,
+  onTelegramPhoneCodeChange,
+  onTelegramTwoFactorPasswordChange,
+  onTelegramAuth,
+  onTelegramReconnect,
+  onTelegramDisconnect,
 }: SettingsPageProps) {
   return (
     <SettingsView
       onClose={onClose}
       accountName={accountName}
+      telegramUsername={telegramUsername}
+      telegramConnected={telegramConnected}
+      telegramConnecting={telegramConnecting}
+      telegramAuthStep={telegramAuthStep}
+      telegramPhoneNumber={telegramPhoneNumber}
+      telegramPhoneCode={telegramPhoneCode}
+      telegramTwoFactorPassword={telegramTwoFactorPassword}
+      telegramAuthBusy={telegramAuthBusy}
+      telegramAuthError={telegramAuthError}
       telegramStatus={telegramStatus}
-      activeAccountId={activeAccountId}
-      onAccountChange={onAccountChange}
       geminiSettings={geminiSettings}
       settingsKey={settingsKey}
       settingsBusy={settingsBusy}
@@ -76,6 +109,12 @@ export function SettingsPage({
       onTelegramApiIdChange={onTelegramApiIdChange}
       onTelegramApiHashChange={onTelegramApiHashChange}
       onSaveTelegramCredentials={onSaveTelegramCredentials}
+      onTelegramPhoneNumberChange={onTelegramPhoneNumberChange}
+      onTelegramPhoneCodeChange={onTelegramPhoneCodeChange}
+      onTelegramTwoFactorPasswordChange={onTelegramTwoFactorPasswordChange}
+      onTelegramAuth={onTelegramAuth}
+      onTelegramReconnect={onTelegramReconnect}
+      onTelegramDisconnect={onTelegramDisconnect}
     />
   );
 }

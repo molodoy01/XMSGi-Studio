@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Chat, ScheduledMessage } from '@/types';
 import { HistoryDrawer } from './HistoryDrawer';
 import { normalizeSavedDraft, normalizeScheduledMessages, sortHistoryItems } from './historyModel';
@@ -51,6 +51,7 @@ function renderHistory(
   onClearSent = vi.fn(),
   onClearDrafts = vi.fn().mockResolvedValue(true),
   onCancelQueue = vi.fn().mockResolvedValue(true),
+  onUseDraft = vi.fn(),
 ) {
   const onClose = vi.fn();
   const view = render(
@@ -63,12 +64,13 @@ function renderHistory(
       onSendNow={onSendNow}
       onDelete={onDelete}
       onOpenDraft={onOpenDraft}
+      onUseDraft={onUseDraft}
       onClearSent={onClearSent}
       onClearDrafts={onClearDrafts}
       onCancelQueue={onCancelQueue}
     />,
   );
-  return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onReschedule, onClearSent, onClearDrafts, onCancelQueue };
+  return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onUseDraft, onReschedule, onClearSent, onClearDrafts, onCancelQueue };
 }
 
 function searchHistory(query: string) {
@@ -130,6 +132,10 @@ function readBlob(blob: Blob) {
 }
 
 describe('HistoryDrawer search', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem('xmsgi-history-filters');
+  });
+
   it('groups search and navigation controls in one dock below the records', () => {
     const { container } = renderHistory();
     const recordList = container.querySelector('.history-record-list')!;
@@ -142,6 +148,30 @@ describe('HistoryDrawer search', () => {
     expect(searchDock.parentElement).toBe(toolsDock);
     expect(navigationDock.parentElement).toBe(toolsDock);
     expect(screen.getByRole('search')).toBeInTheDocument();
+  });
+
+  it('restores the source and status tabs after remounting', () => {
+    const draft = normalizeSavedDraft({
+      id: 'persisted-history-draft',
+      name: 'Persisted draft',
+      body: 'Draft content',
+      color: 'coral',
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+    });
+    const firstView = renderHistory([upcomingRecord, draft]);
+    fireEvent.click(screen.getByRole('button', { name: 'Studio' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
+    firstView.unmount();
+
+    const secondView = renderHistory([upcomingRecord, draft]);
+    try {
+      expect(screen.getByRole('button', { name: 'Studio' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('tab', { name: 'Черновики' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('Persisted draft')).toBeInTheDocument();
+    } finally {
+      secondView.unmount();
+    }
   });
 
   it('normalizes both sources without colliding on matching IDs', () => {
@@ -199,6 +229,23 @@ describe('HistoryDrawer search', () => {
       { ...cancelledRecord, updatedAt: '2026-09-29T19:00:00.000Z' },
       normalizeScheduledMessages([{ ...scheduledMessage, id: 'soon', when: '2026-09-29T20:00:00.000Z' }], 'workspace', 'upcoming', [])[0],
     ], 'scheduled').map((record) => record.status)).toEqual(['scheduled', 'cancelled', 'failed']);
+  });
+
+  it('hides failed retry attempts from the main scheduled history list', () => {
+    const retryFailure = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'failed-attempt-1',
+      text: 'Неудачная повторная отправка — не показывать в истории',
+      status: 'failed',
+      lastError: 'Telegram rejected the previous attempt.',
+      retryAction: 'send',
+    }], 'workspace', 'upcoming', [channel])[0];
+
+    renderHistory([upcomingRecord, retryFailure]);
+
+    expect(screen.getByText('Релиз нового набора шаблонов для Telegram-канала')).toBeInTheDocument();
+    expect(screen.queryByText('Неудачная повторная отправка — не показывать в истории')).not.toBeInTheDocument();
+    expect(screen.queryByText('Telegram rejected the previous attempt.')).not.toBeInTheDocument();
   });
 
   it('keeps drafts in a dedicated section instead of mixing them into the queue UI', async () => {
@@ -338,7 +385,7 @@ describe('HistoryDrawer search', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2);
   });
 
-  it('shows attachment and failure details in compact rows', () => {
+  it('shows attachment details without surfacing failed retry messages in compact rows', () => {
     const failedRecord = normalizeScheduledMessages([{
       ...scheduledMessage,
       id: 'failed-compact-row',
@@ -351,9 +398,11 @@ describe('HistoryDrawer search', () => {
       ...scheduledMessage,
       id: 'cancelled-compact-row',
       attachments: [],
+      text: 'Cancelled entry remains visible',
       status: 'cancelled' as ScheduledMessage['status'],
     }], 'personal', 'upcoming', [])[0];
     const imageRecord = { ...upcomingRecord, attachments: ['C:\\files\\launch-image.png'] };
+
     renderHistory([imageRecord, failedRecord, cancelledRecord]);
 
     const attachmentPreview = screen.getByLabelText('1 вложение');
@@ -362,9 +411,9 @@ describe('HistoryDrawer search', () => {
     fireEvent.error(attachmentPreview.querySelector('img') as HTMLImageElement);
     expect(attachmentPreview.querySelector('.history-record-attachment-image')).toHaveClass('is-unavailable');
     expect(screen.getAllByText(/Запланировано ·/)[0].parentElement).toHaveClass('history-record-meta');
-    expect(screen.getByText('Telegram не подтвердил отправку.').closest('article')?.querySelector('.history-record-attachments.is-empty')).toBeInTheDocument();
-    expect(screen.getByText('Telegram не подтвердил отправку.')).toBeInTheDocument();
-    expect(screen.getAllByRole('article')[2]).toHaveTextContent('Отменено');
+    expect(screen.queryByText('Telegram не подтвердил отправку.')).not.toBeInTheDocument();
+    expect(screen.getByText('Cancelled entry remains visible')).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
   });
 
   it('filters the single list across All, Studio, and Personal sources', () => {
@@ -381,6 +430,30 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Все' }));
     expect(screen.getAllByRole('article')).toHaveLength(2);
+  });
+
+  it('shows the most recently created scheduled record first across Personal and Studio in All', () => {
+    const olderPersonalRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'older-personal',
+      chatName: 'Personal older',
+      createdAt: '2026-10-05T10:00:00.000Z',
+      when: '2026-10-13T23:17:00.000Z',
+    }], 'personal', 'upcoming', [])[0];
+    const newerStudioRecord = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'newer-studio',
+      chatName: 'Studio newer',
+      createdAt: '2026-10-05T12:00:00.000Z',
+      when: '2026-10-07T23:17:00.000Z',
+    }], 'workspace', 'upcoming', [channel])[0];
+
+    renderHistory([olderPersonalRecord, newerStudioRecord]);
+
+    const titles = screen.getAllByRole('article').map((article) => (
+      article.querySelector('.history-record-heading strong')?.textContent
+    ));
+    expect(titles).toEqual(['Studio newer', 'Personal older']);
   });
 
   it('hides Drafts in Personal and switches away from a previously selected Drafts tab', () => {
@@ -404,10 +477,12 @@ describe('HistoryDrawer search', () => {
     expect(screen.queryByText(/черновик/i)).not.toBeInTheDocument();
   });
 
-  it('asks for confirmation before sending a scheduled message now', () => {
+  it('places a personal scheduled send action in More and asks for confirmation', () => {
     const { onSendNow } = renderHistory([personalUpcomingRecord]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Отправить сейчас' }));
+    expect(screen.queryByRole('button', { name: 'Отправить сейчас' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Отправить сейчас' }));
 
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отправку' });
     expect(confirmation).toHaveAttribute('aria-modal', 'true');
@@ -425,14 +500,14 @@ describe('HistoryDrawer search', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Экспортировать текущую категорию' }));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu', { name: 'Формат экспорта' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'История' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Публикации' })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Действия' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Отменить' }));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('alertdialog', { name: 'Подтвердить отмену публикации' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'История' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Публикации' })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -445,7 +520,7 @@ describe('HistoryDrawer search', () => {
     const { onClose } = renderHistory([upcomingRecord, personalUpcomingRecord], vi.fn(), vi.fn(), onSendNow, vi.fn(), onReschedule);
 
     const rescheduleButton = screen.getByRole('button', { name: 'Изменить: XMSGi Updates' });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ещё' })[0]);
     expect(screen.getByRole('menuitem', { name: 'Отправить сейчас' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Изменить: XMSGi Updates' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Отправить сейчас' }));
@@ -459,8 +534,9 @@ describe('HistoryDrawer search', () => {
     expect(onReschedule).toHaveBeenCalledWith(upcomingRecord);
     expect(onClose).toHaveBeenCalledOnce();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[1]);
-    expect(screen.queryByRole('menuitem', { name: 'Отправить сейчас' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ещё' })[1]);
+    expect(screen.getByRole('menuitem', { name: 'Отправить сейчас' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отправить сейчас' })).not.toBeInTheDocument();
   });
 
   it('confirms before deleting the selected sent-history category', async () => {
@@ -595,7 +671,7 @@ describe('HistoryDrawer search', () => {
     await waitFor(() => expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]));
   });
 
-  it('deletes local schedule errors from the scheduled cleanup without cancelling them in Telegram', async () => {
+  it('hides failed local schedule errors from the normal scheduled history list', () => {
     const localFailure = normalizeScheduledMessages([{
       ...scheduledMessage,
       id: 'ipc-schedule-failure',
@@ -606,21 +682,16 @@ describe('HistoryDrawer search', () => {
     }], 'workspace', 'upcoming', [channel])[0];
     const onDelete = vi.fn();
     const onCancelQueue = vi.fn().mockResolvedValue(true);
+
     renderHistory([localFailure], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, onCancelQueue);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Удалить ошибочные записи из истории' }));
-    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление ошибочных записей' });
-    expect(confirmation).toHaveTextContent('Удалить ошибки (1) из истории? Telegram не подтвердил создание публикаций.');
+    expect(screen.queryByText("Error invoking remote method 'telegram-schedule': Invalid IPC input: message is required")).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Удалить ошибочные записи из истории' })).not.toBeInTheDocument();
     expect(onDelete).not.toHaveBeenCalled();
-    expect(onCancelQueue).not.toHaveBeenCalled();
-
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить ошибки (1)' }));
-
-    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(localFailure));
     expect(onCancelQueue).not.toHaveBeenCalled();
   });
 
-  it('cleans local errors and cancels Telegram-confirmed schedules as separate actions', async () => {
+  it('hides failed retry attempts from the scheduled history while keeping valid queued entries visible', () => {
     const queueRecord = normalizeScheduledMessages([{
       ...scheduledMessage,
       telegramMessageId: 'telegram-queue-mixed',
@@ -634,15 +705,14 @@ describe('HistoryDrawer search', () => {
     }], 'workspace', 'upcoming', [channel])[0];
     const onDelete = vi.fn();
     const onCancelQueue = vi.fn().mockResolvedValue(true);
+
     renderHistory([queueRecord, localFailure], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, onCancelQueue);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить запланированные публикации и удалить ошибки из истории' }));
-    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить очистку расписаний и ошибок' });
-    expect(confirmation).toHaveTextContent('Отменить в Telegram 1 запись и удалить ошибки (1) из истории?');
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Очистить ошибки и отменить расписания' }));
-
-    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(localFailure));
-    expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]);
+    expect(screen.getByText('Релиз нового набора шаблонов для Telegram-канала')).toBeInTheDocument();
+    expect(screen.queryByText(/ipc-schedule-failure-mixed|Invalid IPC input|Ошибка/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отменить запланированные публикации и удалить ошибки из истории' })).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onCancelQueue).not.toHaveBeenCalled();
   });
 
   it('cancels only the expanded scheduled record from the queue trash action', async () => {
@@ -662,7 +732,7 @@ describe('HistoryDrawer search', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Показать полностью: XMSGi Updates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Отменить XMSGi Updates' }));
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отмену публикации' });
-    expect(confirmation).toHaveTextContent('Снять публикацию «XMSGi Updates» с расписания в Telegram?');
+    expect(confirmation).toHaveTextContent('Убрать публикацию «XMSGi Updates» из расписания Telegram?');
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Отменить расписание' }));
 
     await waitFor(() => expect(onCancelQueue).toHaveBeenCalledWith([queueRecord]));
@@ -676,7 +746,7 @@ describe('HistoryDrawer search', () => {
     expect(screen.queryByRole('button', { name: 'Удалить черновики' })).not.toBeInTheDocument();
   });
 
-  it('keeps Failed and cancelled records visible without an Errors tab', () => {
+  it('hides failed retry attempts from the main scheduled history while keeping cancelled entries visible', () => {
     const failedRecord = normalizeScheduledMessages([{
       ...scheduledMessage,
       text: 'Failed entry for retry',
@@ -691,21 +761,14 @@ describe('HistoryDrawer search', () => {
       status: 'cancelled' as ScheduledMessage['status'],
     }], 'personal', 'upcoming', [channel])[0];
     const onSendNow = vi.fn();
+
     renderHistory([failedRecord, cancelledRecord], vi.fn(), vi.fn(), onSendNow);
 
     expect(screen.queryByRole('tab', { name: 'Ошибки' })).not.toBeInTheDocument();
-    expect(screen.getByText('Failed entry for retry')).toBeInTheDocument();
+    expect(screen.queryByText('Failed entry for retry')).not.toBeInTheDocument();
     expect(screen.getByText('Cancelled entry remains visible')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Повторить отправку' }));
-
-    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отправку' });
-    expect(confirmation).toHaveTextContent(`Повторить отправку в «${failedRecord.title}» сейчас?`);
+    expect(screen.queryByRole('button', { name: 'Повторить отправку' })).not.toBeInTheDocument();
     expect(onSendNow).not.toHaveBeenCalled();
-    fireEvent.click(within(confirmation).getByRole('button', { name: 'Отправить сейчас' }));
-
-    expect(screen.getAllByRole('article')).toHaveLength(2);
-    expect(screen.getByText('Failed entry for retry').closest('article')).toHaveTextContent('Ошибка');
-    expect(onSendNow).toHaveBeenCalledWith(failedRecord);
   });
 
   it('shows Sending in the scheduled list without exposing another send action', () => {
@@ -721,7 +784,7 @@ describe('HistoryDrawer search', () => {
     expect(screen.queryByRole('button', { name: 'Отправить сейчас' })).not.toBeInTheDocument();
   });
 
-  it('loads Studio drafts through draftStorage and opens via the existing callback', async () => {
+  it('uses Studio drafts in the composer and puts Edit and Delete in More', async () => {
     const originalDraftStorage = Object.getOwnPropertyDescriptor(window, 'draftStorage');
     const draft = {
       id: 'studio-draft-1',
@@ -742,20 +805,38 @@ describe('HistoryDrawer search', () => {
 
     try {
       const onOpenDraft = vi.fn();
-      renderHistory([upcomingRecord], vi.fn(), vi.fn(), vi.fn(), onOpenDraft);
+      const onUseDraft = vi.fn();
+      const onDelete = vi.fn().mockResolvedValue(true);
+      renderHistory([upcomingRecord], vi.fn(), onDelete, vi.fn(), onOpenDraft, vi.fn(), vi.fn(), vi.fn().mockResolvedValue(true), vi.fn().mockResolvedValue(true), onUseDraft);
       fireEvent.click(screen.getByRole('tab', { name: 'Черновики' }));
       const draftCard = await screen.findByRole('article');
       expect(draftCard).toHaveClass('is-draft');
       expect(draftCard).toHaveAttribute('data-draft-color', 'coral');
       expect(screen.getByLabelText('Цвет черновика: coral')).toBeInTheDocument();
-      fireEvent.click(await screen.findByRole('button', { name: 'Редактировать черновик: Анонс функции' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Использовать черновик: Анонс функции' }));
 
       expect(load).toHaveBeenCalledOnce();
-      expect(onOpenDraft).toHaveBeenCalledWith(expect.objectContaining({
+      expect(onUseDraft).toHaveBeenCalledWith(expect.objectContaining({
         source: 'workspace',
         status: 'draft',
         original: { kind: 'saved-draft', draft: expect.objectContaining({ id: 'studio-draft-1' }) },
       }));
+      expect(onOpenDraft).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
+      expect(screen.getByRole('menuitem', { name: 'Редактировать' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Удалить' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Редактировать' }));
+      expect(onOpenDraft).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
+      expect(onDelete).not.toHaveBeenCalled();
+      const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление записи' });
+      expect(confirmation).toHaveTextContent('Удалить черновик «Анонс функции»? Восстановление невозможно.');
+      fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить черновик' }));
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' })));
+      expect(screen.queryByRole('article')).not.toBeInTheDocument();
     } finally {
       if (originalDraftStorage) {
         Object.defineProperty(window, 'draftStorage', originalDraftStorage);
@@ -929,7 +1010,7 @@ describe('HistoryDrawer search', () => {
     const onDelete = vi.fn();
     renderHistory([upcomingRecord, completedRecord], onCancel, onDelete);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ещё' })[0]);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Отменить' }));
     expect(screen.getByRole('alertdialog', { name: 'Подтвердить отмену публикации' })).toBeInTheDocument();
     expect(onCancel).not.toHaveBeenCalled();
@@ -937,14 +1018,14 @@ describe('HistoryDrawer search', () => {
     expect(onCancel).toHaveBeenCalledWith(upcomingRecord);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Отправлено' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Действия' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ещё' })[0]);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
     expect(screen.getByRole('alertdialog', { name: 'Подтвердить удаление' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Удалить запись' }));
     expect(onDelete).toHaveBeenCalledWith(completedRecord);
   });
 
-  it('offers confirmed local deletion for failed records', () => {
+  it('hides failed retry records from the main history actions menu', () => {
     const failedRecord = normalizeScheduledMessages([{
       ...scheduledMessage,
       id: 'failed-history-delete',
@@ -953,16 +1034,13 @@ describe('HistoryDrawer search', () => {
       retryAction: 'schedule',
     }], 'workspace', 'upcoming', [channel])[0];
     const onDelete = vi.fn();
+
     renderHistory([failedRecord], vi.fn(), onDelete);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Действия' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
-    expect(screen.getByText('Удалить ошибочную запись из истории? Публикация может остаться в очереди Telegram.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ещё' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Telegram did not confirm that the reminder was saved.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Удалить' })).not.toBeInTheDocument();
     expect(onDelete).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Удалить запись' }));
-
-    expect(onDelete).toHaveBeenCalledWith(failedRecord);
   });
 
   it('expands a post in place, hides following posts and restores them on collapse', () => {
@@ -1068,7 +1146,7 @@ describe('HistoryDrawer search', () => {
     });
 
     try {
-      fireEvent.click(screen.getByRole('button', { name: 'Действия' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
 
       expect(scrollTo).toHaveBeenCalledWith({ top: 70, behavior: 'smooth' });
     } finally {

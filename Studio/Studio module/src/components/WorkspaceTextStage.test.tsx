@@ -111,6 +111,11 @@ function renderStage(overrides: Partial<React.ComponentProps<typeof WorkspaceTex
   return {
     root,
     rootElement,
+    rerender: (nextOverrides: Partial<React.ComponentProps<typeof WorkspaceTextStage>>) => {
+      act(() => {
+        root.render(<WorkspaceTextStage {...defaults} {...nextOverrides} />);
+      });
+    },
     unmount: () => {
       act(() => {
         root.unmount();
@@ -424,6 +429,30 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
+  it('moves through date and time inputs when Space is pressed', () => {
+    const { unmount } = renderStage({ mode: 'schedule', date: '2026-01-10', time: '09:00' });
+    const dayInput = document.querySelector('[aria-label="Day"]') as HTMLInputElement;
+    const monthInput = document.querySelector('[aria-label="Month"]') as HTMLInputElement;
+    const yearInput = document.querySelector('[aria-label="Year"]') as HTMLInputElement;
+    const timeInput = document.querySelector('[aria-label="Schedule time"]') as HTMLInputElement;
+
+    act(() => {
+      dayInput.focus();
+      dayInput.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    });
+    expect(document.activeElement).toBe(monthInput);
+
+    act(() => monthInput.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })));
+    expect(document.activeElement).toBe(yearInput);
+
+    act(() => yearInput.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })));
+    expect(document.activeElement).toBe(timeInput);
+    expect(dayInput.value).toBe('10');
+    expect(monthInput.value).toBe('01');
+    expect(yearInput.value).toBe('2026');
+    unmount();
+  });
+
   it('shows the local timezone offset once', () => {
     const { unmount } = renderStage({ mode: 'schedule' });
     const timezone = document.querySelector('.workspace-page-schedule-timezone')?.textContent ?? '';
@@ -507,32 +536,76 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
-  it('places quick time controls after the time block and updates the schedule date and time', () => {
+  it('places quick time controls after the time block and accumulates increments from the selected time', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 9, 3, 23, 59, 30));
     const setDate = vi.fn();
     const setTime = vi.fn();
-    const { unmount } = renderStage({ mode: 'schedule', scheduleFocus: 'time', setDate, setTime });
+    const { rerender, unmount } = renderStage({
+      mode: 'schedule',
+      scheduleFocus: 'time',
+      date: '2026-10-03',
+      time: '09:00',
+      setDate,
+      setTime,
+    });
 
     try {
-      const quickPanel = document.querySelector('.workspace-page-schedule-quick-panel') as HTMLElement;
+      const quickDatePanel = document.querySelector('.workspace-page-schedule-quick-date-panel') as HTMLElement;
+      const quickTimePanel = document.querySelector('.workspace-page-schedule-quick-time-panel') as HTMLElement;
       const timeRow = document.querySelector('.workspace-page-schedule-inline-row') as HTMLElement;
-      expect(timeRow.nextElementSibling).toBe(quickPanel);
+      expect(timeRow.nextElementSibling).toBe(quickDatePanel);
+      expect(quickDatePanel.nextElementSibling).toBe(quickTimePanel);
       expect(document.querySelector('.workspace-page-schedule-summary')).toBeNull();
 
-      const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
-      act(() => {
-        const setNativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-        setNativeValue?.call(timeInput, '14:45');
-        timeInput.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      expect(setTime).toHaveBeenCalledWith('14:45');
-
-      const nextMinute = document.querySelector('[aria-label="Set time +1m"]') as HTMLButtonElement;
-      act(() => nextMinute.click());
-
+      act(() => (document.querySelector('[aria-label="Set time Now"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenCalledWith('2026-10-04');
       expect(setTime).toHaveBeenCalledWith('00:00');
+
+      rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-10-03', time: '23:50', setDate, setTime });
+      act(() => (document.querySelector('[aria-label="Set time +15m"]') as HTMLButtonElement).click());
+      expect(setDate).toHaveBeenLastCalledWith('2026-10-04');
+      expect(setTime).toHaveBeenLastCalledWith('00:05');
+
+      rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-10-04', time: '00:05', setDate, setTime });
+      act(() => (document.querySelector('[aria-label="Set time +15m"]') as HTMLButtonElement).click());
+      expect(setDate).toHaveBeenLastCalledWith('2026-10-04');
+      expect(setTime).toHaveBeenLastCalledWith('00:20');
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it('sets quick dates relative to the selected date and clamps month-end dates', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 3, 12, 0));
+    const setDate = vi.fn();
+    const setTime = vi.fn();
+    const { rerender, unmount } = renderStage({
+      mode: 'schedule',
+      scheduleFocus: 'time',
+      date: '2026-01-31',
+      time: '09:00',
+      setDate,
+      setTime,
+    });
+
+    try {
+      const dateRow = document.querySelector('.workspace-page-schedule-quick-date-panel .workspace-page-schedule-quick-row') as HTMLElement;
+      expect(dateRow.querySelectorAll('button')).toHaveLength(4);
+
+      act(() => (document.querySelector('[aria-label="Set date +1 month"]') as HTMLButtonElement).click());
+      expect(setDate).toHaveBeenLastCalledWith('2026-02-28');
+      expect(setTime).not.toHaveBeenCalled();
+
+      rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-02-28', time: '09:00', setDate, setTime });
+      act(() => (document.querySelector('[aria-label="Set date +1 week"]') as HTMLButtonElement).click());
+      expect(setDate).toHaveBeenLastCalledWith('2026-03-07');
+
+      rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-03-07', time: '09:00', setDate, setTime });
+      act(() => (document.querySelector('[aria-label="Set date Today"]') as HTMLButtonElement).click());
+      expect(setDate).toHaveBeenLastCalledWith('2026-10-03');
     } finally {
       unmount();
       vi.useRealTimers();
@@ -695,6 +768,35 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     expect(onChatSelectionDone).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('confirms the chat when the selected option is activated again', () => {
+    const onChatSelectionChange = vi.fn();
+    const onChatSelectionDone = vi.fn();
+    const { rerender, unmount } = renderStage({
+      mode: 'chat',
+      selectedChats: [],
+      onChatSelectionChange,
+      onChatSelectionDone,
+    });
+    const chatOption = Array.from(document.querySelectorAll('[role="option"]')).find((node) =>
+      node.textContent?.includes('Alpha Team')
+    );
+
+    act(() => {
+      chatOption!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onChatSelectionChange).toHaveBeenCalledWith([chatA]);
+    expect(onChatSelectionDone).not.toHaveBeenCalled();
+
+    rerender({ mode: 'chat', selectedChats: [chatA], onChatSelectionChange, onChatSelectionDone });
+    const selectedOption = document.querySelector('[role="option"][aria-selected="true"]')!;
+    act(() => {
+      selectedOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onChatSelectionDone).toHaveBeenCalledOnce();
     unmount();
   });
 

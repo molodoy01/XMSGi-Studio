@@ -38,6 +38,7 @@ type StudioAppProps = {
   scheduler?: StudioSchedulerRuntime;
   activeAccountId?: 'account-1' | 'account-2';
   onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
+  onRegisterHistoryDraftUseHandler?: (handler: ((draft: SavedDraft) => void) | null) => void;
   onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
   onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
   onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
@@ -73,7 +74,7 @@ export type StudioSchedulerRuntime = {
   handleCancelMessages: (messages: ScheduledMessage[]) => Promise<boolean>;
 };
 
-export default function App({ connected: xmsgiConnected, chats: xmsgiChats, scheduler, activeAccountId = 'account-1', onRegisterHistoryDraftOpener, onRegisterHistoryDraftClearHandler, onRegisterHistoryDraftDeleteHandler, onRegisterHistoryRescheduleHandler }: StudioAppProps = {}) {
+export default function App({ connected: xmsgiConnected, chats: xmsgiChats, scheduler, activeAccountId = 'account-1', onRegisterHistoryDraftOpener, onRegisterHistoryDraftUseHandler, onRegisterHistoryDraftClearHandler, onRegisterHistoryDraftDeleteHandler, onRegisterHistoryRescheduleHandler }: StudioAppProps = {}) {
   const [defaultSchedule] = useState(getDefaultScheduleDateTime);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(xmsgiChats?.[0] ?? null);
   const [localChats, setLocalChats] = useState(xmsgiChats ?? []);
@@ -300,5 +301,5 @@ export default function App({ connected: xmsgiConnected, chats: xmsgiChats, sche
   }, [successPulse]);
 
   const props = useMemo(() => ({ connected, chats: localChats, selectedChat, setSelectedChat, onAddChat: addChat, onRemoveChat: removeChat, removeModal, setRemoveModal, confirmRemoveChat, date, time, scheduling: scheduler?.scheduling ?? scheduling, successPulse: scheduler?.successPulse ?? successPulse, lastAction: scheduler?.lastAction ?? lastAction, notification: scheduler?.notification ?? notification, closeNotification: scheduler?.closeNotification ?? closeNotification, upcoming: scheduler?.upcoming ?? upcoming, sent: scheduler?.sent ?? sent, revealingId: scheduler?.revealingId ?? revealingId, cancelingIds: scheduler?.cancelingIds ?? cancelingIds, sendingIds: scheduler?.sendingIds ?? sendingIds, setDate, setTime, handleSchedule: scheduler?.handleSchedule ?? handleSchedule, handleSendDraftNow: scheduler?.handleSendDraftNow ?? handleSendDraftNow, handleSendNow: scheduler?.handleSendNow ?? handleSendNow, handleDeleteMessage: scheduler?.handleDeleteMessage ?? handleDeleteMessage, handleClearSent: scheduler?.handleClearSent ?? handleClearSent, publishingDraft: scheduler?.publishingDraft ?? publishingDraft, handleCancelMessage: scheduler?.handleCancelMessage ?? handleCancelMessage, onRegisterHistoryDraftOpener }), [localChats, selectedChat, removeModal, date, time, scheduling, successPulse, lastAction, notification, upcoming, sent, revealingId, cancelingIds, sendingIds, publishingDraft, scheduler, onRegisterHistoryDraftOpener]);
-  return <WorkspacePage {...props} handleCancelMessages={scheduler?.handleCancelMessages} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />;
+  return <WorkspacePage {...props} handleCancelMessages={scheduler?.handleCancelMessages} onRegisterHistoryDraftUseHandler={onRegisterHistoryDraftUseHandler} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />;
 }

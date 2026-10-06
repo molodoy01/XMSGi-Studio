@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
-import type { StudioSchedulerRuntime } from '$studio';
+import type { SavedDraft, StudioSchedulerRuntime } from '$studio';
 import type { ScheduledMessage as StudioScheduledMessage } from '../../Studio/Studio module/src/types';
 import { AppShell, StudioMount } from './workspace';
 import { normalizeSavedDraft, normalizeScheduledMessages } from './workspace/historyModel';
@@ -134,7 +134,19 @@ const demoScheduler: StudioSchedulerRuntime = {
 export default function DevPreviewHarness() {
   const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
   const [, setShowAuthForm] = useState(false);
+  const historyDraftOpenerRef = useRef<((draft: SavedDraft) => void) | null>(null);
+  const historyDraftUseRef = useRef<((draft: SavedDraft) => void) | null>(null);
+  const historyDraftDeleterRef = useRef<((draftId: string) => Promise<boolean>) | null>(null);
   const historyReschedulerRef = useRef<((message: StudioScheduledMessage) => void) | null>(null);
+  const handleHistoryOpenDraft = (record: HistoryItem) => {
+    if (record.original.kind === 'saved-draft') historyDraftOpenerRef.current?.(record.original.draft);
+  };
+  const handleHistoryUseDraft = (record: HistoryItem) => {
+    if (record.original.kind === 'saved-draft') historyDraftUseRef.current?.(record.original.draft);
+  };
+  const handleHistoryDelete = (record: HistoryItem) => record.original.kind === 'saved-draft'
+    ? historyDraftDeleterRef.current?.(record.original.draft.id)
+    : undefined;
   const handleHistoryReschedule = (record: HistoryItem) => {
     if (record.original.kind === 'scheduled') {
       historyReschedulerRef.current?.({ ...record.original.message, status: 'scheduled' });
@@ -157,8 +169,9 @@ export default function DevPreviewHarness() {
       onHistoryCancel={noOperation}
       onHistoryReschedule={handleHistoryReschedule}
       onHistorySendNow={noOperation}
-      onHistoryDelete={noOperation}
-      onHistoryOpenDraft={noOperation}
+      onHistoryDelete={handleHistoryDelete}
+      onHistoryOpenDraft={handleHistoryOpenDraft}
+      onHistoryUseDraft={handleHistoryUseDraft}
       onHistoryClearSent={noOperation}
     >
       <div className="product-view is-active">
@@ -167,6 +180,9 @@ export default function DevPreviewHarness() {
           activeAccountId="account-1"
           chats={demoChats}
           scheduler={demoScheduler}
+          onRegisterHistoryDraftOpener={(handler) => { historyDraftOpenerRef.current = handler; }}
+          onRegisterHistoryDraftUseHandler={(handler) => { historyDraftUseRef.current = handler; }}
+          onRegisterHistoryDraftDeleteHandler={(handler) => { historyDraftDeleterRef.current = handler; }}
           onRegisterHistoryRescheduleHandler={(handler) => { historyReschedulerRef.current = handler; }}
         />
       </div>

@@ -172,6 +172,118 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('loads a saved draft into the main editor through the history use handler', async () => {
+    const savedDraft = {
+      id: 'use-in-composer',
+      name: 'Composer draft',
+      body: 'Text copied into the composer',
+      entities: [],
+      attachments: [],
+      selectedChat: chatA,
+      inlineButtons: [],
+      createdAt: '2026-09-28T10:00:00.000Z',
+      updatedAt: '2026-09-29T18:35:00.000Z',
+    };
+    inMemoryDraftStore = {
+      schemaVersion: 2,
+      migrationVersion: 1,
+      savedDrafts: [savedDraft],
+      workspaceDraft: null,
+    };
+    let useHistoryDraft: ((draft: typeof savedDraft) => void) | null = null;
+    const { unmount } = await renderWorkspacePage({
+      onRegisterHistoryDraftUseHandler: (handler) => { useHistoryDraft = handler; },
+    });
+
+    await act(async () => {
+      useHistoryDraft?.(savedDraft);
+    });
+
+    const editor = document.querySelector('[aria-label="Post content"]');
+    expect(editor?.getAttribute('aria-hidden')).toBe('false');
+    expect(editor?.textContent).toBe(savedDraft.body);
+    expect(inMemoryDraftStore.savedDrafts[0]).toEqual(savedDraft);
+    unmount();
+  });
+
+  it('activates the editor highlight from buttons and preserves it in other windows', async () => {
+    const { unmount } = await renderWorkspacePage();
+    const editor = document.querySelector<HTMLElement>('[aria-label="Post content"]')!;
+    const editorShell = editor.closest('.workspace-page-rich-text-editor')!;
+
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(false);
+    const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
+    const historyScrollArea = document.createElement('div');
+    historyScrollArea.className = 'history-record-list';
+    historyScrollArea.style.overflowY = 'auto';
+    Object.defineProperties(historyScrollArea, {
+      scrollHeight: { configurable: true, value: 300 },
+      clientHeight: { configurable: true, value: 100 },
+    });
+    document.body.appendChild(historyScrollArea);
+    await act(async () => {
+      historyScrollArea.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(false);
+
+    await act(async () => menuToggle.click());
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+    await act(async () => menuToggle.click());
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+
+    await act(async () => editor.focus());
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+
+    await act(async () => menuToggle.click());
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => scheduleOption.click());
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+
+    await act(async () => {
+      historyScrollArea.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(true);
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(false);
+    await act(async () => {
+      historyScrollArea.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(editorShell.classList.contains('is-toolbar-active')).toBe(false);
+    historyScrollArea.remove();
+    unmount();
+  });
+
+  it('applies a distinct accent to each publish action', async () => {
+    const { unmount } = await renderWorkspacePage();
+    const publishButton = document.querySelector('.workspace-page-publish-main')!;
+    const editorShell = document.querySelector('.workspace-page-editor-shell')!;
+    const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
+    expect(publishButton.classList.contains('is-send')).toBe(true);
+    expect(editorShell.classList.contains('is-scheduled')).toBe(false);
+    expect(editorShell.classList.contains('is-draft')).toBe(false);
+
+    await act(async () => menuToggle.click());
+    const scheduleOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Schedule') as HTMLButtonElement;
+    await act(async () => scheduleOption.click());
+    expect(publishButton.classList.contains('is-scheduled')).toBe(true);
+    expect(editorShell.classList.contains('is-scheduled')).toBe(true);
+
+    await act(async () => menuToggle.click());
+    const draftOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Save draft') as HTMLButtonElement;
+    await act(async () => draftOption.click());
+    expect(publishButton.classList.contains('is-draft')).toBe(true);
+    expect(editorShell.classList.contains('is-draft')).toBe(true);
+    unmount();
+  });
+
   it('keeps the browser runtime quiet when draft storage is unavailable', async () => {
     const originalDraftStorage = Object.getOwnPropertyDescriptor(window, 'draftStorage');
     Reflect.deleteProperty(window, 'draftStorage');
@@ -487,9 +599,11 @@ describe('WorkspacePage main-screen flows', () => {
 
   it('closes the schedule stage after a successful schedule result', async () => {
     const handleSchedule = vi.fn();
+    const setTime = vi.fn();
     const { rerender, unmount } = await renderWorkspacePage({
       date: '2035-01-15',
       time: '18:30',
+      setTime,
       handleSchedule,
     });
     const menuToggle = document.querySelector<HTMLButtonElement>('.workspace-page-publish-menu-toggle')!;
@@ -503,12 +617,28 @@ describe('WorkspacePage main-screen flows', () => {
 
     const scheduleStage = '.workspace-page-rich-text-schedule-stage.is-active';
     expect(document.querySelector(scheduleStage)).not.toBeNull();
+    const openTimePicker = document.querySelector<HTMLButtonElement>('[aria-label="Open time picker"]')!;
+    await act(async () => openTimePicker.click());
+    const availableTimes = document.querySelector('[aria-label="Available times"]')!;
+    const selectedTimeOption = Array.from(availableTimes.querySelectorAll<HTMLButtonElement>('[role="option"]'))
+      .find((option) => option.textContent?.trim() === '20:15')!;
+    await act(async () => selectedTimeOption.click());
+    expect(setTime).toHaveBeenCalledWith('20:15');
+    rerender({ time: '20:15' });
+
     const doneButton = document.querySelector<HTMLButtonElement>('.workspace-page-schedule-footer .workspace-page-stage-primary')!;
     await act(async () => doneButton.click());
 
+    expect(handleSchedule).not.toHaveBeenCalled();
+    expect(document.querySelector(scheduleStage)).toBeNull();
+    const publishButton = document.querySelector<HTMLButtonElement>('.workspace-page-publish-main')!;
+    await act(async () => publishButton.click());
+
     expect(handleSchedule).toHaveBeenCalledOnce();
+  expect(handleSchedule.mock.calls[0][0]).toMatchObject({ date: '2035-01-15', time: '20:15' });
+    expect(document.querySelector(scheduleStage)).toBeNull();
     rerender({ scheduling: true });
-    expect(document.querySelector(scheduleStage)).not.toBeNull();
+    expect(document.querySelector(scheduleStage)).toBeNull();
     rerender({ scheduling: false, lastAction: 'scheduled' });
     expect(document.querySelector(scheduleStage)).toBeNull();
     unmount();
@@ -531,8 +661,9 @@ describe('WorkspacePage main-screen flows', () => {
     await act(async () => timeButton.click());
 
     const scheduleStage = '.workspace-page-rich-text-schedule-stage.is-active';
-    const doneButton = document.querySelector<HTMLButtonElement>('.workspace-page-schedule-footer .workspace-page-stage-primary')!;
-    await act(async () => doneButton.click());
+    const publishButton = document.querySelector<HTMLButtonElement>('.workspace-page-publish-main')!;
+    await act(async () => publishButton.click());
+    expect(handleSchedule).toHaveBeenCalledOnce();
     rerender({ scheduling: true });
     rerender({ scheduling: false, lastAction: null });
 
@@ -902,6 +1033,7 @@ describe('WorkspacePage main-screen flows', () => {
     expect(actionButtons.indexOf(draftToggle as HTMLButtonElement)).toBe(templatesButtonIndex + 1);
     expect(draftToggle?.classList.contains('workspace-page-mode-button-template')).toBe(true);
     expect(draftToggle?.classList.contains('is-active')).toBe(false);
+    expect(draftToggle?.getAttribute('aria-pressed')).toBe('false');
     expect(draftToggle?.classList.contains('workspace-page-schedule-compact-button')).toBe(false);
     expect((draftToggle as HTMLButtonElement | undefined)?.title).toBe('Open saved drafts');
 
@@ -910,6 +1042,8 @@ describe('WorkspacePage main-screen flows', () => {
     });
 
     expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Saved Drafts');
+  expect(draftToggle?.classList.contains('is-active')).toBe(true);
+  expect(draftToggle?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector('.workspace-page-rich-text-draft-stage .workspace-page-template-stage-item strong')?.textContent).toMatch(/^Draft /);
 
     unmount();
@@ -1185,8 +1319,30 @@ describe('WorkspacePage main-screen flows', () => {
     const { unmount } = await renderWorkspacePage({ connected: true });
 
     expect(document.querySelector('.chat-preview-state.is-error')).toBeNull();
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent).toContain('History unavailable.');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent)
+      .toContain("The chat preview couldn't load history.");
     expect(document.querySelector('.workspace-page-publish-transient-feedback .workspace-page-send-retry')?.textContent).toBe('Retry');
+    unmount();
+  });
+
+  it('explains forbidden chat history without offering a retry', async () => {
+    vi.mocked(window.telegram.getChatHistory).mockResolvedValueOnce({ success: false, error: 'CHAT_FORBIDDEN' });
+    const { unmount } = await renderWorkspacePage({ connected: true });
+
+    const feedback = document.querySelector('.workspace-page-publish-transient-feedback.is-error');
+    expect(feedback?.textContent).toContain("You don't have access to this chat.");
+    expect(feedback?.querySelector('.workspace-page-send-retry')).toBeNull();
+    unmount();
+  });
+
+  it('does not expose instanceof runtime errors in preview history feedback', async () => {
+    vi.mocked(window.telegram.getChatHistory).mockRejectedValueOnce(new TypeError("Right-hand side of 'instanceof' is not callable"));
+    const { unmount } = await renderWorkspacePage({ connected: true });
+
+    const feedback = document.querySelector('.workspace-page-publish-transient-feedback.is-error');
+    expect(feedback?.textContent).toContain("The chat preview couldn't load history.");
+    expect(feedback?.textContent).not.toContain('instanceof');
+    expect(feedback?.querySelector('.workspace-page-send-retry')?.textContent).toBe('Retry');
     unmount();
   });
 

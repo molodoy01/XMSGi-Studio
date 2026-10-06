@@ -49,6 +49,12 @@ function getTelegramUserName(user) {
     .trim();
 }
 
+function getTelegramUsername(user) {
+  return typeof user?.username === 'string'
+    ? user.username.trim().replace(/^@/, '')
+    : '';
+}
+
 function updateRuntimeSecretsFromConfig(nextSecrets = loadAccountSecrets()) {
   const apiId = nextSecrets.API_ID;
   const apiHash = nextSecrets.API_HASH;
@@ -72,11 +78,24 @@ function getSecretValue(key) {
   return undefined;
 }
 
+function getApplicationApiCredentials() {
+  const environmentApiId = typeof process.env.API_ID === 'string' ? process.env.API_ID.trim() : '';
+  const environmentApiHash = typeof process.env.API_HASH === 'string' ? process.env.API_HASH.trim() : '';
+
+  if (environmentApiId && environmentApiHash) {
+    return { apiId: environmentApiId, apiHash: environmentApiHash };
+  }
+
+  const secrets = loadAccountSecrets();
+  return { apiId: secrets.API_ID, apiHash: secrets.API_HASH };
+}
+
 function createTelegramCore(options = {}) {
   const lifecycleState = createLifecycleState();
   const rateLimitInterceptor = createTelegramRateLimitInterceptor(options.rateLimitTimers);
-  let runtimeApiId = Number(options.apiId ?? getSecretValue('API_ID'));
-  let runtimeApiHash = options.apiHash ?? getSecretValue('API_HASH');
+  const applicationApiCredentials = getApplicationApiCredentials();
+  let runtimeApiId = Number(options.apiId ?? applicationApiCredentials.apiId);
+  let runtimeApiHash = options.apiHash ?? applicationApiCredentials.apiHash;
   let runtimeSessionString = normalizeSessionString(
     options.sessionString ?? getSecretValue('SESSION_STRING')
   );
@@ -84,8 +103,9 @@ function createTelegramCore(options = {}) {
 
 function refreshRuntimeSecrets() {
   const next = updateRuntimeSecretsFromConfig(loadAccountSecrets());
-  runtimeApiId = Number(next.apiId);
-  runtimeApiHash = next.apiHash;
+  const applicationApiCredentials = getApplicationApiCredentials();
+  runtimeApiId = Number(applicationApiCredentials.apiId ?? next.apiId);
+  runtimeApiHash = applicationApiCredentials.apiHash ?? next.apiHash;
   runtimeSessionString = next.sessionString || '';
   runtimeSignedOut = next.signedOut === true;
   return {
@@ -99,16 +119,21 @@ function getTelegramConfig() {
   const secrets = loadAccountSecrets();
   const storedAuthState = typeof getStoredTelegramAuthState === 'function'
     ? getStoredTelegramAuthState()
-    : { signedOut: secrets.signedOut, userName: '' };
+    : { signedOut: secrets.signedOut, userName: '', username: '' };
   const apiId = secrets.API_ID;
   const apiHash = secrets.API_HASH;
+  const hasEnvironmentCredentials = Boolean(
+    typeof process.env.API_ID === 'string' && process.env.API_ID.trim()
+    && typeof process.env.API_HASH === 'string' && process.env.API_HASH.trim()
+  );
   const sessionString = normalizeSessionString(secrets.SESSION_STRING);
 
   return {
-    hasCredentials: Boolean(apiId && apiHash),
+    hasCredentials: hasEnvironmentCredentials || Boolean(apiId && apiHash),
     hasSession: Boolean(sessionString),
     signedOut: storedAuthState.signedOut === true,
     userName: storedAuthState.userName || '',
+    username: storedAuthState.username || '',
     connected: Boolean(client && client.connected)
   };
 }
@@ -118,6 +143,7 @@ async function saveTelegramCredentials(data = {}) {
   const rawApiHash = data.API_HASH ?? data.apiHash;
   const rawSession = data.SESSION_STRING ?? data.sessionString;
   const rawUserName = data.userName;
+  const rawUsername = data.username;
 
   const secrets = {};
 
@@ -135,6 +161,10 @@ async function saveTelegramCredentials(data = {}) {
 
   if (rawUserName !== undefined) {
     secrets.userName = String(rawUserName || '').trim();
+  }
+
+  if (rawUsername !== undefined) {
+    secrets.username = String(rawUsername || '').trim().replace(/^@/, '');
   }
 
   secrets.signedOut = false;
@@ -261,8 +291,8 @@ function clearTelegramSession() {
 }
 
 async function loginUserInternal(params = {}) {
-  const apiIdValue = params.API_ID ?? params.apiId ?? getSecretValue('API_ID');
-  const apiHashValue = params.API_HASH ?? params.apiHash ?? getSecretValue('API_HASH');
+  const apiIdValue = params.API_ID ?? params.apiId ?? runtimeApiId;
+  const apiHashValue = params.API_HASH ?? params.apiHash ?? runtimeApiHash;
   const phone = params.phoneNumber ?? params.phone ?? '';
   const password = params.password ?? '';
   const code = params.phoneCode ?? '';
@@ -433,11 +463,18 @@ async function loginUserInternal(params = {}) {
       throw new Error('Telegram login was cancelled.');
     }
 
+    const hasEnvironmentCredentials = Boolean(
+      typeof process.env.API_ID === 'string' && process.env.API_ID.trim()
+      && typeof process.env.API_HASH === 'string' && process.env.API_HASH.trim()
+    );
     const credentialsResult = await saveTelegramCredentials({
-      API_ID: loginApiId,
-      API_HASH: String(apiHashValue),
+      ...(!hasEnvironmentCredentials ? {
+        API_ID: loginApiId,
+        API_HASH: String(apiHashValue),
+      } : {}),
       SESSION_STRING: session,
       userName: getTelegramUserName(user),
+      username: getTelegramUsername(user),
       signedOut: false
     });
 
@@ -706,11 +743,11 @@ function notifyTelegramStatus(status) {
 // =========================================================
 // TIMEOUT
 // =========================================================
-function withTimeout(promise, timeout, operation) {
+function withTimeout(promise, timeout, operationLabel) {
   return withLifecycleTimeout(
     promise,
     timeout,
-    operation
+    operationLabel
   );
 }
 

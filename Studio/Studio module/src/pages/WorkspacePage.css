@@ -16,39 +16,29 @@
   position: relative;
   isolation: isolate;
   overflow: visible;
-  border-color: rgba(225, 238, 246, 0.48) !important;
+  border-color: rgba(225, 238, 246, 0.3) !important;
+  box-shadow: inset 0 0 0 1px rgba(225, 238, 246, 0.04);
 }
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle::after {
   position: absolute;
   z-index: 0;
-  inset: -3px;
+  inset: -1px;
+  border: 1px solid rgba(154, 168, 184, 0.22);
   border-radius: 0 11px 11px 0;
-  padding: 2px;
-  background: conic-gradient(
-    from calc(var(--rim-angle, 0deg) - 27deg),
-    transparent 0deg 8deg,
-    rgba(169, 220, 255, calc(0.24 + var(--glow-strength) * 0.92)) 18deg,
-    rgba(238, 250, 255, calc(0.52 + var(--glow-strength) * 0.8)) 28deg,
-    rgba(188, 231, 250, calc(0.24 + var(--glow-strength) * 0.9)) 42deg,
-    transparent 58deg 360deg
-  );
+  background: transparent;
   content: '';
-  opacity: var(--rim-opacity, 0);
+  opacity: 0;
   pointer-events: none;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  filter: blur(calc(0.35px + var(--beam-spread) * 1px)) drop-shadow(0 0 calc(2px + var(--glow-strength) * 5px) rgba(211, 242, 255, 0.5));
-  transform: scale(calc(1 + var(--glow-strength) * 0.12));
-  transition: opacity 320ms linear, filter 140ms ease, transform 140ms ease;
+  transition: opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:hover::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:focus-visible::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle.is-active::after {
-  --rim-opacity: 0.45;
+  opacity: 1;
+  border-color: rgba(139, 205, 242, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(139, 205, 242, 0.14);
 }
 
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle .workspace-page-publish-trigger-arrow {
@@ -130,10 +120,11 @@
   flex-direction: row;
   align-items: stretch;
   gap: 16px;
-  padding: 72px 20px 20px;
+  padding: 52px 20px 40px;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  overflow-anchor: none;
   background: transparent;
 }
 
@@ -363,7 +354,7 @@
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 16px;
   width: min(100%, 760px);
   height: 64px;
@@ -381,11 +372,14 @@
 
 .workspace-page-mode-summary {
   display: flex;
-  flex: 0 1 520px;
+  flex: 0 1 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: min(100%, 520px);
+  justify-content: flex-start;
+  gap: 8px;
+  width: auto;
+  max-width: min(100%, 520px);
+  min-width: 0;
+  margin-left: auto;
   min-height: 22px;
   padding: 0;
   border: 0;
@@ -405,18 +399,22 @@
 }
 
 .workspace-page-mode-summary strong {
+  min-width: 0;
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.4;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .workspace-page-editor-shell {
+  --editor-outline: 68, 226, 242;
+  --editor-outline-bright: 198, 250, 255;
+  --editor-outline-secondary: 57, 202, 239;
   display: flex;
   position: relative;
   isolation: isolate;
@@ -424,12 +422,24 @@
   flex: 1;
   width: min(100%, 760px);
   min-height: 0;
-  border: 1px solid rgba(154, 168, 184, 0.32);
+  border: 1px solid rgba(154, 168, 184, 0.24);
   border-radius: 12px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.016), transparent 38%), rgba(17, 19, 22, 0.22);
-  box-shadow: inset 0 1px 0 rgba(226, 230, 235, 0.035), 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 16px rgba(71, 167, 187, 0.035);
+  box-shadow: inset 0 1px 0 rgba(226, 230, 235, 0.025), 0 10px 22px rgba(0, 0, 0, 0.12);
   overflow: visible;
   transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.workspace-page-editor-shell.is-scheduled {
+  --editor-outline: 165, 128, 245;
+  --editor-outline-bright: 232, 221, 255;
+  --editor-outline-secondary: 191, 160, 255;
+}
+
+.workspace-page-editor-shell.is-draft {
+  --editor-outline: 245, 139, 55;
+  --editor-outline-bright: 255, 211, 170;
+  --editor-outline-secondary: 255, 170, 94;
 }
 
 .workspace-page .workspace-page-editor-canvas {
@@ -454,34 +464,24 @@
   position: absolute;
   inset: -1px;
   z-index: 2;
-  padding: 1px;
+  border: 1px solid rgba(154, 168, 184, 0.18);
   border-radius: 13px;
-  background: conic-gradient(
-    from 210deg,
-    rgba(49, 215, 232, 0.34),
-    rgba(49, 215, 232, 0.88) 25%,
-    rgba(174, 243, 250, 0.42) 50%,
-    rgba(42, 190, 229, 0.72) 75%,
-    rgba(49, 215, 232, 0.34)
-  );
+  background: transparent;
   content: '';
   opacity: 0;
   pointer-events: none;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  filter: drop-shadow(0 0 3px rgba(49, 215, 232, 0.78)) drop-shadow(0 0 12px rgba(49, 215, 232, 0.38));
-  transition: opacity 220ms ease;
+  transition: opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
-.workspace-page-editor-shell:focus-within::after {
+.workspace-page-editor-shell:has(.workspace-page-rich-text-editor.is-toolbar-active)::after {
   opacity: 1;
+  border-color: rgba(var(--editor-outline), 0.68);
+  box-shadow: inset 0 0 0 1px rgba(var(--editor-outline), 0.24), 0 0 7px rgba(var(--editor-outline), 0.16);
 }
 
-.workspace-page-editor-shell:focus-within {
-  border-color: rgba(49, 215, 232, 0.42);
-  box-shadow: 0 0 0 1px rgba(49, 215, 232, 0.12), 0 0 24px rgba(49, 215, 232, 0.12);
+.workspace-page-editor-shell:has(.workspace-page-rich-text-editor.is-toolbar-active) {
+  border-color: rgba(var(--editor-outline), 0.62);
+  box-shadow: inset 0 0 0 1px rgba(var(--editor-outline), 0.16), 0 0 9px rgba(var(--editor-outline), 0.14), 0 10px 22px rgba(0, 0, 0, 0.12);
 }
 
 .workspace-page-queue-drawer {
@@ -1050,8 +1050,8 @@
   min-width: 0;
   min-height: 180px;
   overflow: hidden;
-  --workspace-rich-text-underline-gradient: linear-gradient(90deg, transparent, rgba(154, 168, 184, 0.18) 20%, rgba(226, 230, 235, 0.14) 50%, rgba(154, 168, 184, 0.18) 80%, transparent);
-  --workspace-rich-text-underline-shadow: none;
+  --workspace-rich-text-underline-gradient: linear-gradient(90deg, transparent, rgba(var(--editor-outline-secondary), 0.72) 18%, rgba(var(--editor-outline-bright), 0.98) 50%, rgba(var(--editor-outline-secondary), 0.72) 82%, transparent);
+  --workspace-rich-text-underline-shadow: drop-shadow(0 0 3px rgba(var(--editor-outline), 0.22));
 }
 
 .workspace-page-rich-text-stage::after {
@@ -1061,10 +1061,18 @@
   bottom: 0;
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 118, 43, 0.94), rgba(255, 118, 43, 0.36));
+  background: var(--workspace-rich-text-underline-gradient);
   content: '';
   pointer-events: none;
   z-index: 3;
+  opacity: 0.62;
+  filter: var(--workspace-rich-text-underline-shadow);
+  transition: opacity 360ms ease, filter 360ms ease;
+}
+
+.workspace-page-rich-text-editor.is-toolbar-active .workspace-page-rich-text-stage::after {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px rgba(var(--editor-outline-bright), 0.78)) drop-shadow(0 0 9px rgba(var(--editor-outline), 0.5));
 }
 
 .workspace-page-rich-text-clear {
@@ -2384,7 +2392,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 }
 
 .workspace-page-schedule-repeat-menu button {
-  min-height: 33px;
+  min-height: 39px;
   padding: 0 12px;
   border: 1px solid rgba(154, 168, 184, 0.16);
   border-radius: 6px;
@@ -2666,6 +2674,11 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   min-height: 0;
   margin-top: 0;
   overflow-y: auto;
+  scrollbar-width: auto;
+}
+
+.workspace-page-chat-stage-list::-webkit-scrollbar {
+  width: 12px;
 }
 
 .workspace-page-chat-stage-item {
@@ -3354,6 +3367,10 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   hyphens: auto;
 }
 
+.workspace-page-rich-text-input.is-active {
+  margin-bottom: 8px;
+}
+
 .workspace-page-rich-text-input br {
   display: block;
 }
@@ -3374,7 +3391,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   position: absolute;
   inset: 0;
   z-index: 0;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -3450,15 +3467,14 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(6px);
-  transition: opacity 180ms ease, visibility 180ms ease, transform 180ms ease;
+  transform: none;
+  transition: opacity 180ms ease, visibility 180ms ease;
 }
 
 .workspace-page-rich-text-editor.is-toolbar-active .workspace-page-rich-text-toolbar {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateY(0);
 }
 
 .workspace-page-rich-text-toolbar-actions {
@@ -3479,6 +3495,23 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(32, 38, 49, 0.95), rgba(12, 18, 27, 0.9));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.workspace-page-rich-text-toolbar .workspace-page-rich-text-link-trigger {
+  border-color: transparent;
+}
+
+.workspace-page-rich-text-toolbar .workspace-page-rich-text-link-trigger:hover,
+.workspace-page-rich-text-toolbar .workspace-page-rich-text-link-trigger:focus-visible {
+  border-color: rgba(180, 193, 214, 0.42);
+}
+
+.workspace-page-rich-text-photo-slot {
+  display: block;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 .workspace-page-rich-text-link-trigger__icon {
@@ -3742,16 +3775,18 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-rich-text-link-popover {
   position: absolute;
   right: 6px;
-  bottom: 42px;
+  top: auto;
+  bottom: 0;
   z-index: 40;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--ink);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .workspace-page-rich-text-link-popover input {
@@ -6410,8 +6445,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   animation: none;
 }
 
-.workspace-page-submit-actions .workspace-page-publish-main:hover:not(:disabled),
-.workspace-page-submit-actions .workspace-page-publish-main:focus-visible {
+.workspace-page-submit-actions .workspace-page-publish-main:hover:not(:disabled) {
   background: rgba(23, 27, 31, 0.72) !important;
   border-color: rgba(225, 238, 246, 0.72) !important;
   box-shadow: 0 0 0 1px rgba(225, 238, 246, 0.32);
@@ -6453,8 +6487,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:hover::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle:focus-visible::after,
 .workspace-page-submit-actions .workspace-page-publish-menu-toggle.is-active::after,
-.workspace-page-submit-actions .workspace-page-publish-main:hover::after,
-.workspace-page-submit-actions .workspace-page-publish-main:focus-visible::after {
+.workspace-page-submit-actions .workspace-page-publish-main:hover::after {
   animation: workspace-action-rim-breathe 2.4s ease-in-out infinite;
 }
 
@@ -6466,14 +6499,12 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   .workspace-page-submit-actions .workspace-page-publish-menu-toggle:hover::after,
   .workspace-page-submit-actions .workspace-page-publish-menu-toggle:focus-visible::after,
   .workspace-page-submit-actions .workspace-page-publish-menu-toggle.is-active::after,
-  .workspace-page-submit-actions .workspace-page-publish-main:hover::after,
-  .workspace-page-submit-actions .workspace-page-publish-main:focus-visible::after {
+  .workspace-page-submit-actions .workspace-page-publish-main:hover::after {
     animation: none;
   }
 }
 
-.workspace-page-submit-actions .workspace-page-publish-main:hover::after,
-.workspace-page-submit-actions .workspace-page-publish-main:focus-visible::after {
+.workspace-page-submit-actions .workspace-page-publish-main:hover::after {
   opacity: 0.9 !important;
   animation: workspace-action-rim-breathe 2.4s ease-in-out infinite !important;
 }
@@ -6504,8 +6535,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   transition: opacity 220ms ease;
 }
 
-.workspace-page-submit-actions .workspace-page-publish-main:hover::before,
-.workspace-page-submit-actions .workspace-page-publish-main:focus-visible::before {
+.workspace-page-submit-actions .workspace-page-publish-main:hover::before {
   opacity: 1;
 }
 
@@ -6660,7 +6690,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   .workspace-page-main {
     flex-direction: row;
     gap: 12px;
-    padding: 88px 16px 20px;
+    padding: 68px 16px 40px;
   }
 
   .workspace-page-editor-panel {
@@ -7047,6 +7077,13 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     border-radius: 4px;
   }
 
+  .workspace-page-rich-text-photo-slot {
+    width: 28px;
+    min-width: 28px;
+    height: 26px;
+    min-height: 26px;
+  }
+
   .workspace-page-media-row {
     min-height: 0;
     padding: 0;
@@ -7108,7 +7145,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 }
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-inline-field {
-  min-height: 52px;
+  min-height: 58px;
   border-radius: 9px;
 }
 
@@ -7242,7 +7279,29 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 }
 
 .workspace-page-rich-text-schedule-stage .workspace-page-schedule-quick-row button {
-  min-height: 30px;
+  justify-self: center;
+  width: min(100%, 124px);
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent !important;
+  border-radius: 999px;
+  background: rgba(154, 168, 184, 0.035);
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.workspace-page-rich-text-schedule-stage .workspace-page-schedule-quick-row button:hover,
+.workspace-page-rich-text-schedule-stage .workspace-page-schedule-quick-row button:focus-visible {
+  border-color: rgba(111, 155, 124, 0.48);
+  background: rgba(111, 155, 124, 0.12);
+  color: var(--text);
+}
+
+.workspace-page-editor-heading:has(+ .workspace-page-editor-shell .workspace-page-rich-text-schedule-stage) {
+  width: min(100%, 800px);
+}
+
+.workspace-page-editor-shell:has(.workspace-page-rich-text-schedule-stage) {
+  width: min(100%, 800px);
 }
 
 .workspace-page-rich-text-schedule-stage.is-repeat-focus {
@@ -7478,7 +7537,7 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
     flex-direction: column;
     align-items: stretch;
     gap: 28px;
-    padding: 72px 20px 24px;
+    padding: 52px 20px 44px;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -7620,4 +7679,61 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page .workspace-page-rich-text-chat-stage [role='option']:focus-visible {
   outline: 2px solid rgba(111, 155, 124, 0.76) !important;
   outline-offset: 2px;
+}
+
+.workspace-page-publish-main.is-send,
+.workspace-page-publish-option.is-send {
+  --publish-mode-border: rgba(49, 215, 232, 0.72);
+  --publish-mode-fill: linear-gradient(145deg, rgba(49, 215, 232, 0.17), rgba(49, 215, 232, 0.06));
+  --publish-mode-text: #b6f7fb;
+  --publish-mode-shadow: 0 0 12px rgba(49, 215, 232, 0.14);
+}
+
+.workspace-page-publish-main.is-scheduled,
+.workspace-page-publish-option.is-scheduled {
+  --publish-mode-border: rgba(178, 143, 255, 0.76);
+  --publish-mode-fill: linear-gradient(145deg, rgba(151, 111, 235, 0.19), rgba(151, 111, 235, 0.06));
+  --publish-mode-text: #ddceff;
+  --publish-mode-shadow: 0 0 12px rgba(151, 111, 235, 0.16);
+}
+
+.workspace-page-publish-main.is-draft,
+.workspace-page-publish-option.is-draft {
+  --publish-mode-border: rgba(255, 151, 71, 0.82);
+  --publish-mode-fill: linear-gradient(145deg, rgba(235, 119, 35, 0.2), rgba(235, 119, 35, 0.065));
+  --publish-mode-text: #ffc18f;
+  --publish-mode-shadow: 0 0 12px rgba(235, 119, 35, 0.17);
+}
+
+.workspace-page-submit-actions .workspace-page-publish-main.is-send:hover:not(:disabled),
+.workspace-page-submit-actions .workspace-page-publish-main.is-scheduled:hover:not(:disabled),
+.workspace-page-submit-actions .workspace-page-publish-main.is-draft:hover:not(:disabled) {
+  border-color: var(--publish-mode-border) !important;
+  background: var(--publish-mode-fill) !important;
+  color: var(--publish-mode-text) !important;
+  box-shadow: var(--publish-mode-shadow) !important;
+}
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-send,
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-send:hover:not(:disabled),
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-send:focus-visible,
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-scheduled,
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-scheduled:hover:not(:disabled),
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-scheduled:focus-visible,
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-draft,
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-draft:hover:not(:disabled),
+.workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected.is-draft:focus-visible {
+  border-color: var(--publish-mode-border) !important;
+  background: var(--publish-mode-fill) !important;
+  color: var(--publish-mode-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--publish-mode-shadow) !important;
+}
+
+.workspace-page .workspace-page-submit-actions .workspace-page-publish-main:not(:disabled) {
+  opacity: 1;
+  filter: saturate(1);
+  transition: filter 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease, color 220ms ease;
+}
+
+.workspace-page .workspace-page-submit-actions .workspace-page-publish-main:hover:not(:disabled) {
+  filter: saturate(1.08);
 }

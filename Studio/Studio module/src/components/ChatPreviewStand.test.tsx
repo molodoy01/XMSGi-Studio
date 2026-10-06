@@ -199,6 +199,24 @@ describe('ChatPreviewStand wallpaper picker', () => {
     }
   });
 
+  it('restores the selected preview device after remounting', () => {
+    const firstPreview = renderChatPreviewStand();
+    act(() => {
+      (firstPreview.container.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+    });
+    act(() => {
+      (firstPreview.container.querySelector('[aria-label="Switch to Mobile preview"]') as HTMLButtonElement).click();
+    });
+    firstPreview.unmount();
+
+    const secondPreview = renderChatPreviewStand();
+    try {
+      expect(secondPreview.container.querySelector('.chat-preview-stand')?.classList.contains('is-mobile')).toBe(true);
+    } finally {
+      secondPreview.unmount();
+    }
+  });
+
   it('limits the picker to five backgrounds including its two built-ins', () => {
     const uploadedWallpapers = [1, 2, 3, 4].map((index) => `data:image/png;base64,${index}`);
     window.localStorage.setItem(wallpaperStorageKey, JSON.stringify({

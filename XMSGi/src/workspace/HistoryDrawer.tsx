@@ -11,6 +11,30 @@ type HistorySourceFilter = 'all' | 'workspace' | 'personal';
 type HistoryBulkActionSource = HistorySourceFilter;
 type HistoryStatusFilter = 'scheduled' | 'sent' | 'drafts';
 type HistoryExportFormat = 'txt' | 'json';
+const HISTORY_FILTER_STORAGE_KEY = 'xmsgi-history-filters';
+
+function loadSavedHistoryFilters() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(HISTORY_FILTER_STORAGE_KEY) || 'null') as {
+      sourceFilter?: unknown;
+      statusFilter?: unknown;
+    } | null;
+    const sourceFilter: HistorySourceFilter = saved?.sourceFilter === 'workspace' || saved?.sourceFilter === 'personal'
+      ? saved.sourceFilter
+      : 'all';
+    const storedStatus = saved?.statusFilter;
+    const statusFilter: HistoryStatusFilter = storedStatus === 'sent' || storedStatus === 'drafts'
+      ? storedStatus
+      : 'scheduled';
+
+    return {
+      sourceFilter,
+      statusFilter: sourceFilter === 'personal' && statusFilter === 'drafts' ? 'scheduled' : statusFilter,
+    };
+  } catch {
+    return { sourceFilter: 'all' as const, statusFilter: 'scheduled' as const };
+  }
+}
 
 type HistoryDraftStorageApi = {
   load: () => Promise<{ success: boolean; store?: PersistedDraftStore }>;
@@ -78,10 +102,11 @@ function formatHistoryDayLabel(value: string) {
 }
 
 function matchesHistoryStatus(record: HistoryItem, filter: HistoryStatusFilter) {
+  if (record.status === 'failed') return false;
+
   if (filter === 'scheduled') {
     return record.status === 'scheduled'
       || record.status === 'sending'
-      || record.status === 'failed'
       || record.status === 'cancelled';
   }
   if (filter === 'sent') return record.status === 'sent';
@@ -202,6 +227,11 @@ function getHistoryTimestamp(record: HistoryItem) {
   return record.scheduledAt || record.sentAt || record.updatedAt || '';
 }
 
+function getHistoryOrderingTimestamp(record: HistoryItem, status: HistoryStatusFilter) {
+  if (status === 'scheduled') return record.updatedAt || record.scheduledAt || '';
+  return getHistoryTimestamp(record);
+}
+
 function matchesHistoryQuery(record: HistoryItem, query: string) {
   const tokens = normalizeSearchText(query).split(' ').filter(Boolean);
   if (tokens.length === 0) return true;
@@ -320,6 +350,7 @@ export function HistoryDrawer({
   onSendNow,
   onDelete,
   onOpenDraft,
+  onUseDraft,
   onClearSent,
   onClearDrafts,
   onCancelQueue,
@@ -332,12 +363,14 @@ export function HistoryDrawer({
   onSendNow: (record: HistoryItem) => void;
   onDelete: (record: HistoryItem) => void | Promise<boolean>;
   onOpenDraft: (record: HistoryItem) => void;
+  onUseDraft?: (record: HistoryItem) => void;
   onClearSent: (source: HistoryBulkActionSource) => void;
   onClearDrafts?: () => Promise<boolean>;
   onCancelQueue?: (records: HistoryItem[]) => Promise<boolean>;
 }) {
-  const [sourceFilter, setSourceFilter] = useState<HistorySourceFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>('scheduled');
+  const [savedFilters] = useState(loadSavedHistoryFilters);
+  const [sourceFilter, setSourceFilter] = useState<HistorySourceFilter>(savedFilters.sourceFilter);
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(savedFilters.statusFilter);
   const [query, setQuery] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<HistoryItem | null>(null);
@@ -356,6 +389,14 @@ export function HistoryDrawer({
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const preExpansionScrollTopRef = useRef<number | null>(null);
   const imageHoverTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HISTORY_FILTER_STORAGE_KEY, JSON.stringify({ sourceFilter, statusFilter }));
+    } catch {
+      // Keep history usable when local storage is unavailable.
+    }
+  }, [sourceFilter, statusFilter]);
 
   const openImagePreview = (target: HTMLElement, filePath: string) => {
     const bounds = target.getBoundingClientRect();
@@ -518,7 +559,14 @@ export function HistoryDrawer({
 
         return matchesHistoryQuery(record, query);
       });
-    return sortHistoryItems(categoryRecords, statusFilter);
+    const sortedRecords = sortHistoryItems(categoryRecords, statusFilter);
+    if (sourceFilter !== 'all') return sortedRecords;
+
+    return sortedRecords.sort((left, right) => {
+      const leftTime = Date.parse(getHistoryOrderingTimestamp(left, statusFilter)) || 0;
+      const rightTime = Date.parse(getHistoryOrderingTimestamp(right, statusFilter)) || 0;
+      return rightTime - leftTime;
+    });
   }, [draftItems, query, records, sourceFilter, statusFilter]);
 
   useEffect(() => {
@@ -539,12 +587,15 @@ export function HistoryDrawer({
 
   const historyCounts = useMemo(() => {
     const counts = {
-      total: records.length + draftItems.length,
+      total: 0,
       source: { all: 0, workspace: 0, personal: 0 },
       status: { scheduled: 0, sent: 0, drafts: 0 },
     };
 
     for (const record of [...records, ...draftItems]) {
+      if (record.status === 'failed') continue;
+      counts.total += 1;
+
       if (matchesHistoryStatus(record, statusFilter)) {
         counts.source.all += 1;
         counts.source[record.source] += 1;
@@ -619,7 +670,7 @@ export function HistoryDrawer({
     : null;
   const confirmActionPrompt = confirmAction && confirmActionRecord
     ? confirmAction.type === 'cancel'
-      ? `Снять публикацию «${confirmActionRecord.title}» с расписания в Telegram?`
+      ? `Убрать публикацию «${confirmActionRecord.title}» из расписания Telegram?`
       : confirmAction.type === 'send-now'
         ? `${confirmActionRecord.status === 'failed' ? 'Повторить отправку' : 'Отправить публикацию'} в «${confirmActionRecord.title}» сейчас?`
         : confirmActionRecord.status === 'failed'
@@ -635,7 +686,7 @@ export function HistoryDrawer({
       : bulkDeleteCategory ? historyCounts.status[bulkDeleteCategory] : 0;
   const bulkDeletePrompt = bulkDeleteRecord
     ? bulkDeleteRecord.status === 'scheduled'
-      ? `Снять публикацию «${bulkDeleteRecord.title}» с расписания в Telegram?`
+      ? `Убрать публикацию «${bulkDeleteRecord.title}» из расписания Telegram?`
       : isLocalScheduleFailure(bulkDeleteRecord)
         ? `Удалить ошибку «${bulkDeleteRecord.title}» из истории? Telegram не подтвердил создание публикации.`
       : bulkDeleteRecord.status === 'failed' && bulkDeleteRecord.retryAction === 'cancel'
@@ -776,10 +827,10 @@ export function HistoryDrawer({
         className="history-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="История"
+        aria-label="Публикации"
       >
         <header className="history-drawer-header">
-          <h2 aria-label="История">История <span aria-hidden="true">{historyCounts.total}</span></h2>
+          <h2 aria-label="Публикации">Публикации <span aria-hidden="true">{historyCounts.total}</span></h2>
           <button
             type="button"
             onClick={onClose}
@@ -831,6 +882,7 @@ export function HistoryDrawer({
             visibleRecords.map((record, index) => {
               const isExpanded = selectedRecord?.id === record.id;
               const timestamp = getHistoryTimestamp(record);
+              const orderingTimestamp = getHistoryOrderingTimestamp(record, statusFilter);
               const channelDetail = [record.channelLabel, record.channelName]
                 .find((value) => value.trim() && value.trim() !== record.title.trim());
               const startsNewDay = index === 0
@@ -843,14 +895,26 @@ export function HistoryDrawer({
                 : record.status === 'scheduled'
                   ? canReschedule
                     ? { label: 'Изменить', handler: () => { onReschedule(record); onClose(); }, type: 'reschedule' }
-                    : { label: 'Отправить сейчас', handler: () => confirmSendNow(record), type: 'send-now' }
+                    : record.source === 'personal'
+                      ? null
+                      : { label: 'Отправить сейчас', handler: () => confirmSendNow(record), type: 'send-now' }
                   : record.status === 'draft'
-                      ? { label: 'Редактировать', handler: () => { onOpenDraft(record); onClose(); }, type: 'open-draft' }
+                      ? { label: 'Использовать', handler: () => { onUseDraft?.(record); onClose(); }, type: 'use-draft' }
                     : null;
               const secondaryActions = [
+                ...(record.status === 'draft'
+                  ? [
+                    { label: 'Редактировать', handler: () => { onOpenDraft(record); onClose(); }, type: 'open-draft' },
+                    { label: 'Удалить', handler: () => {
+                      setBulkDeleteError('');
+                      setBulkDeleteCategory('drafts');
+                      setBulkDeleteRecordId(record.id);
+                    }, type: 'delete' },
+                  ]
+                  : []),
                 ...(record.status === 'scheduled' && scheduleMessage
                   ? [
-                    ...(canReschedule
+                    ...(canReschedule || record.source === 'personal'
                       ? [{ label: 'Отправить сейчас', handler: () => confirmSendNow(record), type: 'send-now' }]
                       : []),
                     { label: 'Отменить', handler: () => setConfirmAction({ type: 'cancel', recordId: record.id }), type: 'cancel' },
@@ -1005,7 +1069,7 @@ export function HistoryDrawer({
                     {isExpanded
                       ? <Minimize2 size={14} strokeWidth={1.8} aria-hidden="true" />
                       : <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />}
-                    <span>{isExpanded ? 'Свернуть' : 'Подробнее'}</span>
+                    <span>{isExpanded ? 'Свернуть' : 'Полный размер'}</span>
                   </button>
                   {primaryAction && (
                     <button
@@ -1016,6 +1080,8 @@ export function HistoryDrawer({
                         ? `Изменить: ${record.title}`
                         : primaryAction.type === 'open-draft'
                           ? `Редактировать черновик: ${record.title}`
+                          : primaryAction.type === 'use-draft'
+                            ? `Использовать черновик: ${record.title}`
                           : primaryAction.label}
                     >
                       <span>{primaryAction.label}</span>
@@ -1027,10 +1093,10 @@ export function HistoryDrawer({
                         type="button"
                         className="history-record-action is-more"
                         onClick={() => setActionMenuOpenId((current) => current === record.id ? null : record.id)}
-                        aria-label="Действия"
+                        aria-label="Ещё"
                         aria-expanded={actionMenuOpenId === record.id}
                       >
-                        <span>Действия</span>
+                        <span>Ещё</span>
                       </button>
                       {actionMenuOpenId === record.id && (
                         <div ref={actionMenuRef} className="history-record-action-menu" role="menu" aria-label={`Дополнительные действия для ${record.title}`}>

@@ -337,7 +337,7 @@ describe('useScheduler native history', () => {
     const selectedDateTime = localDateTimeAt(now + offset);
 
     await waitFor(() => expect(loadScheduleHistory).toHaveBeenCalledWith('workspace'));
-  const historyWritesAfterRestore = saveScheduleHistory.mock.calls.length;
+    const historyWritesAfterRestore = saveScheduleHistory.mock.calls.length;
     await act(async () => {
       await result.current.handleSchedule({
         chatId: chat.id,
@@ -420,6 +420,52 @@ describe('useScheduler native history', () => {
     }));
     expect(result.current.upcoming).toHaveLength(0);
     expect(schedule).toHaveBeenCalledOnce();
+  });
+
+  it('retains partial IDs when Retry leaves cleanup work for Cancel', async () => {
+    const chat = { id: 'chat-1', name: 'Test chat' };
+    const scheduled: ScheduledMessage = {
+      id: 'failed-schedule-retry',
+      chatId: chat.id,
+      chatName: chat.name,
+      text: '',
+      when: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      status: 'failed',
+      retryAction: 'schedule',
+      attachments: ['one.png', 'two.png', 'three.png'],
+    };
+    const telegramMessageIds = ['telegram-left-1', 'telegram-left-2'];
+    const schedule = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Cleanup did not remove all scheduled files.',
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+    });
+    const cancel = vi.fn().mockResolvedValue({ success: true, alreadySent: false });
+    const { result } = renderWorkspaceHistory([scheduled], [], { schedule, cancel }, vi.fn(), 'workspace', chat);
+
+    await waitFor(() => expect(result.current.upcoming).toEqual([scheduled]));
+    await act(async () => {
+      await result.current.handleRetry(scheduled);
+    });
+
+    expect(result.current.upcoming[0]).toMatchObject({
+      status: 'failed',
+      retryAction: 'cancel',
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+    });
+
+    await act(async () => {
+      await result.current.handleRetry(result.current.upcoming[0]);
+    });
+
+    expect(cancel).toHaveBeenCalledWith(expect.objectContaining({
+      telegramMessageId: telegramMessageIds[0],
+      telegramMessageIds,
+    }));
+    expect(result.current.upcoming).toHaveLength(0);
   });
 
   it.each([

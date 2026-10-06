@@ -10,10 +10,7 @@ app.setPath('sessionData', writableAppDataRoot);
 
 if (!app.isPackaged && process.env.npm_lifecycle_event !== 'start') {
   require('dotenv').config();
-
-  for (const key of ['API_ID', 'API_HASH', 'SESSION_STRING']) {
-    delete process.env[key];
-  }
+  delete process.env.SESSION_STRING;
 }
 
 const {
@@ -265,6 +262,7 @@ function getSafeTelegramAuthState() {
     signedOut,
     connected,
     userName: config.userName || '',
+    username: config.username || '',
     state: !hasSession
       ? 'NO_SESSION'
       : signedOut
@@ -1213,7 +1211,9 @@ ipcMain.handle('telegram-schedule', async (event, data) => {
       success: false,
       error: error.message,
       code: error.code,
-      waitSeconds: error.waitSeconds
+      waitSeconds: error.waitSeconds,
+      telegramMessageId: error.telegramMessageId,
+      telegramMessageIds: error.telegramMessageIds,
     };
   }
 });

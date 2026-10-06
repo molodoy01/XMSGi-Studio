@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
+import process from 'node:process';
 import lifecycle from './telegram-lifecycle.cjs';
 
 vi.mock('electron', () => ({
@@ -70,6 +71,45 @@ function runTrackedShared(state, key, type, operation) {
 }
 
 describe('single-account Telegram lifecycle', () => {
+  it('uses backend environment API credentials without exposing their values in auth config', async () => {
+    vi.resetModules();
+    const previousApiId = process.env.API_ID;
+    const previousApiHash = process.env.API_HASH;
+    const originalLoad = nodeModule._load;
+    process.env.API_ID = '123456';
+    process.env.API_HASH = 'private-api-hash';
+    nodeModule._load = function load(request, parent, isMain) {
+      if (request === './telegram-account-storage.cjs') {
+        return {
+          loadAccountSecrets: () => ({ API_ID: '', API_HASH: '', SESSION_STRING: '', signedOut: false }),
+          getTelegramAuthState: () => ({ hasSession: false, signedOut: false, userName: '' }),
+          saveAccountSecrets: () => true,
+          setTelegramSignedOut: () => true,
+          clearAccountSecrets: () => true
+        };
+      }
+
+      return originalLoad(request, parent, isMain);
+    };
+
+    try {
+      const { createTelegramCore } = await import('./telegram.cjs');
+      const config = createTelegramCore().getTelegramConfig();
+
+      expect(config.hasCredentials).toBe(true);
+      expect(config).not.toHaveProperty('API_ID');
+      expect(config).not.toHaveProperty('API_HASH');
+      expect(JSON.stringify(config)).not.toContain('private-api-hash');
+    } finally {
+      nodeModule._load = originalLoad;
+      if (previousApiId === undefined) delete process.env.API_ID;
+      else process.env.API_ID = previousApiId;
+      if (previousApiHash === undefined) delete process.env.API_HASH;
+      else process.env.API_HASH = previousApiHash;
+      vi.resetModules();
+    }
+  });
+
   it('covers the lifecycle state vocabulary and terminal shutdown state', async () => {
     const state = createLifecycleState();
 
@@ -1004,6 +1044,42 @@ describe('single-account Telegram lifecycle', () => {
     await expect(timed).rejects.toMatchObject({ code: 'OPERATION_TIMEOUT' });
     release('late');
     await Promise.resolve();
+  });
+
+  it('uses timeout labels without invoking them as callbacks', async () => {
+    let fireTimeout;
+    const timed = withTimeout(new Promise(() => undefined), 10, 'Telegram shutdown drain', {
+      setTimeout(callback) {
+        fireTimeout = callback;
+        return 1;
+      },
+      clearTimeout: vi.fn(),
+    });
+
+    expect(() => fireTimeout()).not.toThrow();
+    await expect(timed).rejects.toMatchObject({
+      message: 'Telegram shutdown drain timed out after 10 ms',
+      code: 'OPERATION_TIMEOUT',
+    });
+  });
+
+  it('never invokes a function passed where a timeout label is expected', async () => {
+    let fireTimeout;
+    const invalidTimeoutCallback = vi.fn();
+    const timed = withTimeout(new Promise(() => undefined), 10, invalidTimeoutCallback, {
+      setTimeout(callback) {
+        fireTimeout = callback;
+        return 1;
+      },
+      clearTimeout: vi.fn(),
+    });
+
+    expect(() => fireTimeout()).not.toThrow();
+    await expect(timed).rejects.toMatchObject({
+      message: 'Operation timed out after 10 ms',
+      code: 'OPERATION_TIMEOUT',
+    });
+    expect(invalidTimeoutCallback).not.toHaveBeenCalled();
   });
 
   it('cleans timeout timers on success', async () => {

@@ -195,6 +195,12 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
       : '';
   }
 
+  function getTelegramUsername(config = migrateLegacySecrets(readRawConfig())) {
+    return typeof config.TELEGRAM_USERNAME === 'string'
+      ? config.TELEGRAM_USERNAME.trim().replace(/^@/, '')
+      : '';
+  }
+
   function saveAccountSecrets(secrets = {}) {
     const config = { ...migrateLegacySecrets(readRawConfig()) };
 
@@ -221,18 +227,30 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
       }
     }
 
+    if (secrets.username !== undefined) {
+      const username = String(secrets.username || '').trim().replace(/^@/, '');
+
+      if (username) {
+        config.TELEGRAM_USERNAME = username;
+      } else {
+        delete config.TELEGRAM_USERNAME;
+      }
+    }
+
     return writeRawConfig(config);
   }
 
   function getTelegramAuthState() {
     const config = migrateLegacySecrets(readRawConfig());
     const secrets = loadAccountSecrets();
-
-    return {
+    const authState = {
       hasSession: Boolean(secrets.SESSION_STRING),
       signedOut: secrets.signedOut,
       userName: getTelegramUserName(config)
     };
+    const username = getTelegramUsername(config);
+    if (username) authState.username = username;
+    return authState;
   }
 
   function setTelegramSignedOut(value) {
@@ -248,6 +266,7 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
     delete config.SESSION_STRING_ENCRYPTED;
     delete config.SIGNED_OUT;
     delete config.TELEGRAM_USER_NAME;
+    delete config.TELEGRAM_USERNAME;
 
     if (!sessionOnly) {
       delete config.API_ID;
