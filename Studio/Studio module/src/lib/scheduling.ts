@@ -163,14 +163,15 @@ export function getScheduleOccurrences(
   return occurrences;
 }
 
-function formatRussianDate(value: Date) {
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+function formatScheduleDate(value: Date, locale: 'en' | 'ru') {
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })
     .format(value)
     .replace(/\s*г\.?$/, '');
 }
 
-function formatRepeatCount(value: number) {
+function formatRepeatCount(value: number, locale: 'en' | 'ru') {
   const count = Math.max(1, Math.floor(value) || 1);
+  if (locale === 'en') return `${count} ${count === 1 ? 'time' : 'times'}`;
   return `${count} ${count === 1 ? 'раз' : count >= 2 && count <= 4 ? 'раза' : 'раз'}`;
 }
 
@@ -178,6 +179,7 @@ export function formatScheduleSummary(
   date: string,
   time: string,
   repeat: ScheduleRepeatOptions,
+  locale: 'en' | 'ru' = 'ru',
 ): string {
   if (!date || !time || !/^\d{2}:\d{2}$/.test(time)) return '';
 
@@ -185,26 +187,45 @@ export function formatScheduleSummary(
   if (Number.isNaN(start.getTime())) return '';
 
   if (repeat.mode === 'none') {
-    return `Запланировано: ${formatRussianDate(start)} · ${time}`;
+    return locale === 'ru'
+      ? `Запланировано: ${formatScheduleDate(start, locale)} · ${time}`
+      : `Scheduled: ${formatScheduleDate(start, locale)} · ${time}`;
   }
 
   const selectedDays = repeat.days?.filter((day) => russianWeekdays[day]) ?? [];
-  let recurrenceLabel = 'Каждый день';
+  let recurrenceLabel = locale === 'ru' ? 'Каждый день' : 'Every day';
   if (repeat.mode === 'weekly' || repeat.mode === 'biweekly') {
+    const formatWeekday = (day: string) => {
+      if (locale === 'ru') return russianWeekdayLong[day];
+      const weekdayIndex = weekdayNames.indexOf(day);
+      return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(Date.UTC(2023, 0, 1 + weekdayIndex)));
+    };
     if (selectedDays.length === 1) {
-      recurrenceLabel = repeat.mode === 'biweekly'
-        ? `Каждые 2 недели · ${russianWeekdayLong[selectedDays[0]]}`
-        : `Каждый ${russianWeekdayLong[selectedDays[0]]}`;
+      if (locale === 'ru') {
+        recurrenceLabel = repeat.mode === 'biweekly'
+          ? `Каждые 2 недели · ${formatWeekday(selectedDays[0])}`
+          : `Каждый ${formatWeekday(selectedDays[0])}`;
+      } else {
+        recurrenceLabel = repeat.mode === 'biweekly'
+          ? `Every other week · ${formatWeekday(selectedDays[0])}`
+          : `Every ${formatWeekday(selectedDays[0])}`;
+      }
     } else if (selectedDays.length > 1) {
-      recurrenceLabel = selectedDays.map((day) => russianWeekdays[day]).join(', ');
+      recurrenceLabel = selectedDays.map((day) => locale === 'ru' ? russianWeekdays[day] : formatWeekday(day)).join(', ');
     }
   } else if (repeat.mode === 'monthly') {
-    recurrenceLabel = 'Каждый месяц';
+    recurrenceLabel = locale === 'ru' ? 'Каждый месяц' : 'Every month';
   }
 
   const occurrences = getScheduleOccurrences(start, repeat);
-  const endDate = occurrences.length > 1 ? ` · до ${formatRussianDate(occurrences[occurrences.length - 1])}` : '';
-  return `Повтор: ${formatRepeatCount(repeat.occurrences)} · ${recurrenceLabel} · ${time}${endDate}`;
+  const endDate = occurrences.length > 1
+    ? locale === 'ru'
+      ? ` · до ${formatScheduleDate(occurrences[occurrences.length - 1], locale)}`
+      : ` · until ${formatScheduleDate(occurrences[occurrences.length - 1], locale)}`
+    : '';
+  return locale === 'ru'
+    ? `Повтор: ${formatRepeatCount(repeat.occurrences, locale)} · ${recurrenceLabel} · ${time}${endDate}`
+    : `Repeats: ${formatRepeatCount(repeat.occurrences, locale)} · ${recurrenceLabel} · ${time}${endDate}`;
 }
 
 export function createPendingSchedule(

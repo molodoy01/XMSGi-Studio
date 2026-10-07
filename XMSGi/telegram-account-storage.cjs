@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const defaultPath = require('path');
+const { resolveAppDataPath } = require('./app-data-path.cjs');
 const SECRET_FIELDS = {
   API_ID: 'API_ID_ENCRYPTED',
   API_HASH: 'API_HASH_ENCRYPTED',
@@ -14,9 +15,12 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage } = {}) {
     : require('electron');
 
   function getConfigPath() {
-    return pathModule.join(
+    return resolveAppDataPath(
+      fileSystem,
+      pathModule,
       electron.app.getPath('userData'),
-      'awaitmsg-secure-config.json'
+      'xmsgi-studio-secure-config.json',
+      'awaitmsg-secure-config.json',
     );
   }
 

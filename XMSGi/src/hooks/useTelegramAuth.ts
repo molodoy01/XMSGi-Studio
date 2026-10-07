@@ -19,6 +19,18 @@ export type TelegramStatusSnapshot = {
   waitSecondsText?: string;
 };
 
+function getFriendlyAuthError(error: string, t: (key: import('@/lib/i18n').TranslationKey) => string) {
+  if (/PHONE_NUMBER_INVALID|phone number.{0,24}invalid/i.test(error)) return t('auth.invalidPhone');
+  if (/PHONE_CODE_EXPIRED|phone code.{0,24}expired/i.test(error)) return t('auth.expiredCode');
+  if (/PHONE_CODE_INVALID|phone code.{0,24}invalid/i.test(error)) return t('auth.invalidCode');
+  if (/PASSWORD_HASH_INVALID|password.{0,24}invalid/i.test(error)) return t('auth.invalidPassword');
+  if (/PHONE_NUMBER_FLOOD|PHONE_PASSWORD_FLOOD|FLOOD_WAIT|too many attempts/i.test(error)) {
+    return t('auth.tooManyAttempts');
+  }
+  if (/NETWORK|TIMEOUT|ECONN|CONNECTION/i.test(error)) return t('auth.networkSignInError');
+  return t('auth.genericSignInError');
+}
+
 type TelegramStatusApiResult = {
   success: boolean;
   accountId?: string;
@@ -119,7 +131,7 @@ export function useTelegramAuth({
           setAuthStep('password');
           setAuthError(t('auth.enterTwoFactor'));
         } else {
-          setAuthError(error);
+          setAuthError(getFriendlyAuthError(error, t));
         }
 
         return;
@@ -149,11 +161,7 @@ export function useTelegramAuth({
         }
       }
     } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? error.message
-          : t('auth.authorizationFailed')
-      );
+      setAuthError(getFriendlyAuthError(error instanceof Error ? error.message : '', t));
     } finally {
       setAuthBusy(false);
     }
@@ -201,23 +209,32 @@ export function useTelegramAuth({
     setAuthBusy(true);
     setConnecting(true);
     setAuthError('');
+    const reportRestoreError = (message: string) => {
+      setAuthError(message);
+      showNotification(message, 'error', t('common.error'));
+    };
 
     try {
-      const result = await window.telegram.welcomeBack();
-
-      if (!result.success || !result.authState) {
-        setAuthError(result.error || t('auth.restoreFailed'));
+      if (typeof window.telegram?.welcomeBack !== 'function') {
+        reportRestoreError(t('auth.desktopBridgeRequired'));
         return;
       }
 
-      setSignedOut(result.authState.signedOut);
-      setConnected(result.authState.connected);
+      const result = await window.telegram.welcomeBack();
+
+      if (!result.success || !result.authState || !result.authState.connected || result.authState.signedOut) {
+        reportRestoreError(result.error || t('auth.restoreFailed'));
+        return;
+      }
+
+      setSignedOut(false);
+      setConnected(true);
       setShowAuthForm(false);
       setReturningUserName(result.authState.userName || returningUserName);
       setReturningUserUsername(result.authState.username || returningUserUsername);
       setConnectionResolved(true);
     } catch (error) {
-      setAuthError(
+      reportRestoreError(
         error instanceof Error
           ? error.message
           : t('auth.restoreFailed')
@@ -226,7 +243,7 @@ export function useTelegramAuth({
       setConnecting(false);
       setAuthBusy(false);
     }
-  }, [authBusy, returningUserName, returningUserUsername, t]);
+  }, [authBusy, returningUserName, returningUserUsername, showNotification, t]);
 
   const handleForgetAccount = useCallback(async () => {
     if (authBusy) return;
@@ -284,12 +301,12 @@ export function useTelegramAuth({
           const authState = authResult.authState;
           const hasSession = authState.hasSession;
 
-          setSignedOut(authState.signedOut);
+          setSignedOut(hasSession && authState.signedOut);
           setConnected(authState.connected);
           setReturningUserName(authState.userName || '');
           setReturningUserUsername(authState.username || '');
 
-          if (!hasSession || authState.signedOut) {
+          if (!hasSession || (hasSession && authState.signedOut)) {
             setConnecting(false);
             setConnectionResolved(true);
             return;
@@ -318,7 +335,7 @@ export function useTelegramAuth({
     };
 
     loadAuth();
-  }, [showNotification, t]);
+  }, [t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.telegram?.onStatus !== 'function') return;

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TelegramStatusSnapshot } from '@/hooks/useTelegramAuth';
 import { LocaleProvider } from '@/lib/i18n';
@@ -56,8 +56,21 @@ describe('SettingsView Telegram integration', () => {
   it('shows the Studio tagline and requested Settings version', () => {
     renderSettings();
 
-    expect(screen.getByText('XMSGi Studio — Save ideas. Set reminders. Choose the moment. Make it happen.')).toBeInTheDocument();
+    expect(screen.getByText('XMSGi Studio — Create messages, save ideas, schedule posts, and keep everything under control in one convenient workspace.')).toBeInTheDocument();
     expect(screen.getByText('Version 1.1.0')).toBeInTheDocument();
+  });
+
+  it('shows the requested Russian Studio description in About', () => {
+    const originalLocale = window.localStorage.getItem('awaitmsg_locale');
+    window.localStorage.setItem('awaitmsg_locale', 'ru');
+
+    try {
+      renderSettings();
+      expect(screen.getByText('XMSGi Studio — Создавайте сообщения, храните идеи, планируйте отправку и держите всё под контролем — в одном удобном рабочем пространстве.')).toBeInTheDocument();
+    } finally {
+      if (originalLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', originalLocale);
+    }
   });
 
   it('keeps API fields out of the main settings screen', () => {
@@ -68,6 +81,16 @@ describe('SettingsView Telegram integration', () => {
     expect(summary.querySelector('.settings-telegram-mark')).not.toBeInTheDocument();
     expect(summary.parentElement?.firstElementChild).toHaveClass('settings-telegram-mark');
     expect(container.querySelector('.telegram-credentials-form')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('API_ID')).not.toBeInTheDocument();
+  });
+
+  it('does not open Telegram setup automatically for an empty profile', () => {
+    renderSettings({
+      telegramConnected: false,
+      telegramCredentials: { hasCredentials: false, hasSession: false, connected: false, signedOut: false },
+    });
+
+    expect(screen.queryByRole('dialog', { name: 'Manage connection' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API_ID')).not.toBeInTheDocument();
   });
 
@@ -92,6 +115,29 @@ describe('SettingsView Telegram integration', () => {
     expect(technicalDetails).toBeVisible();
     expect(screen.getByLabelText('API_ID')).toBeInTheDocument();
     expect(screen.getByLabelText('API_HASH')).toBeInTheDocument();
+  });
+
+  it('opens the API credential form for a saved session missing credentials', async () => {
+    renderSettings({
+      telegramConnected: false,
+      telegramCredentials: { hasCredentials: false, hasSession: true, connected: false, signedOut: true },
+    });
+
+    const dialog = await screen.findByRole('dialog', { name: 'Manage connection' });
+    expect(dialog.querySelector('.telegram-manager-advanced')).toHaveAttribute('open');
+    expect(screen.getByLabelText('API_ID')).toBeInTheDocument();
+    expect(screen.getByLabelText('API_HASH')).toBeInTheDocument();
+  });
+
+  it('opens phone sign-in controls for a remembered account with no session', async () => {
+    renderSettings({
+      telegramConnected: false,
+      telegramCredentials: { hasCredentials: true, hasSession: false, connected: false, signedOut: true },
+    });
+
+    const dialog = await screen.findByRole('dialog', { name: 'Manage connection' });
+    expect(dialog).toHaveTextContent('Signed out');
+    expect(within(dialog).getByLabelText('Phone')).toBeInTheDocument();
   });
 
   it('offers reconnect for an existing Telegram session when disconnected', () => {

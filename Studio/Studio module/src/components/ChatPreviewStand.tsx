@@ -1,9 +1,10 @@
 import { ArrowLeft, BatteryFull, ImagePlus, MessageCircle, Mic, Monitor, Paperclip, Search, Send, Signal, SlidersHorizontal, Smartphone, Smile, Wifi, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, MutableRefObject } from 'react';
-import { ChatAvatar } from '@/components/ChatAvatar';
+import { ChatAvatar } from './ChatAvatar';
 import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
 import { toInlineKeyboardMarkup, type InlineButtonRow } from '@/lib/inlineKeyboard';
+import { useLocale } from '@/lib/i18n';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
 import { richTextToHtml } from '@/lib/richText';
 import './ChatPreviewStand.css';
@@ -231,6 +232,7 @@ export function ChatPreviewStand({
   onSelectChat,
   onWallpaperChange,
 }: ChatPreviewStandProps) {
+  const { t } = useLocale();
   const savedWallpaper = useMemo(loadSavedWallpaper, []);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
   const [wallpaperTheme, setWallpaperTheme] = useState<WallpaperTheme>(savedWallpaper.theme);
@@ -361,12 +363,14 @@ export function ChatPreviewStand({
   const activePreviewHistory = previewHistory?.chat.id === selectedChat?.id
     ? previewHistory
     : null;
-  const previewTitle = activePreviewHistory?.chat.title || selectedChat?.name || 'Select a chat';
+  const previewTitle = activePreviewHistory?.chat.title
+    || (selectedChat?.name === 'Saved Messages' ? t('studio.savedMessagesType') : selectedChat?.name)
+    || t('studio.chooseChat');
   const previewType = activePreviewHistory?.chat.topic
     || (activePreviewHistory?.chat.username ? `@${activePreviewHistory.chat.username}` : '')
     || activePreviewHistory?.chat.type
     || selectedChat?.type
-    || 'online';
+    || t('studio.online');
   const historyGroups = useMemo(
     () => groupHistory(activePreviewHistory?.messages ?? []),
     [activePreviewHistory?.messages],
@@ -495,7 +499,7 @@ export function ChatPreviewStand({
     <div className={`chat-preview-stand is-${previewDevice} ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''}`}>
       <div className="chat-preview-toolbar">
         <span className="chat-preview-toolbar-label">
-          {previewDevice === 'mobile' ? 'Live preview' : 'Live chat preview'}
+          {previewDevice === 'mobile' ? t('studio.livePreview') : t('studio.liveChatPreview')}
         </span>
         {wallpaperPickerOpen && (
           <div className={`chat-preview-wallpaper-quick-picker ${previewDevice === 'web' ? 'is-inline' : ''}`} aria-label="Choose chat background">
@@ -569,7 +573,7 @@ export function ChatPreviewStand({
         </div>
         {chatListOpen && (
           <aside className="chat-preview-chat-list" aria-label="Chats">
-            <div className="chat-preview-chat-list-heading">Chats</div>
+            <div className="chat-preview-chat-list-heading">{t('studio.chats')}</div>
             <div className="chat-preview-chat-list-items">
               {visibleChats.map((chat) => (
                 <button
@@ -581,11 +585,11 @@ export function ChatPreviewStand({
                   <ChatAvatar name={chat.name} src={chat.avatarDataUrl} className="chat-preview-chat-list-avatar" />
                   <span className="chat-preview-chat-list-copy">
                     <strong>{chat.name}</strong>
-                    <span>{chat.name === 'Saved Messages' ? 'Saved Messages' : chat.type || 'Chat'}</span>
+                    <span>{chat.name === 'Saved Messages' ? t('studio.savedMessagesType') : chat.type || t('studio.chatType')}</span>
                   </span>
                 </button>
               ))}
-              {visibleChats.length === 0 && <span className="chat-preview-chat-list-empty">No chats found</span>}
+              {visibleChats.length === 0 && <span className="chat-preview-chat-list-empty">{t('studio.noChatsFound')}</span>}
             </div>
             {previewDevice === 'web' && (
               <label className="chat-preview-chat-search">
@@ -616,7 +620,7 @@ export function ChatPreviewStand({
           />
           <div className="chat-preview-header-copy">
             <strong>{previewTitle}</strong>
-            <span><i className="chat-preview-status-dot" aria-hidden="true" />{previewType === 'private' ? 'online' : previewType}</span>
+            <span><i className="chat-preview-status-dot" aria-hidden="true" />{previewType === 'private' ? t('studio.online') : previewType}</span>
           </div>
           <div className="chat-preview-header-actions" ref={previewOptionsRef}>
             <button
@@ -687,9 +691,9 @@ export function ChatPreviewStand({
                 aria-label={chatListOpen ? 'Close chat list' : 'Open chat list'}
                 title={chatListOpen ? 'Close chat list' : 'Open chat list'}
               >
-                Today
+                {t('studio.today')}
               </button>
-              {previewHistoryLoading && <div className="chat-preview-state">Loading history…</div>}
+              {previewHistoryLoading && <div className="chat-preview-state">{t('studio.loadingHistory')}</div>}
               {historyGroups.map((group) => {
                 const firstMessage = group.messages[0];
                 const hasMedia = group.messages.some((message) => message.media);
@@ -752,7 +756,7 @@ export function ChatPreviewStand({
                   )}
                 </article>
               ) : (
-                <div className="chat-preview-empty">Your message will appear here as you write.</div>
+                <div className="chat-preview-empty">{t('studio.emptyPreview')}</div>
               )}
             </div>
           </div>
@@ -760,7 +764,7 @@ export function ChatPreviewStand({
         {!collapsed && (
           <div className="chat-preview-composer" aria-hidden="true">
             <span className="chat-preview-composer-action"><Paperclip size={19} strokeWidth={1.8} /></span>
-            <span className="chat-preview-composer-input">Message</span>
+            <span className="chat-preview-composer-input">{t('studio.messagePlaceholder')}</span>
             <span className="chat-preview-composer-action"><Smile size={19} strokeWidth={1.8} /></span>
             <span className="chat-preview-composer-action">
               {hasDraft

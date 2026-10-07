@@ -47,6 +47,18 @@ describe('schedule lifecycle', () => {
     expect(summary).toContain('до');
   });
 
+  it('formats schedule summaries in English when English is selected', () => {
+    const summary = formatScheduleSummary('2026-09-24', '18:30', {
+      mode: 'weekly',
+      days: ['Thu'],
+      occurrences: 3,
+    }, 'en');
+
+    expect(summary).toContain('Repeats: 3 times');
+    expect(summary).toContain('Every Thursday');
+    expect(summary).toContain('until');
+  });
+
   it('creates the requested repeat occurrences', () => {
     const occurrences = getScheduleOccurrences(
       new Date('2026-01-10T09:00:00'),

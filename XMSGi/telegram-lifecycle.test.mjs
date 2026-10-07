@@ -1203,6 +1203,8 @@ describe('single-account Telegram lifecycle', () => {
       await core.signOutKeepSession();
       expect(globalThis.__telegramWelcomeClient.logOutCalls).toBe(0);
       expect(globalThis.__telegramWelcomeClient.disconnectCalls).toBe(1);
+      expect(storageState.API_ID).toBe('1');
+      expect(storageState.API_HASH).toBe('hash');
       expect(storageState.SESSION_STRING).toBe('session');
       expect(storageState.signedOut).toBe(true);
 

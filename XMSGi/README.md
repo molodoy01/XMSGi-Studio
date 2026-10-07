@@ -1,40 +1,65 @@
-# XMSGi
-**Telegram message scheduler for Windows.**
+# XMSGi Studio
 
-XMSGi is a lightweight desktop application for sending and scheduling Telegram messages using your personal Telegram account.
+Telegram scheduling for Windows, built for your own account.
+
+XMSGi Studio is a desktop app for scheduling and sending Telegram messages without a bot. It runs locally on your Windows machine and keeps the workflow simple: select a chat, write a message, schedule it, and let it send when the time arrives.
+
+## Why it exists
+
+- schedule one-time and future Telegram messages
+- keep the app local and lightweight
+- work with your personal Telegram session
+- preserve local drafts and scheduling history
+- ship as a portable Windows desktop app
 
 ## Features
 
-- Telegram chat selection
-- Instant message sending
-- Scheduled message sending
-- Session saving
-- Session deletion
-- Portable Windows application
+- Telegram chat selection and quick switching
+- instant send and delayed send
+- local draft and history management
+- message media and keyboard support
+- secure local storage for credentials where supported
+- portable Windows distribution
 
-## Download
-**XMSGi 2.2.0 — Windows Portable**
+## Quick start
 
-Download the latest Windows `.exe` from [GitHub Releases](https://github.com/molodoy01/XMSGi/releases/tag/v2.2.0).
+Requirements:
 
-## How it works
-XMSGi connects directly to Telegram using the MTProto protocol and your personal Telegram account.
+- Node.js 20+
+- npm
+- Windows for the packaged desktop experience
 
-Once a message is scheduled, your PC does not need to remain open.
+Run locally:
 
-## Telegram FloodWait limits
+```bash
+npm install
+npm run build
+npm run electron
+```
 
-`FLOOD_WAIT_X` values up to **365 days (31,536,000 seconds)** are accepted. Values longer than this, malformed values, zero, and negative values fail with a clear error and do not create a pause or retry loop. Accepted waits longer than the Node.js timer limit are resumed through chunked timers.
+Build a Windows release package:
 
-FloodWait pauses are held in memory for the running process. Restart persistence for an active FloodWait is intentionally deferred; restarting XMSGi clears the in-memory pause.
+```bash
+npm run dist
+```
 
-## Privacy & Security
-Telegram session data is stored locally and protected using Electron's secure storage where supported.
+## Security and privacy
 
-XMSGi does not require a Telegram bot for its core scheduling flow.
+XMSGi Studio keeps Telegram data local to the device. Session and account data are stored in the user data directory, and secure storage is used where the platform supports it.
 
-## Open Source
-XMSGi is open source and available on GitHub.
+This app does not depend on a Telegram bot for its core scheduling flow.
+
+## Contribution
+
+We welcome focused pull requests and bug reports. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
+
+## Security reporting
+
+Please report vulnerabilities privately through the repository security process. Do not disclose critical issues in public issues or pull requests. See [SECURITY.md](SECURITY.md).
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ---
-**XMSGi · Telegram scheduling, kept simple.**
+XMSGi Studio keeps Telegram scheduling simple, local, and reliable.

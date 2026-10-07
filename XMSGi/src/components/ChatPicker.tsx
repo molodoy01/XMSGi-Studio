@@ -8,6 +8,7 @@ interface Props {
   onAddChat: (chat: Chat) => void;
   onRemoveChat: (chat: Chat) => void;
   onError?: (message: string, title: string) => void;
+  permissionWarning?: string;
 }
 
 type ChatScrollMetrics = {
@@ -48,6 +49,7 @@ export function ChatPicker({
   onAddChat,
   onRemoveChat,
   onError,
+  permissionWarning,
 }: Props) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -209,6 +211,11 @@ export function ChatPicker({
                 : selectedChat.name
               : t('chat.choose')}
           </span>
+          {permissionWarning && (
+            <span className="chat-picker-current-warning" role="status">
+              {permissionWarning}
+            </span>
+          )}
         </span>
       </div>
 
@@ -278,28 +285,30 @@ export function ChatPicker({
             </div>
           ))}
         </div>
-        <div
-          className="chat-picker-scrollbar"
-          role="scrollbar"
-          tabIndex={scrollRange > 0 ? 0 : -1}
-          aria-label={t('chat.chatListScrollbar')}
-          aria-controls="chat-picker-scroll-area"
-          aria-orientation="vertical"
-          aria-valuemin={0}
-          aria-valuemax={scrollRange}
-          aria-valuenow={Math.round(scrollMetrics.scrollTop)}
-          onPointerDown={handleScrollbarPointerDown}
-          onPointerMove={handleScrollbarPointerMove}
-          onPointerUp={() => { scrollDragRef.current = null; }}
-          onPointerCancel={() => { scrollDragRef.current = null; }}
-          onLostPointerCapture={() => { scrollDragRef.current = null; }}
-          onKeyDown={handleScrollbarKeyDown}
-        >
-          <span
-            className="chat-picker-scrollbar-thumb"
-            style={{ height: `${scrollbarThumbHeight}px`, top: `${scrollbarThumbTop}px` }}
-          />
-        </div>
+        {scrollRange > 0 && (
+          <div
+            className="chat-picker-scrollbar"
+            role="scrollbar"
+            tabIndex={0}
+            aria-label={t('chat.chatListScrollbar')}
+            aria-controls="chat-picker-scroll-area"
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={scrollRange}
+            aria-valuenow={Math.round(scrollMetrics.scrollTop)}
+            onPointerDown={handleScrollbarPointerDown}
+            onPointerMove={handleScrollbarPointerMove}
+            onPointerUp={() => { scrollDragRef.current = null; }}
+            onPointerCancel={() => { scrollDragRef.current = null; }}
+            onLostPointerCapture={() => { scrollDragRef.current = null; }}
+            onKeyDown={handleScrollbarKeyDown}
+          >
+            <span
+              className="chat-picker-scrollbar-thumb"
+              style={{ height: `${scrollbarThumbHeight}px`, top: `${scrollbarThumbTop}px` }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

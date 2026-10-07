@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
-import type { SavedDraft, StudioSchedulerRuntime } from '$studio';
-import type { ScheduledMessage as StudioScheduledMessage } from '../../Studio/Studio module/src/types';
+import type { SavedDraft, StudioScheduledMessage, StudioSchedulerRuntime } from '$studio';
 import { AppShell, StudioMount } from './workspace';
 import { normalizeSavedDraft, normalizeScheduledMessages } from './workspace/historyModel';
 import type { HistoryItem } from './workspace/historyModel';
-import { DRAFT_STORE_SCHEMA_VERSION } from '../../Studio/Studio module/src/lib/draftStoreVersion';
+
+const DRAFT_STORE_SCHEMA_VERSION = 1;
 
 const demoChats: Chat[] = [
   { id: 'dev-saved', name: 'Saved Messages', type: 'private' },

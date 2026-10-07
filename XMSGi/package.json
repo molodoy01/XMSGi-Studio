@@ -1,7 +1,8 @@
 {
-  "name": "xmsgi",
+  "name": "xmsgi-studio",
   "private": true,
-  "version": "2.2.0",
+  "version": "1.1.0",
+  "license": "MIT",
   "repository": "https://github.com/molodoy01/XMSGi",
   "type": "module",
   "scripts": {
@@ -45,7 +46,7 @@
   "main": "main.cjs",
   "build": {
     "appId": "com.xmsgi.app",
-    "productName": "XMSGi",
+    "productName": "XMSGi Studio",
     "icon": "build/icon.ico",
     "directories": {
       "output": "release"
@@ -56,6 +57,7 @@
       "main.cjs",
       "preload.cjs",
       "chat-storage.cjs",
+      "app-data-path.cjs",
       "draft-store.cjs",
       "gemini.cjs",
       "telegram.cjs",

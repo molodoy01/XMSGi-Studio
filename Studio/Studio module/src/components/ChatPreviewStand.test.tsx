@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LocaleProvider } from '@/lib/i18n';
 import type { Chat } from '@/types';
 import { ChatPreviewStand } from './ChatPreviewStand';
 
@@ -18,22 +19,24 @@ function renderChatPreviewStand(attachments: { name: string; path: string; previ
 
   act(() => {
     root.render(
-      <ChatPreviewStand
-        chats={[chat]}
-        selectedChat={chat}
-        previewHistory={null}
-        previewHistoryLoading={false}
-        previewFeedRef={previewFeedRef}
-        draftText=""
-        draftEntities={[]}
-        inlineButtons={[]}
-        attachments={attachments}
-        previewTime=""
-        collapsed={false}
-        chatListOpen={false}
-        onToggleChatList={onToggleChatList}
-        onSelectChat={vi.fn()}
-      />,
+      <LocaleProvider>
+        <ChatPreviewStand
+          chats={[chat]}
+          selectedChat={chat}
+          previewHistory={null}
+          previewHistoryLoading={false}
+          previewFeedRef={previewFeedRef}
+          draftText=""
+          draftEntities={[]}
+          inlineButtons={[]}
+          attachments={attachments}
+          previewTime=""
+          collapsed={false}
+          chatListOpen={false}
+          onToggleChatList={onToggleChatList}
+          onSelectChat={vi.fn()}
+        />
+      </LocaleProvider>,
     );
   });
 

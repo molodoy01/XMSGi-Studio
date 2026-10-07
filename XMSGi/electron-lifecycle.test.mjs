@@ -10,7 +10,7 @@ describe('Electron tray lifecycle contract', () => {
   it('creates one tray with Open and Exit actions', () => {
     expect(mainSource).toContain('if (tray) return;');
     expect(mainSource).toContain("new Tray(path.join(__dirname, 'build', 'icon.ico'))");
-    expect(mainSource).toContain("label: 'Open XMSGi'");
+    expect(mainSource).toContain("label: 'Open XMSGi Studio'");
     expect(mainSource).toContain("label: 'Exit'");
     expect(mainSource).toContain("tray.on('double-click', showMainWindow)");
   });

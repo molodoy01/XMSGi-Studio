@@ -116,6 +116,14 @@ export function SettingsView({
     };
   }, [isTelegramManagementOpen, onClose]);
 
+  useEffect(() => {
+    const sessionNeedsCredentials = telegramCredentials.hasSession && !telegramCredentials.hasCredentials;
+    const signedOutNeedsSignIn = telegramCredentials.signedOut && !telegramCredentials.hasSession;
+    if (sessionNeedsCredentials || signedOutNeedsSignIn) {
+      setIsTelegramManagementOpen(true);
+    }
+  }, [telegramCredentials.hasCredentials, telegramCredentials.hasSession, telegramCredentials.signedOut]);
+
   return (
     <div className="settings-view">
       <main className="settings-view-content">
@@ -251,7 +259,7 @@ export function SettingsView({
                     {telegramAuthError && (telegramConnected || telegramCredentials.hasSession) && <p className="settings-view-error" role="alert">{telegramAuthError}</p>}
                   </div>
 
-                  <details className="telegram-manager-advanced">
+                  <details className="telegram-manager-advanced" open={!telegramCredentials.hasCredentials}>
                     <summary>{t('settings.telegramAdvancedApi')}</summary>
                     <div className="telegram-manager-details">
                       <span>{t('settings.telegramCredentials')}: <strong>{telegramCredentials.hasCredentials ? t('settings.credentialsReady') : t('settings.credentialsMissing')}</strong></span>

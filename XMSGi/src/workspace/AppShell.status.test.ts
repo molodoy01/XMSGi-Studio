@@ -51,7 +51,7 @@ describe('shared History Drawer entry point', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Posts' }));
 
-    expect(screen.getByRole('dialog', { name: 'Публикации' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Posts' })).toBeInTheDocument();
     expect(screen.getByText('Current screen')).toBeInTheDocument();
   });
 
@@ -150,7 +150,7 @@ describe('shared History Drawer entry point', () => {
 
     const secondView = renderShell();
     try {
-      expect(screen.getByRole('dialog', { name: 'Публикации' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Posts' })).toBeInTheDocument();
     } finally {
       secondView.unmount();
     }

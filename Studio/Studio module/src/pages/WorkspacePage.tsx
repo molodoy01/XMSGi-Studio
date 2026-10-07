@@ -1,35 +1,34 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { ChatAvatar } from '@/components/ChatAvatar';
-import { ChatRemoveModal } from '@/components/ChatRemoveModal';
-import { ChatPreviewStand, type ChatWallpaper } from '@/components/ChatPreviewStand';
-import { DraftColorPicker } from '@/components/DraftColorPicker';
-import { RichTextEditor } from '@/components/RichTextEditor';
-import { WorkspaceTextStage } from '@/components/WorkspaceTextStage';
-import { NOTIFICATION_DURATION_MS } from '@/hooks/useNotifications';
-import { createTemplate, deleteTemplate, insertTextAtSelection, updateTemplate } from '@/lib/templates';
-import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '@/lib/drafts';
-import { DRAFT_STORE_SCHEMA_VERSION } from '@/lib/draftStoreVersion';
-import { normalizeRichTextEntities } from '@/lib/richText';
-import { sliceRichText } from '@/lib/richText';
-import { getMessageMaxLength } from '@/lib/messageLimits';
-import { appendPreviewMessage } from '@/lib/preview';
-import { toInlineKeyboardMarkup } from '@/lib/inlineKeyboard';
-import type { InlineButtonRow } from '@/lib/inlineKeyboard';
-import { loadSavedDrafts, loadTemplates, saveTemplates } from '@/lib/storage';
-import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '@/lib/scheduling';
+import { ChatAvatar } from '../components/ChatAvatar';
+import { ChatRemoveModal } from '../components/ChatRemoveModal';
+import { ChatPreviewStand, type ChatWallpaper } from '../components/ChatPreviewStand';
+import { DraftColorPicker } from '../components/DraftColorPicker';
+import { RichTextEditor } from '../components/RichTextEditor';
+import { WorkspaceTextStage } from '../components/WorkspaceTextStage';
+import { NOTIFICATION_DURATION_MS } from '../hooks/useNotifications';
+import { createTemplate, deleteTemplate, insertTextAtSelection, updateTemplate } from '../lib/templates';
+import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '../lib/drafts';
+import { DRAFT_STORE_SCHEMA_VERSION } from '../lib/draftStoreVersion';
+import { normalizeRichTextEntities } from '../lib/richText';
+import { sliceRichText } from '../lib/richText';
+import { getMessageMaxLength } from '../lib/messageLimits';
+import { appendPreviewMessage } from '../lib/preview';
+import { toInlineKeyboardMarkup } from '../lib/inlineKeyboard';
+import { useLocale } from '@/lib/i18n';
+import type { InlineButtonRow } from '../lib/inlineKeyboard';
+import { loadSavedDrafts, loadTemplates, saveTemplates } from '../lib/storage';
+import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '../lib/scheduling';
 import type {
   Chat,
   DraftAttachment,
-  DraftColor,
   PersistedDraftStore,
-  PreviewChatHistory,
   RichTextEntity,
-  SavedDraft,
   ScheduledMessage,
+  SavedDraft,
   Template,
-} from '@/types';
+} from '../types';
 import './WorkspacePage.css';
 
 type WorkspacePageProps = {
@@ -74,7 +73,6 @@ type WorkspacePageProps = {
 };
 
 type PublishAction = 'send' | 'schedule' | 'draft';
-
 type IconRimMotion = {
   currentAngle: number;
   targetAngle: number;
@@ -723,6 +721,7 @@ export function WorkspacePage({
   onRegisterHistoryDraftDeleteHandler,
   onRegisterHistoryRescheduleHandler,
 }: WorkspacePageProps) {
+  const { locale, t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentPreviewUrlsRef = useRef(new Set<string>());
   const bodyInputRef = useRef<HTMLDivElement | null>(null);
@@ -804,7 +803,7 @@ export function WorkspacePage({
   const draftStoreQueueRef = useRef<Promise<void>>(Promise.resolve());
   const draftStorePendingRef = useRef(0);
   const [savedAt, setSavedAt] = useState(
-    () => initialDraftRef.current?.savedAt ?? 'Not saved',
+    () => initialDraftRef.current?.savedAt ?? '',
   );
   const [stageMode, setStageMode] = useState<'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons'>(() => {
     return isLivePreviewSurface() ? 'schedule' : 'editor';
@@ -1001,7 +1000,7 @@ export function WorkspacePage({
       try {
         const result = await draftStorage.save(data);
         if (!result.success) {
-          setDraftStoreError(result.error || 'Drafts could not be saved.');
+          setDraftStoreError(result.error || t('studio.draftsCouldNotSave'));
           setDraftStoreBackups(result.backupIndexes ?? []);
           return false;
         }
@@ -1033,7 +1032,7 @@ export function WorkspacePage({
         setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
         replaceAttachments(normalizeAttachments(workspaceDraft.attachments));
         setInlineButtons(workspaceDraft.inlineButtons ?? []);
-        setSavedAt(workspaceDraft.savedAt || 'Not saved');
+        setSavedAt(workspaceDraft.savedAt || '');
         if (workspaceDraft.date) setDate(workspaceDraft.date);
         if (workspaceDraft.time) setTime(workspaceDraft.time);
         if (workspaceDraft.repeatMode) setRepeatMode(workspaceDraft.repeatMode);
@@ -1044,6 +1043,7 @@ export function WorkspacePage({
         setDraftEntities([]);
         replaceAttachments([]);
         setInlineButtons([]);
+        setSavedAt('');
       }
     }
     setDraftStoreBackups([]);
@@ -1211,16 +1211,16 @@ export function WorkspacePage({
         if (!result.success) {
           const backups = result.backupIndexes ?? [];
           setDraftStoreBackups(backups);
-          if (!backups.length || !window.confirm('Saved drafts are damaged. Restore the newest valid backup?')) {
-            setDraftStoreError(result.error || 'Saved drafts could not be loaded.');
+          if (!backups.length || !window.confirm(t('studio.draftsDamagedPrompt'))) {
+            setDraftStoreError(result.error || t('studio.draftsCouldNotLoad'));
             return;
           }
 
           const restored = await draftStorage.restoreBackup(backups[0]);
-          if (!restored.success) throw new Error(restored.error || 'The backup could not be restored.');
+          if (!restored.success) throw new Error(restored.error || t('studio.backupCouldNotRestore'));
           result = await draftStorage.load();
         }
-        if (!result.success || !result.store) throw new Error(result.error || 'Saved drafts could not be loaded.');
+        if (!result.success || !result.store) throw new Error(result.error || t('studio.draftsCouldNotLoad'));
 
         let store = result.store;
         if (result.needsMigration || store.migrationVersion < 1) {
@@ -1229,7 +1229,7 @@ export function WorkspacePage({
             workspaceDraft: initialDraftRef.current as Record<string, unknown> | null,
           });
           if (!migrated.success || !migrated.store) {
-            throw new Error(migrated.error || 'Existing drafts could not be migrated. The original data was kept.');
+            throw new Error(migrated.error || t('studio.draftsMigrationFailed'));
           }
           store = migrated.store;
         }
@@ -1242,7 +1242,7 @@ export function WorkspacePage({
             store = saved.store ?? store;
             markDefaultDraftSeeded();
           } else {
-            setDraftStoreError(saved.error || 'The default draft could not be saved yet.');
+            setDraftStoreError(saved.error || t('studio.defaultDraftCouldNotSave'));
           }
         }
 
@@ -1311,7 +1311,7 @@ export function WorkspacePage({
         if (result.success) return;
         event.preventDefault();
         event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
-        setDraftStoreError(result.error || 'The latest draft could not be saved. Keep this window open and retry.');
+        setDraftStoreError(result.error || t('studio.latestDraftCouldNotSave'));
       } catch (error) {
         event.preventDefault();
         event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
@@ -1438,12 +1438,13 @@ export function WorkspacePage({
     const dateValue = new Date(date);
     if (Number.isNaN(dateValue.getTime())) return 'Schedule';
 
-    const summaryDate = new Intl.DateTimeFormat(undefined, {
+    const dateLocale = locale === 'ru' ? 'ru-RU' : 'en-US';
+    const summaryDate = new Intl.DateTimeFormat(dateLocale, {
       month: 'short',
       day: 'numeric',
     }).format(dateValue);
 
-    const summaryTime = new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
+    const summaryTime = new Date(`2000-01-01T${time}`).toLocaleTimeString(dateLocale, {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -1467,49 +1468,50 @@ export function WorkspacePage({
   let publishActionBlocker = '';
   if (publishAction === 'draft') {
     if (!hasDraftContentState) {
-      publishActionBlocker = 'Введите текст сообщения';
+      publishActionBlocker = t('studio.enterMessage');
     } else if (!draftStoreReady) {
-      publishActionBlocker = draftStoreError || 'Подождите загрузки хранилища черновиков';
+      publishActionBlocker = draftStoreError || t('studio.waitForDrafts');
     }
   } else if (publishAction === 'schedule') {
     if (!hasDraftContentState) {
-      publishActionBlocker = 'Введите текст сообщения';
+      publishActionBlocker = t('studio.enterMessage');
     } else if (!hasSelectedTarget) {
-      publishActionBlocker = 'Выберите чат';
+      publishActionBlocker = t('studio.selectChat');
     } else if (!hasValidScheduleDate) {
-      publishActionBlocker = 'Укажите корректную дату';
+      publishActionBlocker = t('studio.invalidDate');
     } else if (!hasValidScheduleTime) {
-      publishActionBlocker = 'Укажите корректное время';
+      publishActionBlocker = t('studio.invalidTime');
     } else if (!hasValidRepeatConfig) {
-      publishActionBlocker = 'Проверьте параметры повтора';
+      publishActionBlocker = t('studio.invalidRepeat');
     } else if (!hasFutureSchedule) {
-      publishActionBlocker = 'Укажите дату и время в будущем';
+      publishActionBlocker = t('studio.futureDateTime');
     }
   } else if (!hasDraftContentState) {
-    publishActionBlocker = 'Введите текст сообщения';
+    publishActionBlocker = t('studio.enterMessage');
   } else if (!hasSelectedTarget) {
-    publishActionBlocker = 'Выберите чат';
+    publishActionBlocker = t('studio.selectChat');
   } else if (attachmentError) {
-    publishActionBlocker = 'Исправьте ошибку во вложении';
+    publishActionBlocker = t('studio.fixAttachment');
   }
   const publishScheduleSummary = formatScheduleSummary(date, time, {
     mode: repeatMode,
     days: repeatDays,
     occurrences: repeatOccurrences,
-  });
+  }, locale);
+  const localizeChatName = (name: string) => name === 'Saved Messages' ? t('studio.savedMessagesType') : name;
   const currentModeSummary = rescheduleSource
-    ? `Replace scheduled post • ${rescheduleSource.chatName}`
+    ? t('studio.replaceScheduled', { chat: localizeChatName(rescheduleSource.chatName) })
     : publishAction === 'schedule'
-      ? (date && time ? publishScheduleSummary : 'Choose date and time')
+      ? (date && time ? publishScheduleSummary : t('studio.chooseDateTime'))
       : publishAction === 'draft'
-        ? `Draft • ${savedAt}`
+        ? t('studio.draftModeSummary', { time: savedAt || t('studio.notSaved') })
         : selectedChat
-          ? `Send now • ${selectedChat.name}`
-          : 'Send now • Choose a chat';
+          ? t('studio.sendToChatSummary', { chat: localizeChatName(selectedChat.name) })
+          : t('studio.sendChooseChatSummary');
   const publishFooterStatus = sendError
     ? { message: sendError, kind: 'error', transient: false, dismissible: false, duration: FOOTER_STATUS_DURATION_MS.sendError }
     : sendInFlight || publishingDraft
-      ? { message: 'Отправка…', kind: 'progress', transient: false, dismissible: false, duration: null }
+      ? { message: t('studio.sentProgress'), kind: 'progress', transient: false, dismissible: false, duration: null }
       : publishFeedback
         ? {
           message: publishFeedback,
@@ -1562,14 +1564,14 @@ export function WorkspacePage({
         replyMarkup,
       );
       if (!sent) {
-        setSendError('Не удалось отправить сообщение.');
+        setSendError(t('studio.sendFailed'));
         return;
       }
 
       setSendError('');
       setDraftBody('');
       setDraftEntities([]);
-      showPublishFeedback('Сообщение отправлено', 'success');
+      showPublishFeedback(t('studio.messageSent'), 'success');
 
       setPreviewHistory((current) => {
         if (!current || current.chat.id !== chat.id) return current;
@@ -1577,7 +1579,7 @@ export function WorkspacePage({
         return appendPreviewMessage(current, chat.id, text, replyMarkup);
       });
     } catch {
-      setSendError('Не удалось отправить сообщение.');
+      setSendError(t('studio.sendFailed'));
     } finally {
       sendInFlightRef.current = false;
       setSendInFlight(false);
@@ -1639,7 +1641,7 @@ export function WorkspacePage({
       setSavedDrafts(nextSavedDrafts);
       setSavedAt(nextDraft.savedAt);
     })) return;
-    showPublishFeedback('Черновик сохранён', 'success');
+    showPublishFeedback(t('studio.draftSavedNotice'), 'success');
     setScheduleSelectionConfirmed(false);
     setPublishAction('draft');
     setPublishMenuOpen(false);
@@ -1663,11 +1665,11 @@ export function WorkspacePage({
   const handlePrimaryPublish = () => {
     if (publishAction === 'schedule') {
       if (!hasDraftContentState) {
-        showPublishFeedback('Введите текст сообщения');
+        showPublishFeedback(t('studio.enterMessage'));
         return;
       }
       if (!hasSelectedTarget) {
-        showPublishFeedback('Выберите чат');
+        showPublishFeedback(t('studio.selectChat'));
         return;
       }
       if (!canSchedule) {
@@ -1675,7 +1677,7 @@ export function WorkspacePage({
           openScheduleStage();
         }
         if (hasDraftContentState && hasSelectedTarget && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && !hasFutureSchedule) {
-          showPublishFeedback('Укажите дату и время в будущем');
+          showPublishFeedback(t('studio.futureDateTime'));
         }
         return;
       }
@@ -1767,10 +1769,10 @@ export function WorkspacePage({
   };
 
   const handleDeleteTemplate = (template: Template) => {
-    if (!window.confirm(`Delete template "${template.name}"?`)) return;
+    if (!window.confirm(t('studio.confirmDeleteTemplate', { name: template.name }))) return;
 
     setTemplates((current) => deleteTemplate(current, template.id));
-    showPublishFeedback('Шаблон удалён', 'success');
+    showPublishFeedback(t('studio.templateDeleted'), 'success');
   };
 
   const openTemplateEditor = (template?: Template) => {
@@ -1905,14 +1907,14 @@ export function WorkspacePage({
   };
 
   const handleDeleteDraft = async (draft: SavedDraft) => {
-    if (!window.confirm(`Delete draft "${draft.name}"?`)) return;
+    if (!window.confirm(t('studio.confirmDeleteDraft', { name: draft.name }))) return;
 
     const nextSavedDrafts = deleteSavedDraft(savedDraftsRef.current, draft.id);
     const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
       savedDraftsRef.current = nextSavedDrafts;
       setSavedDrafts(nextSavedDrafts);
     });
-    if (deleted) showPublishFeedback('Черновик удалён', 'success');
+    if (deleted) showPublishFeedback(t('studio.draftDeleted'), 'success');
   };
 
   historyDraftClearerRef.current = async () => {
@@ -1924,7 +1926,7 @@ export function WorkspacePage({
     return persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
       savedDraftsRef.current = nextSavedDrafts;
       setSavedDrafts(nextSavedDrafts);
-      showPublishFeedback('Черновики удалены', 'success');
+      showPublishFeedback(t('studio.draftsDeleted'), 'success');
     });
   };
 
@@ -1946,7 +1948,7 @@ export function WorkspacePage({
       setDraftBodyText('');
       setDraftBodyEntities([]);
     }
-    showPublishFeedback('Черновик удалён', 'success');
+    showPublishFeedback(t('studio.draftDeleted'), 'success');
     return true;
   };
 
@@ -2015,7 +2017,7 @@ export function WorkspacePage({
 
     const result = await draftStorage.restoreBackup(index);
     if (!result.success || !result.store) {
-      setDraftStoreError(result.error || 'The selected backup could not be restored.');
+      setDraftStoreError(result.error || t('studio.selectedBackupCouldNotRestore'));
       return;
     }
     applyPersistedDraftStore(result.store);
@@ -2038,15 +2040,15 @@ export function WorkspacePage({
         savedDrafts: savedDraftsRef.current,
         workspaceDraft,
       });
-      showPublishFeedback('Резервная копия сохранена локально', 'success');
+      showPublishFeedback(t('studio.draftStorageSaved'), 'success');
       return;
     }
 
     const result = await draftStorage.exportBackup();
-    if (!result.success && !result.cancelled) setDraftStoreError(result.error || 'Draft backup could not be exported.');
+    if (!result.success && !result.cancelled) setDraftStoreError(result.error || t('studio.backupCouldNotExport'));
     else if (result.success) {
       setDraftStoreError('');
-      showPublishFeedback('Резервная копия экспортирована', 'success');
+      showPublishFeedback(t('studio.draftExported'), 'success');
     }
   };
 
@@ -2056,19 +2058,19 @@ export function WorkspacePage({
       const fallback = readWorkspaceDraftStoreFallback();
       if (fallback) {
         applyPersistedDraftStore(fallback);
-        showPublishFeedback('Черновики восстановлены из локального хранилища', 'success');
+        showPublishFeedback(t('studio.draftsRestored'), 'success');
       }
       return;
     }
 
     const result = await draftStorage.importBackup();
     if (!result.success) {
-      if (!result.cancelled) setDraftStoreError(result.error || 'Draft backup could not be imported.');
+      if (!result.cancelled) setDraftStoreError(result.error || t('studio.backupCouldNotImport'));
       return;
     }
     if (result.store) {
       applyPersistedDraftStore(result.store);
-      showPublishFeedback('Черновики импортированы', 'success');
+      showPublishFeedback(t('studio.draftsImported'), 'success');
     }
   };
 
@@ -2117,13 +2119,13 @@ export function WorkspacePage({
 
     if (templateEditingId === 'new') {
       handleCreateTemplate({ name: templateDraftName, body: templateDraftBody });
-      showPublishFeedback('Шаблон создан', 'success');
+      showPublishFeedback(t('studio.templateCreated'), 'success');
     } else if (templateEditingId) {
       handleUpdateTemplate(templateEditingId, {
         name: templateDraftName,
         body: templateDraftBody,
       });
-      showPublishFeedback('Шаблон обновлён', 'success');
+      showPublishFeedback(t('studio.templateUpdated'), 'success');
     }
 
     closeTemplateEditor();
@@ -2144,17 +2146,17 @@ export function WorkspacePage({
 
     for (const file of files) {
       if (currentCount + acceptedFiles.length >= MAX_ATTACHMENTS) {
-        nextError = `Можно добавить не больше ${MAX_ATTACHMENTS} файлов.`;
+        nextError = t('studio.fileCountLimit', { count: MAX_ATTACHMENTS });
         break;
       }
 
       if (file.size > MAX_ATTACHMENT_SIZE) {
-        nextError = `${file.name}: размер файла не должен превышать 50 МБ.`;
+        nextError = t('studio.fileSizeLimit', { name: file.name });
         continue;
       }
 
       if (nextSize + file.size > MAX_ATTACHMENTS_TOTAL_SIZE) {
-        nextError = 'Общий размер вложений не должен превышать 200 МБ.';
+        nextError = t('studio.totalFileSizeLimit');
         break;
       }
 
@@ -2187,7 +2189,7 @@ export function WorkspacePage({
               id: createAttachmentId(), type, name: file.name, mimeType,
               path: result.attachment.path, size: result.attachment.size, position: safePosition,
             }
-          : { error: result.error || `${file.name} could not be stored.` };
+          : { error: result.error || t('studio.fileStoreFailed', { name: file.name }) };
       } catch (error) {
         return { error: error instanceof Error ? error.message : `${file.name} could not be stored.` };
       }
@@ -2252,46 +2254,46 @@ export function WorkspacePage({
           ? (fallback.workspaceDraft as { body: string }).body
           : '';
         if (!body) {
-          setTextFileError('Text import is unavailable in this runtime.');
+          setTextFileError(t('studio.textImportUnavailable'));
           return;
         }
         setDraftBody(body);
         setDraftEntities([]);
         setTextFileError('');
         changeStageMode('editor');
-        showPublishFeedback('Текст импортирован в редактор', 'success');
+        showPublishFeedback(t('studio.textImported'), 'success');
         return;
       }
 
       const result = await draftStorage.importText();
       if (!result.success) {
-        if (!result.cancelled) setTextFileError(result.error || 'Text file could not be imported.');
+        if (!result.cancelled) setTextFileError(result.error || t('studio.textFileReadFailed'));
         return;
       }
       if (typeof result.text !== 'string') {
-        setTextFileError('The selected text file is empty or invalid.');
+        setTextFileError(t('studio.textFileEmpty'));
         return;
       }
       if (result.text.length > maxDraftLength) {
-        setTextFileError(`Text exceeds the current ${maxDraftLength}-character message limit.`);
+        setTextFileError(t('studio.textImportLimit', { limit: maxDraftLength }));
         return;
       }
-      if (draftBody.length > 0 && result.text !== draftBody && !window.confirm('Replace the current editor text with the imported text?')) return;
+      if (draftBody.length > 0 && result.text !== draftBody && !window.confirm(t('studio.confirmReplaceText'))) return;
 
       setDraftBody(result.text);
       setDraftEntities([]);
       setTextFileError('');
       changeStageMode('editor');
-      showPublishFeedback('Текст импортирован в редактор', 'success');
+      showPublishFeedback(t('studio.textImported'), 'success');
     } catch (error) {
-      setTextFileError(error instanceof Error ? error.message : 'Text file could not be imported.');
+      setTextFileError(error instanceof Error ? error.message : t('studio.textFileReadFailed'));
     }
   };
 
   return (
     <div
       ref={workspaceRef}
-      aria-label="Workspace page"
+      aria-label={t('studio.workspace')}
       className="workspace-page"
     >
       {attachmentPreview && createPortal(
@@ -2299,7 +2301,7 @@ export function WorkspacePage({
           className="workspace-page-attachment-preview"
           style={{ left: attachmentPreview.left, top: attachmentPreview.top, width: attachmentPreview.width, height: attachmentPreview.height }}
           role="tooltip"
-          aria-label={`Preview of ${attachmentPreview.name}`}
+          aria-label={t('studio.previewFile', { name: attachmentPreview.name })}
         >
           <img src={attachmentPreview.src} alt={attachmentPreview.name} />
         </div>,
@@ -2310,11 +2312,11 @@ export function WorkspacePage({
           <section className="workspace-page-panel workspace-page-editor-panel">
                 <div className="workspace-page-editor-heading">
                   <div className="workspace-page-editor-title">
-                    <span className="workspace-page-editor-title-text">Create Post</span>
+                    <span className="workspace-page-editor-title-text">{t('studio.createPost')}</span>
                   </div>
 
                   <div className="workspace-page-mode-summary" aria-live="polite">
-                    <span className="workspace-page-mode-summary-label">Current action</span>
+                    <span className="workspace-page-mode-summary-label">{t('studio.currentAction')}</span>
                     <strong>{currentModeSummary}</strong>
                   </div>
                 </div>
@@ -2322,21 +2324,21 @@ export function WorkspacePage({
                 <div className={`workspace-page-editor-shell${publishAction === 'schedule' ? ' is-scheduled' : publishAction === 'draft' ? ' is-draft' : ''}`}>
               <div className="workspace-page-editor-canvas">
                 <div className="workspace-page-form-row">
-                  <label className="workspace-page-field-label" aria-label="Channel selector" />
+                  <label className="workspace-page-field-label" aria-label={t('studio.channelSelector')} />
                   <div className="workspace-page-channel-picker">
-                    <button type="button" className="workspace-page-chat-trigger" onClick={openChatSelection} aria-label="Choose chat" title="Choose a chat or channel">
+                    <button type="button" className="workspace-page-chat-trigger" onClick={openChatSelection} aria-label={t('studio.chooseChat')} title={t('studio.chooseChatOrChannel')}>
                       {selectedChat ? (
                         <>
                           <ChatAvatar name={selectedChat.name} src={selectedChat.avatarDataUrl} className="workspace-page-chat-trigger-avatar" />
                           <span className="workspace-page-chat-trigger-copy">
-                            <strong>{selectedChat.name}</strong>
-                            <span>{selectedChat.name === 'Saved Messages' ? 'Saved Messages' : selectedChat.type || 'Chat'}</span>
+                            <strong>{localizeChatName(selectedChat.name)}</strong>
+                            <span>{selectedChat.name === 'Saved Messages' ? t('studio.savedMessagesType') : selectedChat.type || t('studio.chatType')}</span>
                           </span>
                           <ChevronDown className="workspace-page-chat-trigger-chevron" size={16} strokeWidth={1.8} aria-hidden="true" />
                         </>
                       ) : (
                         <>
-                          <span>Choose chat</span>
+                          <span>{t('studio.chooseChat')}</span>
                           <ChevronDown className="workspace-page-chat-trigger-chevron" size={16} strokeWidth={1.8} aria-hidden="true" />
                         </>
                       )}
@@ -2446,7 +2448,7 @@ export function WorkspacePage({
 
                 <div
                   className={`workspace-page-attachment-tray ${attachments.length === 0 ? 'is-empty' : ''}`}
-                  aria-label="Attached files"
+                  aria-label={t('studio.attachedFiles')}
                   aria-hidden={attachments.length === 0}
                 >
                   <div className="workspace-page-media-items">
@@ -2466,7 +2468,7 @@ export function WorkspacePage({
                               alt=""
                               className="workspace-page-attachment-thumbnail"
                               tabIndex={0}
-                              aria-label={`Preview ${file.name}`}
+                              aria-label={t('studio.previewFile', { name: file.name })}
                               onMouseEnter={(event) => {
                                 if (attachmentPreviewTimerRef.current !== null) {
                                   window.clearTimeout(attachmentPreviewTimerRef.current);
@@ -2502,8 +2504,8 @@ export function WorkspacePage({
                             type="button"
                             className="workspace-page-attachment-remove"
                             onClick={() => handleRemoveAttachment(file.id)}
-                            aria-label={`Remove ${file.name}`}
-                            title={`Remove ${file.name}`}
+                            aria-label={t('common.remove')}
+                            title={t('common.remove')}
                           >
                             ×
                           </button>
@@ -2520,8 +2522,8 @@ export function WorkspacePage({
                     onClick={() => fileInputRef.current?.click()}
                     onPointerMove={updateIconRimPointer}
                     onPointerLeave={clearIconRimPointer}
-                    aria-label="Add file"
-                    title="Add attachment"
+                    aria-label={t('studio.addFile')}
+                    title={t('studio.addAttachment')}
                   >
                     <svg className="workspace-page-attachment-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <defs>
@@ -2552,8 +2554,8 @@ export function WorkspacePage({
                     onClick={togglePreviewVisibility}
                     onPointerMove={updateIconRimPointer}
                     onPointerLeave={clearIconRimPointer}
-                    aria-label={previewLayout.visible === false ? 'Show preview' : 'Hide preview'}
-                    title={previewLayout.visible === false ? 'Show preview' : 'Hide preview'}
+                    aria-label={t(previewLayout.visible === false ? 'studio.showPreview' : 'studio.hidePreview')}
+                    title={t(previewLayout.visible === false ? 'studio.showPreview' : 'studio.hidePreview')}
                     aria-pressed={previewLayout.visible !== false}
                   >
                     {previewLayout.visible === false ? (
@@ -2599,40 +2601,38 @@ export function WorkspacePage({
                       }
                     }}
                     aria-pressed={stageMode === 'template'}
-                    title="Open and manage reusable message templates"
+                    title={t('studio.manageTemplates')}
                   >
-                    Templates
+                    {t('studio.templates')}
                   </button>
-                  {(publishAction === 'draft' || stageMode === 'draft') && (
-                    <button
-                      type="button"
-                      className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'draft' ? 'is-active' : ''}`}
-                      onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
-                      aria-pressed={stageMode === 'draft'}
-                      title="Open saved drafts"
-                    >
-                      Draft
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'draft' ? 'is-active' : ''}`}
+                    onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
+                    aria-pressed={stageMode === 'draft'}
+                    title={t('studio.openDrafts')}
+                  >
+                    {t('studio.draftModeButton')}
+                  </button>
                   {(publishAction === 'schedule' || stageMode === 'schedule') && (
-                    <div className="workspace-page-schedule-compact-group" aria-label="Schedule tools">
+                    <div className="workspace-page-schedule-compact-group" aria-label={t('studio.scheduleTools')}>
                       <button
                         type="button"
                         className={`workspace-page-mode-button workspace-page-schedule-compact-button ${stageMode === 'schedule' && scheduleFocus === 'time' ? 'is-active' : ''}`}
                         onClick={() => openScheduleStage('time')}
                         aria-pressed={stageMode === 'schedule' && scheduleFocus === 'time'}
-                        title="Set the schedule date and time"
+                        title={t('studio.setDateTime')}
                       >
-                        Time
+                        {t('studio.time')}
                       </button>
                       <button
                         type="button"
                         className={`workspace-page-mode-button workspace-page-schedule-compact-button ${stageMode === 'schedule' && scheduleFocus === 'repeat' ? 'is-active' : ''}`}
                         onClick={() => openScheduleStage('repeat')}
                         aria-pressed={stageMode === 'schedule' && scheduleFocus === 'repeat'}
-                        title="Configure a repeating schedule"
+                        title={t('studio.configureRepeat')}
                       >
-                        Repeat
+                        {t('studio.repeat')}
                       </button>
                     </div>
                   )}
@@ -2649,10 +2649,10 @@ export function WorkspacePage({
                   >
                     <span className="workspace-page-publish-trigger-main">
                       {publishAction === 'schedule'
-                        ? (scheduling ? 'Scheduling…' : successPulse && lastAction === 'scheduled' ? 'Scheduled' : 'Schedule')
+                        ? (scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule'))
                         : publishAction === 'draft'
-                          ? 'Save draft'
-                          : (publishingDraft ? 'Sending…' : successPulse && lastAction === 'sent' ? 'Sent' : 'Send now')}
+                          ? t('studio.saveDraft')
+                          : (publishingDraft ? t('studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendNow'))}
                     </span>
                   </button>
                   <button
@@ -2660,8 +2660,8 @@ export function WorkspacePage({
                     className={`workspace-page-publish-trigger workspace-page-publish-menu-toggle ${publishMenuOpen ? 'is-active' : ''}`}
                     ref={publishMenuToggleRef}
                     onClick={() => setPublishMenuOpen((current) => !current)}
-                    aria-label="More publish options"
-                    title="Choose Send now, Schedule, or Save draft"
+                    aria-label={t('studio.morePublishOptions')}
+                    title={t('studio.choosePublishAction')}
                     aria-expanded={publishMenuOpen}
                     aria-haspopup="menu"
                     aria-pressed={publishMenuOpen}
@@ -2692,7 +2692,7 @@ export function WorkspacePage({
                   </button>
 
                   {publishMenuOpen && (
-                    <div className="workspace-page-publish-menu workspace-page-publish-menu-compact" role="menu" aria-label="Publish action">
+                    <div className="workspace-page-publish-menu workspace-page-publish-menu-compact" role="menu" aria-label={t('studio.publishAction')}>
                       <button
                         type="button"
                         className={`workspace-page-publish-option is-send ${publishAction === 'send' ? 'is-selected' : ''}`}
@@ -2703,7 +2703,7 @@ export function WorkspacePage({
                         onPointerMove={updateGlassPointer}
                         onPointerLeave={clearGlassPointer}
                       >
-                        <span>Send now</span>
+                        <span>{t('studio.sendNow')}</span>
                       </button>
                       <button
                         type="button"
@@ -2715,7 +2715,7 @@ export function WorkspacePage({
                         onPointerMove={updateGlassPointer}
                         onPointerLeave={clearGlassPointer}
                       >
-                        <span>{scheduling ? 'Scheduling…' : successPulse && lastAction === 'scheduled' ? 'Scheduled' : 'Schedule'}</span>
+                        <span>{scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule')}</span>
                       </button>
                       <button
                         type="button"
@@ -2727,7 +2727,7 @@ export function WorkspacePage({
                         onPointerMove={updateGlassPointer}
                         onPointerLeave={clearGlassPointer}
                       >
-                        <span>Save draft</span>
+                        <span>{t('studio.draftMenuOption')}</span>
                       </button>
                     </div>
                   )}
@@ -2736,7 +2736,7 @@ export function WorkspacePage({
               </div>
 
               <div className="workspace-page-action-row workspace-page-draft-footer">
-                <div className="workspace-page-draft-meta">Draft saved: {savedAt}</div>
+                <div className="workspace-page-draft-meta">{savedAt ? t('studio.draftSaved', { time: savedAt }) : t('studio.draftNotSaved')}</div>
                 <div className={`workspace-page-schedule-summary ${publishAction === 'draft' ? 'has-draft-color-picker' : ''}`}>
                   <div
                     className={`workspace-page-publish-footer-content${publishFooterStatus ? ' is-feedback-hidden' : ''}`}
@@ -2745,7 +2745,7 @@ export function WorkspacePage({
                     {publishAction === 'schedule'
                       ? publishScheduleSummary
                       : publishAction === 'draft'
-                        ? <DraftColorPicker color={draftColor} onChange={setDraftColor} ariaLabel="Color for new draft" />
+                        ? <DraftColorPicker color={draftColor} onChange={setDraftColor} ariaLabel={t('studio.colorNewDraft')} />
                         : ''}
                   </div>
                 </div>
@@ -2762,26 +2762,26 @@ export function WorkspacePage({
                     <span>{publishFooterStatus.message}</span>
                     {sendError && (
                       <button type="button" className="workspace-page-send-retry" onClick={() => void sendDraftNow()} disabled={sendInFlight}>
-                        Retry
+                        {t('studio.retry')}
                       </button>
                     )}
                     {previewHistoryError && previewHistoryErrorRetryable && publishFooterStatus.message === previewHistoryError && (
                       <button type="button" className="workspace-page-send-retry" onClick={() => setPreviewHistoryRetry((retry) => retry + 1)} disabled={previewHistoryLoading}>
-                        Retry
+                        {t('studio.retry')}
                       </button>
                     )}
                     {draftStoreError && publishFooterStatus.message === draftStoreError && draftStoreBackups.map((index) => (
                       <button key={index} type="button" className="workspace-page-send-retry" onClick={() => void handleRestoreDraftBackup(index)}>
-                        Restore backup {index}
+                        {t('studio.restoreBackup', { number: index })}
                       </button>
                     ))}
                     {draftStoreError && publishFooterStatus.message === draftStoreError && (
                       <button type="button" className="workspace-page-send-retry" onClick={() => window.location.reload()}>
-                        Retry
+                        {t('studio.retry')}
                       </button>
                     )}
                     {publishFooterStatus.dismissible && (
-                      <button type="button" className="workspace-page-publish-status-dismiss" onClick={closeNotification} aria-label="Dismiss status">
+                      <button type="button" className="workspace-page-publish-status-dismiss" onClick={closeNotification} aria-label={t('studio.dismissStatus')}>
                         ×
                       </button>
                     )}

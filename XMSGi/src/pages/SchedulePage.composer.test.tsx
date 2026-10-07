@@ -1,12 +1,15 @@
 import { useState, type ComponentProps } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider } from '@/lib/i18n';
 import { SchedulePage } from './SchedulePage';
 
-function renderComposer(initialMessage = '') {
+function renderComposer(initialMessage = '', savedMessagesAvailable = true, signedOut = false, connected = !signedOut) {
   const showNotification = vi.fn();
   const handleSchedule = vi.fn();
+  const handleWelcomeBack = vi.fn(async () => undefined);
+  const setSelectedChat = vi.fn();
+  const savedMessagesChat = { id: 'saved-messages', name: 'Saved Messages', type: 'private' as const };
   vi.stubGlobal('telegram', {
     getFilePath: (file: File) => `/attachments/${file.name}`,
     getAvailableEffects: async () => ({
@@ -24,9 +27,10 @@ function renderComposer(initialMessage = '') {
       setIsSettingsOpen: vi.fn(),
       notification: { visible: false, message: '', type: 'info', title: '' },
       closeNotification: vi.fn(),
-      connected: true,
-      signedOut: false,
-      returningUserName: '',
+      connected,
+      signedOut,
+      returningUserName: signedOut ? 'Alex Example' : '',
+      returningUserUsername: signedOut ? 'alex_example' : '',
       connecting: false,
       connectionResolved: true,
       authStep: 'phone',
@@ -43,12 +47,14 @@ function renderComposer(initialMessage = '') {
       setTwoFactorPassword: vi.fn(),
       setAuthError: vi.fn(),
       handleTelegramAuth: vi.fn(async () => undefined),
-      handleWelcomeBack: vi.fn(async () => undefined),
-      handleForgetAccount: vi.fn(async () => undefined),
-      chats: [{ id: 'chat-1', name: 'Test chat' }],
+      handleWelcomeBack,
+      chats: [
+        { id: 'chat-1', name: 'Test chat' },
+        ...(savedMessagesAvailable ? [savedMessagesChat] : []),
+      ],
       selectedChat: { id: 'chat-1', name: 'Test chat' },
       selectedChatPermissions: { canView: true, canSend: true, canSchedule: true },
-      setSelectedChat: vi.fn(),
+      setSelectedChat,
       handleAddChat: vi.fn(),
       handleRemoveChat: vi.fn(),
       assistantPrompt: '',
@@ -88,18 +94,68 @@ function renderComposer(initialMessage = '') {
 
   const result = render(<LocaleProvider><Harness /></LocaleProvider>);
   const editor = result.container.querySelector<HTMLTextAreaElement>('.message-field textarea');
-  if (!editor) throw new Error('Production message textarea was not rendered.');
+  if (!editor && connected) throw new Error('Production message textarea was not rendered.');
 
   return {
     ...result,
-    editor,
+    editor: editor!,
     handleSchedule,
+    handleWelcomeBack,
+    setSelectedChat,
+    savedMessagesChat,
     showSuccess: () => result.rerender(<LocaleProvider><Harness isSuccessPulse /></LocaleProvider>),
   };
 }
 
 describe('SchedulePage production composer', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it('shows the welcome copy and account name as a one-click return action', () => {
+    const { container, handleWelcomeBack } = renderComposer('', true, true);
+    const accountButton = container.querySelector<HTMLButtonElement>('.returning-user-name');
+
+    expect(container.querySelector('.auth-panel')).toHaveClass('is-returning');
+    expect(accountButton).toHaveTextContent('Alex Example');
+    expect(container.querySelector('.returning-user-greeting')).toHaveTextContent('WELCOME BACK,');
+    expect(container.querySelector('.returning-user-actions')).not.toBeInTheDocument();
+
+    fireEvent.click(accountButton!);
+    expect(handleWelcomeBack).toHaveBeenCalledOnce();
+  });
+
+  it('shows the localized two-line hero on login and return screens', () => {
+    const previousLocale = window.localStorage.getItem('awaitmsg_locale');
+
+    try {
+      for (const [locale, main, sub, tagline, taglineSub] of [
+        ['en', 'MSGi', 'Studio', 'Create. Shape. Publish.', 'Your Content. Your Studio.'],
+        ['ru', 'MSGi', 'Studio', 'Создавай. Формируй. Публикуй.', 'Твой контент. Твоя студия.'],
+      ]) {
+        window.localStorage.setItem('awaitmsg_locale', locale);
+        const login = renderComposer('', true, false, false);
+        expect(login.container.querySelector('.auth-brand')).not.toBeInTheDocument();
+        expect(login.container.querySelector('.auth-hero-logo-x')).toHaveAttribute('src', expect.stringContaining('xmsgi-logo-master'));
+        expect(login.getByRole('img', { name: 'XMSGi' })).toBeInTheDocument();
+        expect(login.container.querySelector('.auth-hero-line-main')).toHaveTextContent(main);
+        expect(login.container.querySelector('.auth-hero-line-sub')).toHaveTextContent(sub);
+        expect(login.container.querySelector('.auth-hero-tagline')).toHaveTextContent(tagline);
+        expect(login.container.querySelector('.auth-hero-tagline-sub')).toHaveTextContent(taglineSub);
+        login.unmount();
+
+        const returning = renderComposer('', true, true, false);
+        expect(returning.container.querySelector('.auth-hero-logo-x')).toHaveAttribute('src', expect.stringContaining('xmsgi-logo-master'));
+        expect(returning.getByRole('img', { name: 'XMSGi' })).toBeInTheDocument();
+        expect(returning.container.querySelector('.auth-hero-line-main')).toHaveTextContent(main);
+        expect(returning.container.querySelector('.auth-hero-line-sub')).toHaveTextContent(sub);
+        expect(returning.container.querySelector('.auth-hero-tagline')).toHaveTextContent(tagline);
+        expect(returning.container.querySelector('.auth-hero-tagline-sub')).toHaveTextContent(taglineSub);
+        returning.unmount();
+      }
+    } finally {
+      if (previousLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', previousLocale);
+    }
+  });
 
   it('pastes into a selected middle range and keeps the caret after the pasted text', () => {
     const { editor } = renderComposer('hello world');
@@ -154,6 +210,43 @@ describe('SchedulePage production composer', () => {
     expect(optionsMenu.parentElement).toBe(document.body);
     expect(optionsMenu.textContent).toContain('Silent sending');
     expect(optionsMenu.textContent).toContain('Effect');
+    expect(optionsMenu.textContent).toContain('Create reminder in Saved Messages');
+  });
+
+  it('selects Saved Messages immediately when reminder mode is enabled', async () => {
+    const { container, editor, savedMessagesChat, setSelectedChat } = renderComposer();
+    const pencilLabel = 'Create reminder in Saved Messages';
+
+    expect(container.querySelector('.message-reminder-indicator')).not.toBeInTheDocument();
+    fireEvent.click(container.querySelector('.message-send-button')!);
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: pencilLabel }));
+
+    expect(container.querySelector('.message-reminder-indicator')).toBeInTheDocument();
+    expect(setSelectedChat).toHaveBeenCalledWith(savedMessagesChat);
+    await waitFor(() => expect(editor).toHaveFocus());
+  });
+
+  it('disables the reminder option when Saved Messages is unavailable', () => {
+    const { container } = renderComposer('', false);
+    const pencilLabel = 'Create reminder in Saved Messages';
+    fireEvent.click(container.querySelector('.message-send-button')!);
+
+    expect(screen.getByRole('menuitemcheckbox', { name: pencilLabel })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: pencilLabel })).not.toBeInTheDocument();
+  });
+
+  it('hides the pencil when the reminder menu section is selected again', () => {
+    const { container, savedMessagesChat, setSelectedChat } = renderComposer();
+    const pencilLabel = 'Create reminder in Saved Messages';
+    fireEvent.click(container.querySelector('.message-send-button')!);
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: pencilLabel }));
+
+    fireEvent.click(container.querySelector('.message-send-button')!);
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: pencilLabel }));
+
+    expect(container.querySelector('.message-reminder-indicator')).not.toBeInTheDocument();
+    expect(setSelectedChat).toHaveBeenCalledTimes(1);
+    expect(setSelectedChat).toHaveBeenCalledWith(savedMessagesChat);
   });
 
   it('shows available Telegram effects inside the effect submenu', async () => {

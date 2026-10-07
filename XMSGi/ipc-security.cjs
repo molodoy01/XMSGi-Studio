@@ -159,13 +159,31 @@ function validateHistoryPayload(value) {
 
   const limit = value.limit === undefined ? 50 : value.limit;
 
-  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     invalidInput('history limit has an invalid range');
   }
 
   return {
     chatId: validateChatId(value.chatId),
     limit
+  };
+}
+
+function validateDeleteSavedMessagePayload(value) {
+  if (!isPlainObject(value)) {
+    invalidInput('delete saved message payload must be an object');
+  }
+
+  const messageId = value.messageId;
+  const validMessageId = (typeof messageId === 'number' && Number.isSafeInteger(messageId))
+    || (typeof messageId === 'string' && /^\d{1,10}$/.test(messageId));
+  if (!validMessageId || Number(messageId) < 1 || Number(messageId) > 2147483647) {
+    invalidInput('messageId has an invalid format');
+  }
+
+  return {
+    chatId: validateChatId(value.chatId),
+    messageId: Number(messageId)
   };
 }
 
@@ -383,6 +401,7 @@ module.exports = {
   validateQuery,
   validateSchedulePayload,
   validateHistoryPayload,
+  validateDeleteSavedMessagePayload,
   validateCancelPayload,
   validateSendPayload,
   validateLoginPayload,

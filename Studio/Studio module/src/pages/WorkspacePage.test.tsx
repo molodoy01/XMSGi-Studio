@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
+import { LocaleProvider } from '../../../../XMSGi/src/lib/i18n';
 import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, remapAttachmentPositions, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -55,7 +56,7 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
   };
 
   await act(async () => {
-    root.render(<WorkspacePage {...defaults} {...overrides} />);
+    root.render(<LocaleProvider><WorkspacePage {...defaults} {...overrides} /></LocaleProvider>);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -64,7 +65,7 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
   return {
     root,
     rerender: (nextOverrides: Partial<React.ComponentProps<typeof WorkspacePage>> = {}) => act(() => {
-      root.render(<WorkspacePage {...defaults} {...overrides} {...nextOverrides} />);
+      root.render(<LocaleProvider><WorkspacePage {...defaults} {...overrides} {...nextOverrides} /></LocaleProvider>);
     }),
     unmount: () => {
       act(() => {
@@ -92,6 +93,16 @@ async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeo
   }
 
 describe('WorkspacePage main-screen flows', () => {
+  it('renders the main composer labels in the selected Russian locale', async () => {
+    localStorage.setItem('awaitmsg_locale', 'ru');
+    const { unmount } = await renderWorkspacePage();
+
+    expect(document.querySelector('.workspace-page-editor-title-text')?.textContent).toBe('Создать публикацию');
+    expect(document.querySelector('.workspace-page-publish-menu-toggle')?.getAttribute('aria-label'))
+      .toBe('Другие действия с публикацией');
+    unmount();
+  });
+
   it('falls back to localStorage when the Electron bridge is unavailable', async () => {
     const store = {
       schemaVersion: 2,
@@ -986,14 +997,14 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('shows the Draft button only for the draft action without a duplicate queue action', async () => {
+  it('keeps the Draft button after Templates and opens its stage', async () => {
     const { unmount } = await renderWorkspacePage();
 
     const actionGroup = document.querySelector('.workspace-page-action-left-group');
     const leftGroupButtons = Array.from(actionGroup?.querySelectorAll(':scope > button') ?? [])
       .map((button) => button.textContent?.trim());
 
-    expect(leftGroupButtons).not.toContain('Drafts');
+    expect(leftGroupButtons).toContain('Draft');
     expect(leftGroupButtons).not.toContain('Queue / History');
     expect((Array.from(actionGroup?.querySelectorAll(':scope > button') ?? [])
       .find((button) => button.textContent?.trim() === 'Templates') as HTMLButtonElement).title)

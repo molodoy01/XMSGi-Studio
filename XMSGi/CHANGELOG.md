@@ -1,21 +1,20 @@
 # Changelog
 
-## 2.2.0 - 2026-09-23
+## 1.1.0 - 2026-10-07
 
 ### Highlights
 
-- Added the XMSGi logo to the authentication and registration screens.
-- Added System Tray support with Open and Exit actions.
-- Added the complete Telegram dialog list, including channel visibility fixes.
-- Added migration for the new hidden-chat state.
-- Added a small hover `x` control for removing individual chats.
-- Improved attachment UX with stable composer layout, compact thumbnails, and image long-press preview.
+- Renamed the desktop product to XMSGi Studio while keeping the in-app header brand as XMSGi.
+- Added rich-text composition with attachments, inline buttons, templates, and saved drafts.
+- Expanded scheduling and history workflows for queued posts, cancellation, and rescheduling.
+- Improved Telegram sign-in, reconnect, session storage, and account-data migration.
+- Migrated active app-data filenames to the XMSGi Studio name while retaining legacy data migration.
 
 ### Packaging and quality
 
-- Updated the Windows production package to the XMSGi portable release format.
-- Included the required Telegram dialog and inline-keyboard runtime modules in packaging.
-- Cleaned up related code and expanded regression coverage for the released changes.
+- Synchronized the Windows app, embedded Studio module, and Settings version to 1.1.0.
+- Hardened IPC validation and portable Windows packaging.
+- Expanded regression coverage across authentication, editing, history, and scheduling.
 
 ## 2.1.7 - 2026-09-13
 
@@ -32,10 +31,6 @@
 - Improved encrypted local account storage and IPC validation.
 - Improved error handling, reconnect behavior, and overall application stability.
 
-### Experimental
-
-- The Gemini AI Assistant remains an experimental prototype for evaluation and is not an official feature of this release.
-
 ### Compatibility
 
 - No breaking changes are intended for existing users.
@@ -46,5 +41,4 @@
 ### Known limitations
 
 - The Windows build is currently distributed as a portable application.
-- Telegram and Gemini availability depends on the corresponding external services.
 - A local `.env` file may be used for development credentials, but it is excluded from Git and production packaging. Credentials stored there must never be committed or published.

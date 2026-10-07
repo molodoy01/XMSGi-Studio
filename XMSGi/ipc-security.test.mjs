@@ -7,6 +7,8 @@ import security from './ipc-security.cjs';
 const {
   validateCancelPayload,
   validateChatId,
+  validateDeleteSavedMessagePayload,
+  validateHistoryPayload,
   validateLoginPayload,
   validateTelegramCredentialsPayload,
   validateSchedulePayload,
@@ -94,6 +96,25 @@ describe('IPC security validation', () => {
       message: 'Retry safely',
       idempotencyKey: 'x'.repeat(129)
     })).toThrow('idempotencyKey');
+  });
+
+  it('validates a Saved Messages deletion payload', () => {
+    expect(validateDeleteSavedMessagePayload({ chatId: 'me', messageId: '42' })).toEqual({
+      chatId: 'me',
+      messageId: 42
+    });
+    expect(() => validateDeleteSavedMessagePayload({ chatId: 'username', messageId: '42' })).toThrow('chatId');
+    expect(() => validateDeleteSavedMessagePayload({ chatId: 'me', messageId: '0' })).toThrow('messageId');
+    expect(() => validateDeleteSavedMessagePayload({ chatId: 'me', messageId: '2147483648' })).toThrow('messageId');
+    expect(() => validateDeleteSavedMessagePayload({ chatId: 'me', messageId: 'invalid' })).toThrow('messageId');
+  });
+
+  it('allows loading the 100 Saved Messages shown by the Reminders history category', () => {
+    expect(validateHistoryPayload({ chatId: '123456789', limit: 100 })).toEqual({
+      chatId: '123456789',
+      limit: 100,
+    });
+    expect(() => validateHistoryPayload({ chatId: '123456789', limit: 101 })).toThrow('limit');
   });
 
   it('allows attachment-only sends but rejects fully empty sends', () => {
@@ -194,6 +215,7 @@ describe('IPC security validation', () => {
     expect(mainSource).not.toContain('session: result.session');
     expect(mainSource).not.toContain('user: result.user');
     expect(mainSource).not.toContain('phoneCodeHash: result.phoneCodeHash');
+    expect(mainSource).toContain("processEnv: developmentEnvironment");
 
     const telegramSource = fs.readFileSync(
       path.join(path.dirname(fileURLToPath(import.meta.url)), 'telegram.cjs'),

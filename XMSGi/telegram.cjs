@@ -964,11 +964,18 @@ async function connectTelegramInternal({ allowSignedOut = false } = {}) {
 
   refreshRuntimeSecrets();
 
-  if (!runtimeApiId || !runtimeApiHash || !runtimeSessionString) {
+  if (!runtimeApiId || !runtimeApiHash) {
+    lifecycleState.status = 'disconnected';
+    const error = new Error('Telegram API credentials are missing in the secure Electron userData config.');
+    error.code = 'TELEGRAM_CREDENTIALS_MISSING';
+    throw error;
+  }
 
-    throw new Error(
-      'Telegram credentials are missing in the secure Electron userData config'
-    );
+  if (!runtimeSessionString) {
+    lifecycleState.status = 'disconnected';
+    const error = new Error('No saved Telegram session is available. Sign in again to continue.');
+    error.code = 'TELEGRAM_SESSION_MISSING';
+    throw error;
   }
 
   if (runtimeSignedOut && !allowSignedOut) {
@@ -1491,6 +1498,40 @@ async function getChatHistoryInternal(chatId, limit = 50) {
 function getChatHistory(chatId, limit) {
   return trackTelegramOperation('getChatHistory', () =>
     getChatHistoryInternal(chatId, limit)
+  );
+}
+
+async function deleteSavedMessageInternal(chatId, messageId) {
+  if (!client) {
+    await connectTelegram();
+  }
+
+  const entity = await telegramRequest(() => withTimeout(
+    client.getEntity(chatId === 'me' ? 'me' : chatId),
+    REQUEST_TIMEOUT,
+    'Resolving Telegram Saved Messages'
+  ));
+  const currentUser = await telegramRequest(() => withTimeout(
+    client.getMe(),
+    REQUEST_TIMEOUT,
+    'Verifying Telegram Saved Messages'
+  ));
+  if (String(entity.id) !== String(currentUser.id)) {
+    throw new Error('Only messages from Saved Messages can be deleted here.');
+  }
+
+  await telegramRequest(() => withTimeout(
+    client.deleteMessages(entity, [messageId], { revoke: true }),
+    REQUEST_TIMEOUT,
+    'Deleting Telegram Saved Message'
+  ));
+
+  return { success: true };
+}
+
+function deleteSavedMessage(chatId, messageId) {
+  return trackTelegramOperation('deleteSavedMessage', () =>
+    deleteSavedMessageInternal(chatId, messageId)
   );
 }
 
@@ -2731,6 +2772,7 @@ function cancelScheduledMessage(chatId, messageId, message, targetTimestamp) {
     getChatPermissions,
     getChatAvatar,
     getChatHistory,
+    deleteSavedMessage,
     getContacts,
     getAvailableEffects,
     resolveChat,
@@ -2764,6 +2806,7 @@ module.exports = {
   getChatPermissions: (...args) => defaultCore.getChatPermissions(...args),
   getChatAvatar: (...args) => defaultCore.getChatAvatar(...args),
   getChatHistory: (...args) => defaultCore.getChatHistory(...args),
+  deleteSavedMessage: (...args) => defaultCore.deleteSavedMessage(...args),
   getContacts: (...args) => defaultCore.getContacts(...args),
   normalizeQuery,
   normalizePhone,

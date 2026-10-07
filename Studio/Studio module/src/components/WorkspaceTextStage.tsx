@@ -7,14 +7,9 @@ import { getScheduleDateTimeAfter, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeat
 import { InlineKeyboardBuilder } from '@/components/InlineKeyboardBuilder';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
+import { useLocale } from '../../../../XMSGi/src/lib/i18n';
 
-const chatTypeLabels: Record<NonNullable<Chat['type']>, string> = {
-  private: 'Private chat',
-  group: 'Group chat',
-  supergroup: 'Supergroup',
-  channel: 'Channel',
-  unknown: 'Chat',
-};
+type StudioTranslate = ReturnType<typeof useLocale>['t'];
 
 const timeOptions = Array.from({ length: 96 }, (_, index) => {
   const hour = Math.floor(index / 4);
@@ -43,10 +38,17 @@ function formatLocalDate(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
 
-function getDraftAttachmentSummary(draft: SavedDraft): string {
+function formatStudioWeekday(day: string, locale: 'en' | 'ru') {
+  const weekdayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day);
+  if (weekdayIndex < 0) return day;
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })
+    .format(new Date(Date.UTC(2023, 0, 1 + weekdayIndex)));
+}
+
+function getDraftAttachmentSummary(draft: SavedDraft, t: StudioTranslate): string {
   const attachments = draft.attachments ?? [];
   if (attachments.length === 0) return '';
-  return attachments.length === 1 ? '1 attachment' : `${attachments.length} attachments`;
+  return `${attachments.length} ${t(attachments.length === 1 ? 'studio.attachment' : 'studio.attachments')}`;
 }
 
 interface Props {
@@ -166,6 +168,7 @@ export function WorkspaceTextStage({
   inlineButtons,
   setInlineButtons,
 }: Props) {
+  const { locale, t } = useLocale();
   const [showAddChat, setShowAddChat] = useState(false);
   const [addChatQuery, setAddChatQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
@@ -192,6 +195,14 @@ export function WorkspaceTextStage({
     }
   });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const getChatTypeLabel = (chat: Chat) => {
+    if (chat.name === 'Saved Messages') return t('studio.savedMessagesType');
+    if (chat.type === 'private') return t('studio.privateChat');
+    if (chat.type === 'group') return t('studio.groupChat');
+    if (chat.type === 'supergroup') return t('studio.supergroup');
+    if (chat.type === 'channel') return t('studio.channelType');
+    return t('studio.chatType');
+  };
 
   useEffect(() => {
     if (mode === 'chat') {
@@ -222,10 +233,10 @@ export function WorkspaceTextStage({
   const filteredChats = chats.filter((chat) => {
     if (showFavoritesOnly && !favoriteChatIds.includes(chat.id)) return false;
 
-    const query = chatSearchQuery.trim().toLowerCase();
+    const query = chatSearchQuery.trim().toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : 'en-US');
     if (!query) return true;
 
-    return `${chat.name} ${chat.username || ''}`.toLowerCase().includes(query);
+    return `${chat.name} ${chat.username || ''}`.toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : 'en-US').includes(query);
   });
   const toggleChat = (chat: Chat) => {
     onChatSelectionChange([chat]);
@@ -248,7 +259,7 @@ export function WorkspaceTextStage({
     try {
       const result = await window.telegram.findChat(addChatQuery.trim());
       if (!result.success || !result.chat) {
-        const message = result.error || 'That chat could not be found.';
+        const message = result.error || t('studio.addChatFailed');
         onChatError(message);
         return;
       }
@@ -266,7 +277,7 @@ export function WorkspaceTextStage({
       setAddChatQuery('');
       setShowAddChat(false);
     } catch {
-      const message = 'Telegram could not be reached. Try again.';
+      const message = t('studio.connectionFailed');
       onChatError(message);
     } finally {
       setAddingChat(false);
@@ -351,43 +362,43 @@ export function WorkspaceTextStage({
     };
   }, [timePickerOpen]);
   const scheduleTimeLabel = time
-    ? new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : 'Choose time';
+    ? new Date(`2000-01-01T${time}`).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    : t('studio.chooseTime');
   const scheduleDateLabel = date
-    ? new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T12:00:00`))
-    : 'Choose date';
+    ? new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T12:00:00`))
+    : t('studio.chooseDate');
   const scheduleRepeatLabel = {
-    none: "Doesn't repeat",
-    daily: 'Every day',
-    weekly: `Every week${repeatDays.length ? ` · ${repeatDays.join(', ')}` : ''}`,
-    biweekly: `Every 2 weeks${repeatDays.length ? ` · ${repeatDays.join(', ')}` : ''}`,
-    monthly: `Every month${date ? ` · day ${new Date(`${date}T12:00:00`).getDate()}` : ''}`,
+    none: t('studio.repeatNone'),
+    daily: t('studio.repeatDaily'),
+    weekly: `${t('studio.repeatWeekly')}${repeatDays.length ? ` · ${repeatDays.map((day) => formatStudioWeekday(day, locale)).join(', ')}` : ''}`,
+    biweekly: `${t('studio.repeatBiweekly')}${repeatDays.length ? ` · ${repeatDays.map((day) => formatStudioWeekday(day, locale)).join(', ')}` : ''}`,
+    monthly: `${t('studio.repeatMonthly')}${date ? ` · ${t('studio.day').toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : 'en-US')} ${new Date(`${date}T12:00:00`).getDate()}` : ''}`,
   }[repeatMode];
   const quickTimePresets = [
-    { label: 'Now', minutes: 0 },
-    { label: '+15m', minutes: 15 },
-    { label: '+30m', minutes: 30 },
-    { label: '+1h', minutes: 60 },
+    { id: 'now', label: t('studio.now'), minutes: 0 },
+    { id: '15m', label: t('studio.in15Minutes'), minutes: 15 },
+    { id: '30m', label: t('studio.in30Minutes'), minutes: 30 },
+    { id: '1h', label: t('studio.inOneHour'), minutes: 60 },
   ];
   const quickDatePresets = [
-    { label: 'Today', days: 0 },
-    { label: '+1 day', days: 1 },
-    { label: '+1 week', days: 7 },
-    { label: '+1 month', months: 1 },
+    { id: 'today', label: t('studio.today'), days: 0 },
+    { id: 'day', label: t('studio.inOneDay'), days: 1 },
+    { id: 'week', label: t('studio.inOneWeek'), days: 7 },
+    { id: 'month', label: t('studio.inOneMonth'), months: 1 },
   ];
   const repeatModePresets: Array<{ label: string; value: ScheduleRepeatOptions['mode'] }> = [
-    { label: "Doesn't repeat", value: 'none' },
-    { label: 'Daily', value: 'daily' },
-    { label: 'Weekly', value: 'weekly' },
-    { label: 'Bi-weekly', value: 'biweekly' },
-    { label: 'Monthly', value: 'monthly' },
+    { label: t('studio.repeatNone'), value: 'none' },
+    { label: t('studio.repeatDaily'), value: 'daily' },
+    { label: t('studio.repeatWeekly'), value: 'weekly' },
+    { label: t('studio.repeatBiweekly'), value: 'biweekly' },
+    { label: t('studio.repeatMonthly'), value: 'monthly' },
   ];
   const repeatOccurrenceOptions = [1, 3, 5, 10, MAX_SCHEDULE_OCCURRENCES];
   const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const activeScheduleFocus = scheduleFocus === 'repeat' ? 'repeat' : 'time';
   const displayRepeatSummary = repeatMode === 'none'
-    ? 'No repeat'
-    : `${scheduleRepeatLabel}${repeatMode === 'monthly' ? '' : ` · ${repeatOccurrences}x`}`;
+    ? t('studio.repeatNone')
+    : `${scheduleRepeatLabel}${repeatMode === 'monthly' ? '' : ` · ${t('studio.repeatCountSummary', { count: repeatOccurrences })}`}`;
   const scheduleHeaderDetails = activeScheduleFocus === 'repeat' && repeatMode !== 'none'
     ? `${scheduleDateLabel} · ${scheduleTimeLabel} · ${displayRepeatSummary}`
     : `${scheduleDateLabel} · ${scheduleTimeLabel}`;
@@ -442,20 +453,20 @@ export function WorkspaceTextStage({
       <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-schedule-stage ${mode === 'schedule' ? 'is-active' : ''} is-${activeScheduleFocus}-focus`} aria-hidden={mode !== 'schedule'}>
         <header className="workspace-page-stage-header workspace-page-schedule-header">
           <div className="workspace-page-schedule-header-title">
-            <strong>Schedule</strong>
+            <strong>{t('studio.scheduleStage')}</strong>
             <span className="workspace-page-schedule-header-time">{scheduleHeaderDetails}</span>
           </div>
           <span className="workspace-page-schedule-timezone">{getLocalTimezoneLabel()}</span>
         </header>
 
-        <div className={`workspace-page-stage-main workspace-page-schedule-main workspace-page-schedule-empty-panel workspace-page-schedule-${activeScheduleFocus}-focus-panel`} aria-label={`${activeScheduleFocus === 'time' ? 'Time' : 'Repeat'} schedule settings`}>
+        <div className={`workspace-page-stage-main workspace-page-schedule-main workspace-page-schedule-empty-panel workspace-page-schedule-${activeScheduleFocus}-focus-panel`} aria-label={`${activeScheduleFocus === 'time' ? t('studio.time') : t('studio.repeat')} ${t('studio.scheduleTools').toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : 'en-US')}`}>
             {activeScheduleFocus === 'time' && (
               <>
                 <div className="workspace-page-schedule-inline-row">
                   <div className="workspace-page-schedule-inline-field workspace-page-schedule-inline-date">
                 <input
                   ref={scheduleDateInputRef}
-                  aria-label="Schedule date picker"
+                  aria-label={t('studio.scheduleDatePicker')}
                   className="workspace-page-schedule-date-native-input"
                   type="date"
                   value={date || ''}
@@ -465,13 +476,13 @@ export function WorkspaceTextStage({
                   }}
                   onClick={(event) => event.stopPropagation()}
                 />
-                <button type="button" className="workspace-page-schedule-icon-button" aria-label="Open date picker" onClick={openScheduleDatePicker} tabIndex={0}>
+                <button type="button" className="workspace-page-schedule-icon-button" aria-label={t('studio.openDatePicker')} onClick={openScheduleDatePicker} tabIndex={0}>
                   <CalendarDays className="workspace-page-schedule-field-icon" size={15} strokeWidth={1.8} />
                 </button>
                 <div className="workspace-page-schedule-inline-value workspace-page-schedule-date-value">
                   <input
                     ref={scheduleDayInputRef}
-                    aria-label="Day"
+                    aria-label={t('studio.day')}
                     className="workspace-page-schedule-segment"
                     type="text"
                     inputMode="numeric"
@@ -488,7 +499,7 @@ export function WorkspaceTextStage({
                   <span className="workspace-page-schedule-separator">/</span>
                   <input
                     ref={scheduleMonthInputRef}
-                    aria-label="Month"
+                    aria-label={t('studio.month')}
                     className="workspace-page-schedule-segment"
                     type="text"
                     inputMode="numeric"
@@ -505,7 +516,7 @@ export function WorkspaceTextStage({
                   <span className="workspace-page-schedule-separator">/</span>
                   <input
                     ref={scheduleYearInputRef}
-                    aria-label="Year"
+                    aria-label={t('studio.year')}
                     className="workspace-page-schedule-segment workspace-page-schedule-segment-year"
                     type="text"
                     inputMode="numeric"
@@ -522,7 +533,7 @@ export function WorkspaceTextStage({
                 </div>
                   </div>
                   <label className="workspace-page-schedule-inline-field workspace-page-schedule-inline-time">
-                    <button ref={timePickerButtonRef} type="button" className="workspace-page-schedule-icon-button" aria-label="Open time picker" aria-haspopup="listbox" aria-expanded={timePickerOpen} onClick={(event) => {
+                    <button ref={timePickerButtonRef} type="button" className="workspace-page-schedule-icon-button" aria-label={t('studio.openTimePicker')} aria-haspopup="listbox" aria-expanded={timePickerOpen} onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
                       openScheduleTimePicker();
@@ -534,7 +545,7 @@ export function WorkspaceTextStage({
                         ref={timePickerRef}
                         className="workspace-page-schedule-time-picker"
                         role="listbox"
-                        aria-label="Available times"
+                        aria-label={t('studio.availableTimes')}
                         style={{ top: timePickerPosition.top, left: timePickerPosition.left }}
                       >
                         {timeOptions.map((option) => (
@@ -557,7 +568,7 @@ export function WorkspaceTextStage({
                     )}
                     <input
                       ref={scheduleTimeInputRef}
-                      aria-label="Schedule time"
+                      aria-label={t('studio.scheduleTime')}
                       type="time"
                       value={time || ''}
                       onChange={(event) => {
@@ -573,10 +584,10 @@ export function WorkspaceTextStage({
             {activeScheduleFocus === 'time' ? (
               <>
                 <div className="workspace-page-schedule-quick-panel workspace-page-schedule-quick-date-panel">
-                  <div className="workspace-page-schedule-options-heading">Quick date</div>
+                  <div className="workspace-page-schedule-options-heading">{t('studio.quickDate')}</div>
                   <div className="workspace-page-schedule-quick-row">
                     {quickDatePresets.map((preset) => (
-                      <button key={preset.label} type="button" aria-label={`Set date ${preset.label}`} onClick={() => {
+                      <button key={preset.id} type="button" aria-label={t('studio.setDate', { date: preset.label })} onClick={() => {
                         const selectedDate = preset.days === 0
                           ? new Date()
                           : date ? new Date(`${date}T12:00:00`) : new Date();
@@ -600,11 +611,11 @@ export function WorkspaceTextStage({
                   </div>
                 </div>
                 <div className="workspace-page-schedule-quick-panel workspace-page-schedule-quick-time-panel">
-                  <div className="workspace-page-schedule-options-heading">Quick time</div>
+                  <div className="workspace-page-schedule-options-heading">{t('studio.quickTime')}</div>
                   <div className="workspace-page-schedule-quick-row">
                     {quickTimePresets.map((preset) => (
-                      <button key={preset.label} type="button" aria-label={`Set time ${preset.label}`} onClick={() => {
-                        if (preset.label === 'Now') {
+                      <button key={preset.id} type="button" aria-label={t('studio.setTime', { time: preset.label })} onClick={() => {
+                        if (preset.id === 'now') {
                           const scheduledAt = getScheduleDateTimeAfter(0);
                           setDate(scheduledAt.date);
                           setTime(scheduledAt.time);
@@ -632,7 +643,7 @@ export function WorkspaceTextStage({
             ) : (
               <section className="workspace-page-schedule-repeat-panel">
                 <div className="workspace-page-schedule-row-heading workspace-page-schedule-repeat-heading">
-                  <span>Repeat</span>
+                  <span>{t('studio.repeatMode')}</span>
                   {repeatMode !== 'none' && <strong>{displayRepeatSummary}</strong>}
                 </div>
                 <div className="workspace-page-schedule-repeat-menu">
@@ -659,19 +670,19 @@ export function WorkspaceTextStage({
                             ? current.filter((day) => day !== weekday)
                             : [...current, weekday])}
                         >
-                          {weekday}
+                          {formatStudioWeekday(weekday, locale)}
                         </button>
                       ))}
                     </div>
                     <label className="workspace-page-schedule-occurrences">
-                      <span>Runs</span>
+                      <span>{t('studio.runs')}</span>
                       <select
-                        aria-label="Repeat occurrences"
+                        aria-label={t('studio.repeatOccurrences')}
                         value={repeatOccurrences}
                         onChange={(event) => setRepeatOccurrences(Number(event.target.value))}
                       >
                         {repeatOccurrenceOptions.map((occurrences) => (
-                          <option key={occurrences} value={occurrences}>{occurrences} times</option>
+                          <option key={occurrences} value={occurrences}>{t('studio.repeatCountSummary', { count: occurrences })}</option>
                         ))}
                       </select>
                     </label>
@@ -679,14 +690,14 @@ export function WorkspaceTextStage({
                 )}
                 {repeatMode !== 'none' && repeatMode !== 'weekly' && repeatMode !== 'biweekly' && (
                   <label className="workspace-page-schedule-occurrences">
-                    <span>Runs</span>
+                    <span>{t('studio.runs')}</span>
                     <select
-                      aria-label="Repeat occurrences"
+                      aria-label={t('studio.repeatOccurrences')}
                       value={repeatOccurrences}
                       onChange={(event) => setRepeatOccurrences(Number(event.target.value))}
                     >
                       {repeatOccurrenceOptions.map((occurrences) => (
-                        <option key={occurrences} value={occurrences}>{occurrences} times</option>
+                        <option key={occurrences} value={occurrences}>{t('studio.repeatCountSummary', { count: occurrences })}</option>
                       ))}
                     </select>
                   </label>
@@ -697,35 +708,35 @@ export function WorkspaceTextStage({
         </div>
 
         <div className="workspace-page-stage-actions workspace-page-template-stage-footer workspace-page-schedule-footer">
-          <button type="button" className="workspace-page-stage-secondary" onClick={() => onModeChange('editor')}>← Back</button>
+          <button type="button" className="workspace-page-stage-secondary" onClick={() => onModeChange('editor')}>← {t('studio.back')}</button>
           <div className="workspace-page-template-stage-footer-actions">
             <button type="button" className="workspace-page-stage-primary" onClick={() => {
               onScheduleDone?.();
               onModeChange('editor');
-            }}>Done</button>
+            }}>{t('studio.done')}</button>
           </div>
         </div>
       </div>
 
       <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage ${mode === 'template' ? 'is-active' : ''}`} aria-hidden={mode !== 'template'}>
         <header className="workspace-page-stage-header workspace-page-template-stage-header">
-          <strong>{templateEditingId ? 'Template' : 'Templates'}</strong>
-          <span>{templateEditingId ? 'Edit saved content' : `${templates.length} saved`}</span>
+          <strong>{templateEditingId ? t('studio.templateTitle') : t('studio.templatesTitle')}</strong>
+          <span>{templateEditingId ? t('studio.editSavedContent') : t('studio.savedCount', { count: templates.length })}</span>
         </header>
         {templateEditingId ? (
           <form id="workspace-template-editor-form" className="workspace-page-stage-main workspace-page-template-stage-editor" onSubmit={(event) => { event.preventDefault(); saveTemplateStage(); }}>
             <label>
-              <span>Name</span>
+              <span>{t('studio.name')}</span>
               <input
                 type="text"
                 value={templateDraftName}
                 onChange={(event) => setTemplateDraftName(event.target.value)}
-                aria-label="Template name"
+                aria-label={t('studio.templateName')}
                 autoFocus
               />
             </label>
             <label>
-              <span>Body</span>
+              <span>{t('studio.body')}</span>
               <textarea value={templateDraftBody} onChange={(event) => setTemplateDraftBody(event.target.value)} rows={5} />
             </label>
           </form>
@@ -736,26 +747,26 @@ export function WorkspaceTextStage({
                 <div className="workspace-page-template-stage-item" key={template.id}>
                   <button type="button" onClick={() => { onInsertTemplate(template.body); onModeChange('editor'); }}>
                     <strong>{template.name}</strong>
-                    <span>{template.body.length} characters</span>
+                    <span>{t('studio.characterCount', { count: template.body.length })}</span>
                   </button>
                   <div>
-                    <button type="button" onClick={() => openTemplateEditor(template)}>Edit</button>
-                    <button type="button" onClick={() => onDeleteTemplate(template)}>Delete</button>
+                    <button type="button" onClick={() => openTemplateEditor(template)}>{t('studio.edit')}</button>
+                    <button type="button" onClick={() => onDeleteTemplate(template)}>{t('studio.delete')}</button>
                   </div>
                 </div>
-              )) : <div className="workspace-page-template-stage-empty">No templates yet.</div>}
+              )) : <div className="workspace-page-template-stage-empty">{t('studio.noTemplates')}</div>}
             </div>
           </div>
         )}
         <footer className="workspace-page-stage-actions workspace-page-template-stage-footer">
-          <button type="button" className="workspace-page-stage-secondary" onClick={templateEditingId ? closeTemplateEditor : () => onModeChange('editor')}>← Back</button>
+          <button type="button" className="workspace-page-stage-secondary" onClick={templateEditingId ? closeTemplateEditor : () => onModeChange('editor')}>← {t('studio.back')}</button>
           <div className="workspace-page-template-stage-footer-actions">
             {templateEditingId ? (
               <button type="submit" form="workspace-template-editor-form" className="workspace-page-stage-primary" disabled={!templateDraftName.trim() || !templateDraftBody.trim()}>
-                Save
+                {t('studio.save')}
               </button>
             ) : (
-              <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>+ New template</button>
+              <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
             )}
           </div>
         </footer>
@@ -763,36 +774,36 @@ export function WorkspaceTextStage({
 
       <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage workspace-page-rich-text-draft-stage ${mode === 'draft' ? 'is-active' : ''}`} aria-hidden={mode !== 'draft'}>
         <header className="workspace-page-stage-header workspace-page-template-stage-header">
-          <strong>{draftEditingId ? 'Draft' : 'Saved Drafts'}</strong>
-          <span>{draftEditingId ? 'Edit saved content' : `${savedDrafts.length} saved · ${draftStoreSaving ? 'Saving…' : draftStoreReady ? 'Saved locally' : 'Loading…'}`}</span>
+          <strong>{draftEditingId ? t('studio.draft') : t('studio.savedDrafts')}</strong>
+          <span>{draftEditingId ? t('studio.editSavedContent') : `${t('studio.savedCount', { count: savedDrafts.length })} · ${draftStoreSaving ? t('studio.saving') : draftStoreReady ? t('studio.savedLocally') : t('studio.loading')}`}</span>
         </header>
         {draftEditingId ? (
           <form id="workspace-draft-editor-form" className="workspace-page-stage-main workspace-page-template-stage-editor" onSubmit={(event) => { event.preventDefault(); saveDraftStage(); }}>
             <div className="workspace-page-draft-name-row">
               <label className="workspace-page-draft-name-field">
-                <span>Name</span>
+                <span>{t('studio.name')}</span>
                 <input
                   type="text"
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
-                  aria-label="Draft name"
+                  aria-label={t('studio.draftName')}
                   autoFocus
                 />
               </label>
               <div className="workspace-page-draft-color-field">
-                <DraftColorPicker color={draftColor} onChange={setDraftColor} ariaLabel="Saved draft color" />
+                <DraftColorPicker color={draftColor} onChange={setDraftColor} ariaLabel={t('studio.savedDraftColor')} />
               </div>
             </div>
             <label>
-              <span>Body</span>
-              <textarea value={draftBodyText} onChange={(event) => setDraftBodyText(event.target.value)} rows={5} aria-label="Draft body" />
+              <span>{t('studio.body')}</span>
+              <textarea value={draftBodyText} onChange={(event) => setDraftBodyText(event.target.value)} rows={5} aria-label={t('studio.draftBody')} />
             </label>
           </form>
         ) : (
           <div className="workspace-page-stage-main workspace-page-template-stage-list-area">
             <div className="workspace-page-template-stage-list">
               {savedDrafts.length > 0 ? savedDrafts.map((draft) => {
-                const attachmentSummary = getDraftAttachmentSummary(draft);
+                const attachmentSummary = getDraftAttachmentSummary(draft, t);
                 return (
                   <div className="workspace-page-template-stage-item" key={draft.id}>
                     <button type="button" onClick={() => onInsertDraft(draft)}>
@@ -801,26 +812,26 @@ export function WorkspaceTextStage({
                         {draft.name}
                       </strong>
                       <span>
-                        {draft.body.length} characters{attachmentSummary ? ` · ${attachmentSummary}` : ''}
+                        {t('studio.characterCount', { count: draft.body.length })}{attachmentSummary ? ` · ${attachmentSummary}` : ''}
                       </span>
                     </button>
                     <div>
-                      <button type="button" onClick={() => openDraftEditor(draft)}>Edit</button>
-                      <button type="button" onClick={() => onDeleteDraft(draft)}>Delete</button>
+                      <button type="button" onClick={() => openDraftEditor(draft)}>{t('studio.edit')}</button>
+                      <button type="button" onClick={() => onDeleteDraft(draft)}>{t('studio.delete')}</button>
                     </div>
                   </div>
                 );
-              }) : <div className="workspace-page-template-stage-empty">No drafts yet.</div>}
+              }) : <div className="workspace-page-template-stage-empty">{t('studio.noDrafts')}</div>}
             </div>
           </div>
         )}
         <footer className="workspace-page-stage-actions workspace-page-template-stage-footer workspace-page-draft-stage-footer">
           <div className="workspace-page-draft-stage-footer-left">
-            <button type="button" className="workspace-page-stage-secondary" onClick={draftEditingId ? closeDraftEditor : () => onModeChange('editor')}>← Back</button>
+            <button type="button" className="workspace-page-stage-secondary" onClick={draftEditingId ? closeDraftEditor : () => onModeChange('editor')}>← {t('studio.back')}</button>
             {!draftEditingId && (
               <>
-                <button type="button" className="workspace-page-stage-secondary" onClick={onImportEditorText} aria-label="Import text into editor" title="Import a .txt file into the editor">
-                  <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> Import .txt
+                <button type="button" className="workspace-page-stage-secondary" onClick={onImportEditorText} aria-label={t('studio.importText')} title={t('studio.importTextTitle')}>
+                  <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.importTxt')}
                 </button>
               </>
             )}
@@ -828,13 +839,13 @@ export function WorkspaceTextStage({
           <div className="workspace-page-template-stage-footer-actions">
             {draftEditingId ? (
               <button type="submit" form="workspace-draft-editor-form" className="workspace-page-stage-primary" disabled={!draftStoreReady || draftStoreSaving || !draftName.trim() || !draftBodyText.trim()}>
-                {draftStoreSaving ? 'Saving…' : 'Save'}
+                {draftStoreSaving ? t('studio.saving') : t('studio.save')}
               </button>
             ) : (
               <>
-                <button type="button" className="workspace-page-stage-secondary" onClick={onExportDrafts} disabled={!draftStoreReady || draftStoreSaving}>Export all drafts</button>
-                <button type="button" className="workspace-page-stage-secondary" onClick={onImportDrafts} disabled={!draftStoreReady || draftStoreSaving}>Import drafts</button>
-                <button type="button" className="workspace-page-stage-primary" onClick={() => openDraftEditor()} disabled={!draftStoreReady || draftStoreSaving}>+ New draft</button>
+                <button type="button" className="workspace-page-stage-secondary" onClick={onExportDrafts} disabled={!draftStoreReady || draftStoreSaving}>{t('studio.exportAllDrafts')}</button>
+                <button type="button" className="workspace-page-stage-secondary" onClick={onImportDrafts} disabled={!draftStoreReady || draftStoreSaving}>{t('studio.importDrafts')}</button>
+                <button type="button" className="workspace-page-stage-primary" onClick={() => openDraftEditor()} disabled={!draftStoreReady || draftStoreSaving}>+ {t('studio.draft')}</button>
               </>
             )}
           </div>
@@ -847,12 +858,12 @@ export function WorkspaceTextStage({
 
       <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-chat-stage ${mode === 'chat' ? 'is-active' : ''}`} aria-hidden={mode !== 'chat'}>
         <header className="workspace-page-stage-header workspace-page-chat-stage-header">
-          <strong>Channel</strong>
-          <span>{visibleSelectedChats.length > 0 ? 'Selected chat or channel' : 'Choose one chat or channel for this post'}</span>
+          <strong>{t('studio.channel')}</strong>
+          <span>{visibleSelectedChats.length > 0 ? t('studio.selectedChatOrChannel') : t('studio.chooseOneChat')}</span>
         </header>
 
         <div className="workspace-page-stage-main workspace-page-chat-stage-main">
-          <div className="workspace-page-chat-stage-list" role="listbox" aria-label="Choose a Telegram chat" aria-multiselectable="false">
+          <div className="workspace-page-chat-stage-list" role="listbox" aria-label={t('studio.chooseTelegramChat')} aria-multiselectable="false">
             {filteredChats.length > 0 ? filteredChats.map((chat) => {
             const selected = visibleSelectedChats.some((item) => item.id === chat.id);
             const favorite = favoriteChatIds.includes(chat.id);
@@ -884,33 +895,33 @@ export function WorkspaceTextStage({
                 </span>
                 <span className="workspace-page-chat-stage-copy">
                   <strong>{chat.name}</strong>
-                  <span>{chat.name === 'Saved Messages' ? 'Saved Messages' : chatTypeLabels[chat.type || 'unknown']}{chat.username ? ` · @${chat.username}` : ''}</span>
+                  <span>{getChatTypeLabel(chat)}{chat.username ? ` · @${chat.username}` : ''}</span>
                 </span>
                 <span className="workspace-page-chat-stage-check" aria-hidden="true">{selected ? '✓' : ''}</span>
                 <button
                   type="button"
                   className={`workspace-page-chat-stage-favorite ${favorite ? 'is-favorite' : ''}`}
                   onClick={(event) => { event.stopPropagation(); toggleFavoriteChat(chat); }}
-                  aria-label={`${favorite ? 'Remove' : 'Add'} ${chat.name} ${favorite ? 'from' : 'to'} favorites`}
+                  aria-label={t(favorite ? 'studio.removeFavorite' : 'studio.addFavorite', { name: chat.name })}
                   aria-pressed={favorite}
                 >
                   <Star size={15} strokeWidth={1.8} fill={favorite ? 'currentColor' : 'none'} />
                 </button>
-                <button type="button" className="workspace-page-chat-stage-remove" onClick={(event) => { event.stopPropagation(); onRemoveChat(chat); }} aria-label={`Remove ${chat.name} from saved chats`}>×</button>
+                <button type="button" className="workspace-page-chat-stage-remove" onClick={(event) => { event.stopPropagation(); onRemoveChat(chat); }} aria-label={t('studio.removeSavedChat', { name: chat.name })}>×</button>
               </div>
             );
             }) : (
               <div className="workspace-page-chat-stage-empty" role="status">
-                <strong>{chats.length === 0 ? 'No chats saved yet' : showFavoritesOnly ? 'No favorite chats yet' : 'No chats found'}</strong>
-                <span>{chats.length === 0 ? 'Add a Telegram chat to continue.' : showFavoritesOnly ? 'Mark a chat with the star to add it here.' : 'Try another name or username.'}</span>
+                <strong>{chats.length === 0 ? t('studio.noChatsSaved') : showFavoritesOnly ? t('studio.noFavoriteChats') : t('studio.noChatsFound')}</strong>
+                <span>{chats.length === 0 ? t('studio.addTelegramChat') : showFavoritesOnly ? t('studio.markFavoriteHint') : t('studio.tryAnotherChatSearch')}</span>
               </div>
             )}
           </div>
 
           {showAddChat && (
             <div className="workspace-page-chat-stage-add-form">
-              <input value={addChatQuery} onChange={(event) => setAddChatQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addChat(); } }} placeholder="@username or chat name" aria-label="Chat name or username" autoFocus />
-              <button type="button" onClick={() => void addChat()} disabled={addingChat}>{addingChat ? 'Adding…' : 'Add'}</button>
+              <input value={addChatQuery} onChange={(event) => setAddChatQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addChat(); } }} placeholder={t('studio.chatNamePlaceholder')} aria-label={t('studio.chatNameLabel')} autoFocus />
+              <button type="button" onClick={() => void addChat()} disabled={addingChat}>{addingChat ? t('studio.addingChat') : t('studio.addChat')}</button>
             </div>
           )}
 
@@ -920,8 +931,8 @@ export function WorkspaceTextStage({
                 type="search"
                 value={chatSearchQuery}
                 onChange={(event) => setChatSearchQuery(event.target.value)}
-                placeholder="Find a chat or channel"
-                aria-label="Find a chat or channel"
+                placeholder={t('studio.findChat')}
+                aria-label={t('studio.findChat')}
                 autoFocus
               />
             </div>
@@ -930,12 +941,12 @@ export function WorkspaceTextStage({
 
         <div className="workspace-page-stage-actions workspace-page-chat-stage-footer">
           <div className="workspace-page-chat-stage-footer-left">
-            <button type="button" className="workspace-page-stage-secondary" onClick={onChatSelectionBack}>← Back</button>
+            <button type="button" className="workspace-page-stage-secondary" onClick={onChatSelectionBack}>← {t('studio.back')}</button>
             <button type="button" className="workspace-page-chat-stage-add" onClick={() => { setShowAddChat((current) => { if (!current) setShowChatSearch(false); return !current; }); onChatError(''); }} aria-expanded={showAddChat}>
-              <span aria-hidden="true">+</span> Add another chat
+              <span aria-hidden="true">+</span> {t('studio.addAnotherChat')}
             </button>
             <button type="button" className="workspace-page-chat-stage-add" onClick={() => { setShowChatSearch((current) => { if (!current) setShowAddChat(false); return !current; }); onChatError(''); }} aria-expanded={showChatSearch}>
-              <Search size={13} strokeWidth={1.8} /> Find a chat
+              <Search size={13} strokeWidth={1.8} /> {t('studio.findAChat')}
             </button>
           </div>
           <div className="workspace-page-chat-stage-footer-right">
@@ -952,9 +963,9 @@ export function WorkspaceTextStage({
               }}
               aria-pressed={showFavoritesOnly}
             >
-              <Star size={13} strokeWidth={1.8} fill={showFavoritesOnly ? 'currentColor' : 'none'} /> Favorites
+              <Star size={13} strokeWidth={1.8} fill={showFavoritesOnly ? 'currentColor' : 'none'} /> {t('studio.favorites')}
             </button>
-            <button type="button" className="workspace-page-stage-primary" onClick={onChatSelectionDone}>Done</button>
+            <button type="button" className="workspace-page-stage-primary" onClick={onChatSelectionDone}>{t('studio.done')}</button>
           </div>
         </div>
       </div>

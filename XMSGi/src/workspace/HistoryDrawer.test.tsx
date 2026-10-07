@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Chat, ScheduledMessage } from '@/types';
+import { LocaleProvider } from '@/lib/i18n';
 import { HistoryDrawer } from './HistoryDrawer';
-import { normalizeSavedDraft, normalizeScheduledMessages, sortHistoryItems } from './historyModel';
+import { normalizeSavedDraft, normalizeSavedMessagesHistory, normalizeScheduledMessages, sortHistoryItems } from './historyModel';
 
 const scheduledMessage: ScheduledMessage = {
   id: 'scheduled-studio-1',
@@ -41,6 +42,29 @@ const personalUpcomingRecord = normalizeScheduledMessages([{
     attachments: [],
   }], 'personal', 'upcoming', [])[0];
 
+describe('Saved Messages history mapping', () => {
+  it('maps Telegram messages into personal history records', () => {
+    const [record] = normalizeSavedMessagesHistory({
+      chat: { id: 'saved-messages', title: 'Saved Messages' },
+      messages: [{
+        id: 'telegram-message-1',
+        text: 'Remember to call Alex',
+        date: '2035-01-15T12:30:00.000Z',
+        outgoing: true,
+      }],
+    });
+
+    expect(record).toMatchObject({
+      source: 'personal',
+      status: 'sent',
+      title: 'Saved Messages',
+      text: 'Remember to call Alex',
+      original: { kind: 'telegram-message', chatId: 'saved-messages' },
+    });
+    expect(record.sentAt).toBe('2035-01-15T12:30:00.000Z');
+  });
+});
+
 function renderHistory(
   records = [upcomingRecord],
   onCancel = vi.fn(),
@@ -52,23 +76,27 @@ function renderHistory(
   onClearDrafts = vi.fn().mockResolvedValue(true),
   onCancelQueue = vi.fn().mockResolvedValue(true),
   onUseDraft = vi.fn(),
+  savedMessagesChatId?: string,
 ) {
   const onClose = vi.fn();
   const view = render(
-    <HistoryDrawer
-      isOpen
-      onClose={onClose}
-      records={records}
-      onCancel={onCancel}
-      onReschedule={onReschedule}
-      onSendNow={onSendNow}
-      onDelete={onDelete}
-      onOpenDraft={onOpenDraft}
-      onUseDraft={onUseDraft}
-      onClearSent={onClearSent}
-      onClearDrafts={onClearDrafts}
-      onCancelQueue={onCancelQueue}
-    />,
+    <LocaleProvider>
+      <HistoryDrawer
+        isOpen
+        onClose={onClose}
+        records={records}
+        onCancel={onCancel}
+        onReschedule={onReschedule}
+        onSendNow={onSendNow}
+        onDelete={onDelete}
+        onOpenDraft={onOpenDraft}
+        onUseDraft={onUseDraft}
+        onClearSent={onClearSent}
+        onClearDrafts={onClearDrafts}
+        onCancelQueue={onCancelQueue}
+        savedMessagesChatId={savedMessagesChatId}
+      />
+    </LocaleProvider>,
   );
   return { ...view, onClose, onCancel, onDelete, onSendNow, onOpenDraft, onUseDraft, onReschedule, onClearSent, onClearDrafts, onCancelQueue };
 }
@@ -134,6 +162,7 @@ function readBlob(blob: Blob) {
 describe('HistoryDrawer search', () => {
   beforeEach(() => {
     window.localStorage.removeItem('xmsgi-history-filters');
+    window.localStorage.setItem('awaitmsg_locale', 'ru');
   });
 
   it('groups search and navigation controls in one dock below the records', () => {
@@ -148,6 +177,142 @@ describe('HistoryDrawer search', () => {
     expect(searchDock.parentElement).toBe(toolsDock);
     expect(navigationDock.parentElement).toBe(toolsDock);
     expect(screen.getByRole('search')).toBeInTheDocument();
+  });
+
+  it('renders the history interface in English when English is selected', () => {
+    window.localStorage.setItem('awaitmsg_locale', 'en');
+    renderHistory();
+
+    expect(screen.getByRole('dialog', { name: 'Posts' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search history' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Scheduled' })).toBeInTheDocument();
+  });
+
+  it('shows Telegram Saved Messages in the Personal Notes category', async () => {
+    const getChatHistory = vi.fn().mockResolvedValue({
+      success: true,
+      history: {
+        chat: { id: 'saved-messages', title: 'Saved Messages' },
+        messages: [{
+          id: 'saved-message-1',
+          text: 'Remember to send the contract',
+          date: '2035-01-15T12:30:00.000Z',
+          outgoing: true,
+        }],
+      },
+    });
+    vi.stubGlobal('telegram', { getChatHistory });
+    renderHistory([], undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'saved-messages');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Напоминания/ }));
+
+    expect(await screen.findByText('Remember to send the contract')).toBeInTheDocument();
+    expect(getChatHistory).toHaveBeenCalledWith({ chatId: 'saved-messages', limit: 100 });
+  });
+
+  it('deletes a Personal Note through the confirmed history action', async () => {
+    vi.stubGlobal('telegram', {
+      getChatHistory: vi.fn().mockResolvedValue({
+        success: true,
+        history: {
+          chat: { id: 'saved-messages', title: 'Saved Messages' },
+          messages: [{
+            id: 'saved-message-1',
+            text: 'Remember to send the contract',
+            date: '2035-01-15T12:30:00.000Z',
+            outgoing: true,
+          }],
+        },
+      }),
+    });
+    const onDelete = vi.fn().mockResolvedValue(true);
+    renderHistory([], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'saved-messages');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Напоминания/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть публикацию: Saved Messages' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }));
+
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление записи' });
+    expect(confirmation).toHaveTextContent('Удалить заметку из чата «Сохранённые сообщения» в Telegram? Восстановление невозможно.');
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить заметку' }));
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'personal:saved-message:saved-messages:saved-message-1',
+      original: expect.objectContaining({ kind: 'telegram-message', chatId: 'saved-messages' }),
+    })));
+    expect(await screen.findByText('Здесь будут отображаться напоминания из чата «Сохранённые сообщения».')).toBeInTheDocument();
+  });
+
+  it('shows the common trash action for Notes and deletes the category after confirmation', async () => {
+    vi.stubGlobal('telegram', {
+      getChatHistory: vi.fn().mockResolvedValue({
+        success: true,
+        history: {
+          chat: { id: 'saved-messages', title: 'Saved Messages' },
+          messages: [1, 2].map((id) => ({
+            id: `saved-message-${id}`,
+            text: `Note ${id}`,
+            date: `2035-01-1${id}T12:30:00.000Z`,
+            outgoing: true,
+          })),
+        },
+      }),
+    });
+    const onDelete = vi.fn().mockResolvedValue(true);
+    renderHistory([], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'saved-messages');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Напоминания/ }));
+    await screen.findByText('Note 1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить заметки' }));
+    const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить удаление заметок' });
+    expect(confirmation).toHaveTextContent('Удалить 2 записи из заметок?');
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить 2 записи из заметок' }));
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Здесь будут отображаться напоминания из чата «Сохранённые сообщения».')).toBeInTheDocument();
+  });
+
+  it('cancels queued Saved Messages reminders from the common Notes trash action', async () => {
+    const reminder = normalizeScheduledMessages([{
+      ...scheduledMessage,
+      id: 'saved-reminder-queue',
+      chatName: 'Saved Messages',
+      telegramMessageId: 'telegram-queue-reminder',
+    }], 'personal', 'upcoming', [])[0];
+    const onDelete = vi.fn().mockResolvedValue(true);
+    const onCancelQueue = vi.fn().mockResolvedValue(true);
+    renderHistory([reminder], undefined, onDelete, undefined, undefined, undefined, undefined, undefined, onCancelQueue);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Напоминания/ }));
+    await screen.findByText(scheduledMessage.text);
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить заметки' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Подтвердить удаление заметок' }))
+      .getByRole('button', { name: 'Удалить 1 запись из заметок' }));
+
+    await waitFor(() => expect(onCancelQueue).toHaveBeenCalledWith([reminder]));
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('shows the Saved Messages guidance when the Notes category is empty', async () => {
+    vi.stubGlobal('telegram', {
+      getChatHistory: vi.fn().mockResolvedValue({
+        success: true,
+        history: { chat: { id: 'saved-messages', title: 'Saved Messages' }, messages: [] },
+      }),
+    });
+    renderHistory([], undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'saved-messages');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Личное' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Напоминания/ }));
+
+    expect(await screen.findByText('Здесь будут отображаться напоминания из чата «Сохранённые сообщения».')).toBeInTheDocument();
   });
 
   it('restores the source and status tabs after remounting', () => {
@@ -298,9 +463,9 @@ describe('HistoryDrawer search', () => {
         onOpenDraft: vi.fn(),
         onClearSent: vi.fn(),
       };
-      const view = render(<HistoryDrawer {...props} isOpen={false} />);
+      const view = render(<LocaleProvider><HistoryDrawer {...props} isOpen={false} /></LocaleProvider>);
 
-      view.rerender(<HistoryDrawer {...props} isOpen />);
+      view.rerender(<LocaleProvider><HistoryDrawer {...props} isOpen /></LocaleProvider>);
 
       expect(view.container.querySelector('.history-record-list')?.scrollTop).toBe(0);
     } finally {
@@ -664,7 +829,7 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Отменить запланированные публикации' }));
     const confirmation = screen.getByRole('alertdialog', { name: 'Подтвердить отмену очереди' });
-    expect(confirmation).toHaveTextContent('Снять с расписания 1 запись в Telegram? Если отмена не подтвердится, публикации останутся в очереди.');
+    expect(confirmation).toHaveTextContent('Снять с расписания 1 запись в Telegram?');
     expect(onCancelQueue).not.toHaveBeenCalled();
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Отменить 1 запись' }));
 
@@ -739,11 +904,12 @@ describe('HistoryDrawer search', () => {
   });
 
   it('does not offer bulk cancellation for upcoming records', () => {
-    renderHistory([upcomingRecord, personalUpcomingRecord]);
+    const { container } = renderHistory([upcomingRecord, personalUpcomingRecord]);
 
     expect(screen.queryByRole('button', { name: 'Отменить все запланированные' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Удалить историю отправленных' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Удалить черновики' })).not.toBeInTheDocument();
+    expect(container.querySelector('.history-delete-placeholder')).toBeInTheDocument();
   });
 
   it('hides failed retry attempts from the main scheduled history while keeping cancelled entries visible', () => {

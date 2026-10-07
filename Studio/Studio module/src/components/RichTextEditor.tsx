@@ -5,6 +5,7 @@ import editorLogo from '@/assets/logo.png';
 import type { RichTextEntity } from '@/types';
 import { editorHtmlToRichText, normalizeEditorText, richTextToHtml, sanitizeEditorDom, sliceRichText } from '@/lib/richText';
 import { getMessageCounterTone, getRemainingMessageLength } from '@/lib/messageLimits';
+import { useLocale } from '../../../../XMSGi/src/lib/i18n';
 
 interface Props {
   text: string;
@@ -126,6 +127,7 @@ function restoreEditorSelection(root: HTMLElement, start: number, end: number) {
 }
 
 export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
+  const { t } = useLocale();
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
@@ -923,8 +925,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
           contentEditable
           suppressContentEditableWarning
           role="textbox"
-          aria-label="Post content"
-          data-placeholder="Start writing your post..."
+          aria-label={t('studio.postContent')}
+          data-placeholder={t('studio.postPlaceholder')}
           spellCheck
           aria-hidden={stageMode !== 'editor'}
           onFocus={() => {
@@ -979,8 +981,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
             className="workspace-page-rich-text-clear"
             onMouseDown={(event) => event.preventDefault()}
             onClick={clearEditorText}
-            aria-label="Clear editor text"
-            title="Clear text"
+            aria-label={t('studio.clearEditorText')}
+            title={t('studio.clearText')}
           >
             <Eraser size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -992,7 +994,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
           <form
             className="workspace-page-rich-text-link-popover"
             role="dialog"
-            aria-label="Insert link"
+            aria-label={t('studio.insertLink')}
             onSubmit={(event) => {
               event.preventDefault();
               insertLink();
@@ -1005,7 +1007,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
             }}
           >
             <label className="workspace-page-rich-text-link-popover__label" htmlFor="workspace-link-input">
-              Website URL
+              {t('studio.websiteUrl')}
             </label>
             <input
               ref={linkInputRef}
@@ -1014,7 +1016,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
               value={linkInput}
               onChange={(event) => setLinkInput(event.target.value)}
               placeholder="https://example.com"
-              aria-label="Insert link URL"
+              aria-label={t('studio.insertLinkUrl')}
               className="workspace-page-rich-text-link-popover__input"
               autoFocus
             />
@@ -1027,14 +1029,14 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
                   setLinkPopoverOpen(false);
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 className="workspace-page-rich-text-link-popover__submit"
                 disabled={!linkInput.trim()}
               >
-                Confirm
+                {t('studio.confirm')}
               </button>
             </div>
           </form>
@@ -1042,7 +1044,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
       </div>
       <div
         className="workspace-page-rich-text-toolbar"
-        aria-label="Link tools"
+        aria-label={t('studio.linkTools')}
         aria-hidden={stageMode !== 'editor'}
       >
           <span
@@ -1065,9 +1067,9 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
                   });
                 }
               }}
-              aria-label="Insert link"
+              aria-label={t('studio.insertLink')}
               aria-expanded={linkPopoverOpen}
-              title="Insert link"
+              title={t('studio.insertLink')}
             >
               <span className="workspace-page-rich-text-link-trigger__icon" aria-hidden="true">↗</span>
             </button>

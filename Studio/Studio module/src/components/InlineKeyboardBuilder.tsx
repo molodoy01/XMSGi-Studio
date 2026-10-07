@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { InlineButton, InlineButtonRow } from '@/lib/inlineKeyboard';
 import { createInlineButton, getInlineButtonError, limitInlineRows, MAX_INLINE_BUTTONS, MAX_INLINE_BUTTON_LABEL_LENGTH, normalizeInlineUrl } from '@/lib/inlineKeyboard';
+import { useLocale } from '../../../../XMSGi/src/lib/i18n';
 import './InlineKeyboardBuilder.css';
 
 type InlineKeyboardBuilderProps = {
@@ -39,6 +40,7 @@ function updateRow(rows: InlineButtonRow[], rowIndex: number, nextRow: InlineBut
 }
 
 export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineKeyboardBuilderProps) {
+  const { t } = useLocale();
   const [presets, setPresets] = useState<InlineKeyboardPreset[]>(loadPresets);
   const [presetsOpen, setPresetsOpen] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -87,7 +89,7 @@ export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineK
   const savePreset = () => {
     if (!rows.length) return;
 
-    const name = `Inline set ${presets.length + 1}`;
+      const name = `${t('inline.defaultPresetName')} ${presets.length + 1}`;
     const nextPresets = [...presets, { id: `${Date.now()}-preset`, name, rows: limitedRows }];
     setPresets(nextPresets);
 
@@ -109,9 +111,21 @@ export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineK
 
   if (!open) return null;
 
+  const translateError = (error: string) => {
+    const errorKeys: Record<string, Parameters<typeof t>[0]> = {
+      'Enter button text.': 'inline.errorTextRequired',
+      'Button label must be 64 characters or less.': 'inline.errorTextTooLong',
+      'Use a valid https:// URL.': 'inline.errorHttps',
+      'Callback must be 64 bytes or less.': 'inline.errorCallbackTooLong',
+      'Callback command is required.': 'inline.errorCallbackRequired',
+    };
+    const key = errorKeys[error];
+    return key ? t(key) : error;
+  };
+
   return (
-      <section className="inline-keyboard-builder" aria-label="Inline buttons">
-        <h2 className="inline-keyboard-view-title">INLINE BUTTONS</h2>
+      <section className="inline-keyboard-builder" aria-label={t('inline.title')}>
+        <h2 className="inline-keyboard-view-title">{t('inline.title')}</h2>
 
         <div className="inline-keyboard-modal-body">
           <section className="inline-keyboard-presets" aria-labelledby="inline-keyboard-presets-title">
@@ -122,8 +136,8 @@ export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineK
                 onClick={() => setPresetsOpen((current) => !current)}
                 aria-expanded={presetsOpen}
               >
-                <span>Presets</span>
-                <strong>{presets.length ? `${presets.length} saved` : 'No saved presets'}</strong>
+                <span id="inline-keyboard-presets-title">{t('inline.presets')}</span>
+                <strong>{presets.length ? t('inline.savedCount', { count: presets.length }) : t('inline.noSavedPresets')}</strong>
                 <span className="workspace-page-schedule-chevron" aria-hidden="true">{presetsOpen ? '−' : '+'}</span>
               </button>
               {presetsOpen && (presets.length ? (
@@ -132,16 +146,16 @@ export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineK
                     <div className="workspace-page-template-stage-item inline-keyboard-preset-item" key={preset.id}>
                       <button type="button" onClick={() => applyPreset(preset)}>
                         <strong>{preset.name}</strong>
-                        <span>{preset.rows.reduce((total, row) => total + row.length, 0)} buttons</span>
+                        <span>{t('inline.buttonCount', { count: preset.rows.reduce((total, row) => total + row.length, 0) })}</span>
                       </button>
                       <div>
-                        <button type="button" onClick={() => applyPreset(preset)}>Apply</button>
-                        <button type="button" onClick={() => deletePreset(preset.id)}>Delete</button>
+                        <button type="button" onClick={() => applyPreset(preset)}>{t('inline.applyPreset')}</button>
+                        <button type="button" onClick={() => deletePreset(preset.id)}>{t('inline.deletePreset')}</button>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : <p className="inline-keyboard-presets-empty">Сохранённых наборов пока нет.</p>)}
+              ) : <p className="inline-keyboard-presets-empty">{t('inline.noSavedPresets')}</p>)}
             </section>
           </section>
 
@@ -153,49 +167,49 @@ export function InlineKeyboardBuilder({ rows, onChange, open, onClose }: InlineK
                 onClick={() => setEditorOpen((current) => !current)}
                 aria-expanded={editorOpen}
               >
-                <span>Buttons</span>
-                <strong>{buttonCount ? `${buttonCount} active` : 'No buttons added'}</strong>
+                <span>{t('inline.buttons')}</span>
+                <strong>{buttonCount ? t('inline.activeCount', { count: buttonCount }) : t('inline.noButtons')}</strong>
                 <span className="workspace-page-schedule-chevron" aria-hidden="true">{editorOpen ? '−' : '+'}</span>
               </button>
               {buttonCount > 0 && !editorOpen && (
-                <div className="inline-keyboard-active-summary" aria-label="Active buttons">
-                  {limitedRows.flatMap((row) => row.map((button) => button.label.trim() || 'Unnamed button')).join(' · ')}
+                <div className="inline-keyboard-active-summary" aria-label={t('inline.activeButtons')}>
+                  {limitedRows.flatMap((row) => row.map((button) => button.label.trim() || t('inline.unnamedButton'))).join(' · ')}
                 </div>
               )}
             </section>
 
             {editorOpen && <div className="inline-keyboard-create-section">
               <div className="workspace-page-template-stage-list-header">
-                <strong id="inline-keyboard-constructor-title">Add buttons</strong>
-                <span className="inline-keyboard-section-note">Edit the current post</span>
+                <strong id="inline-keyboard-constructor-title">{t('inline.addButtons')}</strong>
+                <span className="inline-keyboard-section-note">{t('inline.editCurrentPost')}</span>
               </div>
-              <div className="inline-keyboard-current-list" aria-label="Current inline buttons">
+              <div className="inline-keyboard-current-list" aria-label={t('inline.currentButtons')}>
                 {limitedRows.flatMap((row, rowIndex) => row.map((button, buttonIndex) => {
                   const buttonNumber = limitedRows.slice(0, rowIndex).reduce((total, currentRow) => total + currentRow.length, 0) + buttonIndex + 1;
                     const error = getInlineButtonError(button);
                     return (
                       <div className={`inline-keyboard-button-editor ${error ? 'has-error' : ''}`} key={button.id}>
                         <div className="inline-keyboard-button-fields">
-                          <input value={button.label} maxLength={MAX_INLINE_BUTTON_LABEL_LENGTH} onChange={(event) => updateButton(rowIndex, buttonIndex, { ...button, label: event.target.value })} placeholder="Button text" aria-label={`Button ${buttonNumber} text`} title="Text shown on the button" />
+                          <input value={button.label} maxLength={MAX_INLINE_BUTTON_LABEL_LENGTH} onChange={(event) => updateButton(rowIndex, buttonIndex, { ...button, label: event.target.value })} placeholder={t('inline.buttonTextPlaceholder')} aria-label={t('inline.buttonTextLabel', { number: buttonNumber })} title={t('inline.buttonTextTitle')} />
                           <span className="inline-keyboard-action-arrow" aria-hidden="true">→</span>
-                          <input value={button.action.value} onChange={(event) => updateButton(rowIndex, buttonIndex, { ...button, action: { ...button.action, value: event.target.value } })} onBlur={() => { if (button.action.type === 'url') updateButton(rowIndex, buttonIndex, { ...button, action: { ...button.action, value: normalizeInlineUrl(button.action.value) } }); }} placeholder="https://..." aria-label={`Button ${buttonNumber} link`} title="Where the button should open" />
-                          <button type="button" className="inline-keyboard-remove-button" onClick={() => onChange(row.length === 1 ? limitedRows.filter((_, index) => index !== rowIndex) : updateRow(limitedRows, rowIndex, row.filter((_, index) => index !== buttonIndex)))} aria-label="Remove button">✕</button>
+                          <input value={button.action.value} onChange={(event) => updateButton(rowIndex, buttonIndex, { ...button, action: { ...button.action, value: event.target.value } })} onBlur={() => { if (button.action.type === 'url') updateButton(rowIndex, buttonIndex, { ...button, action: { ...button.action, value: normalizeInlineUrl(button.action.value) } }); }} placeholder="https://..." aria-label={t('inline.buttonLinkLabel', { number: buttonNumber })} title={t('inline.buttonLinkTitle')} />
+                          <button type="button" className="inline-keyboard-remove-button" onClick={() => onChange(row.length === 1 ? limitedRows.filter((_, index) => index !== rowIndex) : updateRow(limitedRows, rowIndex, row.filter((_, index) => index !== buttonIndex)))} aria-label={t('inline.removeButton')}>✕</button>
                         </div>
-                        {error && <span className="inline-keyboard-error">{error}</span>}
+                        {error && <span className="inline-keyboard-error">{translateError(error)}</span>}
                       </div>
                     );
                 }))}
               </div>
-              {!limitedRows.length && <p className="inline-keyboard-presets-empty">No buttons added to this post yet.</p>}
+              {!limitedRows.length && <p className="inline-keyboard-presets-empty">{t('inline.noPostButtons')}</p>}
             </div>}
           </section>
 
         </div>
         <footer className="workspace-page-stage-actions workspace-page-template-stage-footer inline-keyboard-footer">
-          <button type="button" className="workspace-page-stage-secondary" onClick={onClose}>← Back</button>
+                    <button type="button" className="workspace-page-stage-secondary" onClick={onClose}>← {t('inline.back')}</button>
           <div className="inline-keyboard-footer-actions">
-            <button type="button" className="workspace-page-stage-primary" onClick={() => { setEditorOpen(true); addButton(); }} disabled={buttonCount >= MAX_INLINE_BUTTONS}>+ Add button</button>
-            <button type="button" className="workspace-page-stage-primary" onClick={savePreset} disabled={!rows.length}>+ Save as preset</button>
+            <button type="button" className="workspace-page-stage-primary" onClick={() => { setEditorOpen(true); addButton(); }} disabled={buttonCount >= MAX_INLINE_BUTTONS}>{t('inline.addButton')}</button>
+            <button type="button" className="workspace-page-stage-primary" onClick={savePreset} disabled={!rows.length}>{t('inline.savePreset')}</button>
           </div>
         </footer>
       </section>

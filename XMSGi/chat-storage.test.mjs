@@ -17,9 +17,9 @@ afterEach(() => {
 
 describe('Electron chat storage', () => {
   it('atomically persists and reloads app JSON data', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'awaitmsg-json-storage-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xmsgi-studio-json-storage-'));
     temporaryDirectories.push(directory);
-    const filePath = path.join(directory, 'userData', 'awaitmsg-schedule-history.json');
+    const filePath = path.join(directory, 'userData', 'xmsgi-studio-schedule-history.json');
     const history = {
       workspace: {
         upcoming: [{ id: 'scheduled-1', when: '2030-06-01T16:30:00.000Z' }],
@@ -34,9 +34,9 @@ describe('Electron chat storage', () => {
   });
 
   it('persists a search-only channel across a fresh read and keeps its full metadata', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'awaitmsg-chat-storage-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xmsgi-studio-chat-storage-'));
     temporaryDirectories.push(directory);
-    const filePath = path.join(directory, 'userData', 'awaitmsg-chats.json');
+    const filePath = path.join(directory, 'userData', 'xmsgi-studio-chats.json');
     const searchOnlyChannel = {
       id: 'search-only-channel',
       name: 'Search-only channel',
@@ -54,9 +54,9 @@ describe('Electron chat storage', () => {
   });
 
   it('replaces an existing chat record instead of creating a duplicate', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'awaitmsg-chat-storage-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xmsgi-studio-chat-storage-'));
     temporaryDirectories.push(directory);
-    const filePath = path.join(directory, 'awaitmsg-chats.json');
+    const filePath = path.join(directory, 'xmsgi-studio-chats.json');
 
     writeChats(filePath, [
       { id: 'channel-1', name: 'Old name', type: 'channel' },

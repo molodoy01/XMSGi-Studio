@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { LocaleProvider } from '@/lib/i18n';
 import type { Chat, SavedDraft, Template } from '@/types';
 import { RichTextEditor } from './RichTextEditor';
 import { WorkspaceTextStage } from './WorkspaceTextStage';
@@ -105,7 +106,7 @@ function renderStage(overrides: Partial<React.ComponentProps<typeof WorkspaceTex
   };
 
   act(() => {
-    root.render(<WorkspaceTextStage {...defaults} {...overrides} />);
+    root.render(<LocaleProvider><WorkspaceTextStage {...defaults} {...overrides} /></LocaleProvider>);
   });
 
   return {
@@ -113,7 +114,7 @@ function renderStage(overrides: Partial<React.ComponentProps<typeof WorkspaceTex
     rootElement,
     rerender: (nextOverrides: Partial<React.ComponentProps<typeof WorkspaceTextStage>>) => {
       act(() => {
-        root.render(<WorkspaceTextStage {...defaults} {...nextOverrides} />);
+        root.render(<LocaleProvider><WorkspaceTextStage {...defaults} {...nextOverrides} /></LocaleProvider>);
       });
     },
     unmount: () => {
@@ -137,7 +138,7 @@ function renderRichTextEditor(overrides: Partial<React.ComponentProps<typeof Ric
     maxLength: 4096,
   };
 
-  act(() => root.render(<RichTextEditor {...defaults} {...overrides} />));
+  act(() => root.render(<LocaleProvider><RichTextEditor {...defaults} {...overrides} /></LocaleProvider>));
 
   return {
     container,

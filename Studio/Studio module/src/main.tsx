@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { LocaleProvider } from '../../../XMSGi/src/lib/i18n';
 import App from './App';
 import './index.css';
 import './styles/globals.css';
@@ -15,6 +16,8 @@ window.scrollTo(0, 0);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <LocaleProvider>
+      <App />
+    </LocaleProvider>
   </StrictMode>,
 );

@@ -1,7 +1,5 @@
-import StudioApp, { type SavedDraft, type StudioSchedulerRuntime } from '$studio';
+import StudioApp, { type SavedDraft, type StudioSchedulerRuntime, type StudioScheduledMessage } from '$studio';
 import type { Chat } from '@/types';
-import type { ScheduledMessage as StudioScheduledMessage } from '../../../Studio/Studio module/src/types';
-import { LocaleProvider } from '@/lib/i18n';
 
 type StudioMountProps = {
   connected: boolean;
@@ -16,9 +14,5 @@ type StudioMountProps = {
 };
 
 export function StudioMount({ connected, activeAccountId, chats, scheduler, onRegisterHistoryDraftOpener, onRegisterHistoryDraftUseHandler, onRegisterHistoryDraftClearHandler, onRegisterHistoryDraftDeleteHandler, onRegisterHistoryRescheduleHandler }: StudioMountProps) {
-  return (
-    <LocaleProvider>
-      <StudioApp connected={connected} activeAccountId={activeAccountId} chats={chats} scheduler={scheduler} onRegisterHistoryDraftOpener={onRegisterHistoryDraftOpener} onRegisterHistoryDraftUseHandler={onRegisterHistoryDraftUseHandler} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />
-    </LocaleProvider>
-  );
+  return <StudioApp connected={connected} activeAccountId={activeAccountId} chats={chats} scheduler={scheduler} onRegisterHistoryDraftOpener={onRegisterHistoryDraftOpener} onRegisterHistoryDraftUseHandler={onRegisterHistoryDraftUseHandler} onRegisterHistoryDraftClearHandler={onRegisterHistoryDraftClearHandler} onRegisterHistoryDraftDeleteHandler={onRegisterHistoryDraftDeleteHandler} onRegisterHistoryRescheduleHandler={onRegisterHistoryRescheduleHandler} />;
 }

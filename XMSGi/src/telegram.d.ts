@@ -224,6 +224,10 @@ declare global {
         };
         error?: string;
       }>;
+      deleteSavedMessage: (data: { chatId: string; messageId: string }) => Promise<{
+        success: boolean;
+        error?: string;
+      }>;
       getFilePath: (file: File) => string;
       cancel: (data: {
         chatId: string;

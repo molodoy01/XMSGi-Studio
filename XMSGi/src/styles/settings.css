@@ -520,6 +520,11 @@
   line-height: 1.55;
 }
 
+.settings-about-section .settings-view-description {
+  max-width: 64ch;
+  text-wrap: pretty;
+}
+
 .settings-toggle-line,
 .settings-key-row {
   width: 100%;

@@ -1,11 +1,12 @@
-import type { Chat, RichTextEntity, ScheduledMessage } from '@/types';
-import type { DraftColor, PersistedDraftStore, SavedDraft } from '../../../Studio/Studio module/src/types';
+import type { Chat, PreviewChatHistory, RichTextEntity, ScheduledMessage } from '@/types';
+import type { DraftColor, PersistedDraftStore, SavedDraft } from '$studio';
 
 export type HistorySource = 'personal' | 'workspace';
 export type HistoryStatus = 'scheduled' | 'sending' | 'sent' | 'failed' | 'draft' | 'cancelled';
 
 export type HistoryOriginal =
   | { kind: 'scheduled'; message: ScheduledMessage }
+  | { kind: 'telegram-message'; chatId: string; message: PreviewChatHistory['messages'][number] }
   | { kind: 'saved-draft'; draft: SavedDraft };
 
 export interface HistoryItem {
@@ -70,6 +71,23 @@ export function normalizeScheduledMessages(
       original: { kind: 'scheduled', message },
     };
   });
+}
+
+export function normalizeSavedMessagesHistory(history: PreviewChatHistory): HistoryItem[] {
+  return history.messages.map((message) => ({
+    id: `personal:saved-message:${history.chat.id}:${message.id}`,
+    source: 'personal',
+    status: 'sent',
+    title: history.chat.title,
+    text: message.text,
+    channelName: history.chat.title,
+    channelLabel: history.chat.username ? `@${history.chat.username}` : '',
+    sentAt: message.date,
+    updatedAt: message.date,
+    attachments: message.media?.dataUrl ? [message.media.dataUrl] : [],
+    entities: message.entities ?? [],
+    original: { kind: 'telegram-message', chatId: history.chat.id, message },
+  }));
 }
 
 export function normalizeSavedDraft(draft: SavedDraft): HistoryItem {

@@ -116,6 +116,9 @@ contextBridge.exposeInMainWorld('telegram', {
   getChatHistory: (data) =>
     ipcRenderer.invoke('telegram-chat-history', data),
 
+  deleteSavedMessage: (data) =>
+    ipcRenderer.invoke('telegram-saved-message:delete', data),
+
   getFilePath: (file) =>
     webUtils.getPathForFile(file),
 

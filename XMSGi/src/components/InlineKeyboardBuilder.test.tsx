@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import { InlineKeyboardBuilder } from './InlineKeyboardBuilder';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
+import { LocaleProvider } from '@/lib/i18n';
 
-function renderBuilder(initialRows: InlineButtonRow[] = []) {
+function renderBuilder(initialRows: InlineButtonRow[] = [], locale: 'en' | 'ru' = 'en') {
+  window.localStorage.setItem('awaitmsg_locale', locale);
+
   function Harness() {
     const [rows, setRows] = useState(initialRows);
 
@@ -18,7 +21,7 @@ function renderBuilder(initialRows: InlineButtonRow[] = []) {
     );
   }
 
-  return render(<Harness />);
+  return render(<LocaleProvider><Harness /></LocaleProvider>);
 }
 
 describe('InlineKeyboardBuilder', () => {
@@ -95,5 +98,15 @@ describe('InlineKeyboardBuilder', () => {
 
     expect(screen.getAllByRole('textbox')).toHaveLength(16);
     expect(screen.getByText('8 active')).toBeInTheDocument();
+  });
+
+  it('translates editor labels and validation errors into Russian', () => {
+    renderBuilder([], 'ru');
+
+    expect(screen.getByRole('heading', { name: 'Кнопки под сообщением' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Добавить кнопку' }));
+
+    expect(screen.getByLabelText('Кнопка 1: текст')).toBeInTheDocument();
+    expect(screen.getByText('Введите текст кнопки.')).toBeInTheDocument();
   });
 });

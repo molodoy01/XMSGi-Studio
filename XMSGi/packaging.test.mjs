@@ -9,9 +9,9 @@ const packageJson = JSON.parse(
 );
 
 describe('production packaging', () => {
-  it('publishes the XMSGi 2.2.0 portable package metadata', () => {
-    expect(packageJson.version).toBe('2.2.0');
-    expect(packageJson.build.productName).toBe('XMSGi');
+  it('publishes the XMSGi Studio 1.1.0 portable package metadata', () => {
+    expect(packageJson.version).toBe('1.1.0');
+    expect(packageJson.build.productName).toBe('XMSGi Studio');
     expect(packageJson.build.icon).toBe('build/icon.ico');
     expect(packageJson.build.win.target).toEqual(['portable']);
     expect(packageJson.build.asar).toBe(true);
@@ -23,6 +23,7 @@ describe('production packaging', () => {
       'main.cjs',
       'preload.cjs',
       'chat-storage.cjs',
+      'app-data-path.cjs',
       'gemini.cjs',
       'telegram.cjs',
       'telegram-dialogs.cjs',

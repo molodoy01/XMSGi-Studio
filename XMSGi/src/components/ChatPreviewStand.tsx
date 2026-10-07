@@ -1,4 +1,4 @@
-import { ImagePlus, MessageCircle } from 'lucide-react';
+import { ImagePlus, MessageCircle, Smartphone } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
@@ -220,6 +220,18 @@ export function ChatPreviewStand({
   const [wallpaperAccent, setWallpaperAccent] = useState(savedWallpaper.accent);
   const wallpaperFileInputRef = useRef<HTMLInputElement | null>(null);
   const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
+  const [previewSettingsOpen, setPreviewSettingsOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'mobile' | 'web'>('mobile');
+  const [chatSearch, setChatSearch] = useState('');
+
+  const filteredChats = useMemo(() => {
+    const query = chatSearch.trim().toLowerCase();
+    if (!query) return chats;
+    return chats.filter((chat) => {
+      const haystack = `${chat.name} ${chat.username ?? ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [chatSearch, chats]);
 
   useEffect(() => {
     try {
@@ -321,9 +333,39 @@ export function ChatPreviewStand({
       : 'rgba(35, 76, 82, 0.28)';
 
   return (
-    <div className={`chat-preview-stand ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''}`}>
+    <div className={`chat-preview-stand ${collapsed ? 'is-collapsed' : ''} ${chatListOpen ? 'is-chat-list-open' : ''} ${previewMode === 'mobile' ? 'is-mobile' : 'is-web'}`}>
       <div className="chat-preview-toolbar">
         <span className="chat-preview-toolbar-label">Live chat preview</span>
+        {previewSettingsOpen && (
+          <div className="chat-preview-settings-panel" role="group" aria-label="Preview settings">
+            {previewMode === 'mobile' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewMode('web');
+                  setPreviewSettingsOpen(false);
+                }}
+                aria-label="Switch to Web preview"
+                title="Switch to Web preview"
+              >
+                Switch to Web preview
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewMode('mobile');
+                  setPreviewSettingsOpen(false);
+                }}
+                aria-label="Switch to Mobile preview"
+                title="Switch to Mobile preview"
+              >
+                <Smartphone size={16} strokeWidth={1.8} aria-hidden="true" />
+                Switch to Mobile preview
+              </button>
+            )}
+          </div>
+        )}
         {wallpaperPickerOpen && (
           <div className="chat-preview-wallpaper-quick-picker" aria-label="Choose chat background">
             <button
@@ -376,8 +418,17 @@ export function ChatPreviewStand({
         {chatListOpen && (
           <aside className="chat-preview-chat-list" aria-label="Chats">
             <div className="chat-preview-chat-list-heading">Chats</div>
+            <div className="chat-preview-chat-list-search">
+              <input
+                type="text"
+                value={chatSearch}
+                onChange={(event) => setChatSearch(event.target.value)}
+                aria-label="Search chats"
+                placeholder="Search chats"
+              />
+            </div>
             <div className="chat-preview-chat-list-items">
-              {chats.map((chat) => (
+              {filteredChats.map((chat) => (
                 <button
                   type="button"
                   key={chat.id}
@@ -418,6 +469,28 @@ export function ChatPreviewStand({
               title="Choose chat background"
             >
               <ImagePlus size={17} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="chat-preview-expand"
+              onClick={() => {
+                if (chatListOpen) onToggleChatList();
+                setPreviewSettingsOpen((current) => !current);
+              }}
+              aria-label="Preview settings"
+              title="Preview settings"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="lucide lucide-settings" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v2" />
+                <path d="M12 19v2" />
+                <path d="M4.93 4.93l1.41 1.41" />
+                <path d="M17.66 17.66l1.41 1.41" />
+                <path d="M3 12h2" />
+                <path d="M19 12h2" />
+                <path d="M4.93 19.07l1.41-1.41" />
+                <path d="M17.66 6.34l1.41-1.41" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
             </button>
           </div>
         </header>
@@ -460,6 +533,11 @@ export function ChatPreviewStand({
                 );
               })}
 
+              {!chatListOpen && (
+                <button type="button" className="chat-preview-open-list" onClick={onToggleChatList} aria-label="Open chat list">
+                  Open chat list
+                </button>
+              )}
               {hasDraft ? (
                 <article
                   className="chat-preview-bubble is-outgoing chat-preview-draft-bubble"

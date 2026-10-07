@@ -29,6 +29,28 @@ function renderPicker(findChat: (query: string) => Promise<unknown>, chats: Chat
 }
 
 describe('ChatPicker global username result flow', () => {
+  it('renders a send-permission warning immediately after the selected chat name', () => {
+    const selectedChat: Chat = { id: 'restricted-chat', name: 'Restricted channel', type: 'channel' };
+    render(
+      <LocaleProvider>
+        <ChatPicker
+          chats={[selectedChat]}
+          selectedChat={selectedChat}
+          onSelect={vi.fn()}
+          onAddChat={vi.fn()}
+          onRemoveChat={vi.fn()}
+          permissionWarning="Нельзя отправлять сообщения"
+        />
+      </LocaleProvider>,
+    );
+
+    const name = document.querySelector('.chat-picker-current-name');
+    const warning = screen.getByRole('status');
+    expect(warning).toHaveTextContent('Нельзя отправлять сообщения');
+    expect(name?.nextElementSibling).toBe(warning);
+    expect(warning.closest('.chat-picker-current')).not.toBeNull();
+  });
+
   it('adds and selects a private user returned from a global username lookup', async () => {
     const privateUser: Chat = {
       id: '9001',
@@ -102,17 +124,21 @@ describe('ChatPicker global username result flow', () => {
     renderPicker(vi.fn(), chats);
 
     const viewport = document.querySelector('.chat-picker-scroll-area') as HTMLDivElement;
-    const scrollbar = document.querySelector('.chat-picker-scrollbar');
     expect(viewport.querySelectorAll('.chat-option')).toHaveLength(12);
-    expect(scrollbar).not.toBeNull();
-    expect(scrollbar).toHaveAttribute('role', 'scrollbar');
-
     Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 120 });
     Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 600 });
     viewport.scrollTop = 84;
     fireEvent.scroll(viewport);
 
+    const scrollbar = document.querySelector('.chat-picker-scrollbar');
+    expect(scrollbar).toHaveAttribute('role', 'scrollbar');
     expect(scrollbar).toHaveAttribute('aria-valuenow', '84');
     expect(scrollbar).toHaveAttribute('aria-valuemax', '480');
+  });
+
+  it('hides the scrollbar when the chat list fits in the menu', () => {
+    renderPicker(vi.fn(), [{ id: 'chat-short', name: 'Short list', type: 'group' }]);
+
+    expect(document.querySelector('.chat-picker-scrollbar')).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { CalendarDays, Clock, Menu, Paperclip, Smile, X } from 'lucide-react';
-import xmsgiLogoWhite from '@/assets/xmsgi-logo-white.svg';
+import { CalendarDays, Clock, Menu, Paperclip, Pencil, Smile, X } from 'lucide-react';
+import xmsgiLogoMaster from '@/assets/xmsgi-logo-master.png';
 import { Notification } from '@/components/Notification';
 import { ChatPicker } from '@/components/ChatPicker';
 import { getMessageMaxLength, insertMessageText, limitMessageText } from '@/lib/messageLimits';
@@ -22,8 +22,8 @@ function getRecentEmojisStorageKey(chatId?: string) {
 }
 
 function getMessageOptionsPosition(anchor: DOMRect) {
-  const width = 132;
-  const height = 128;
+  const width = 176;
+  const height = 190;
   const gap = 8;
   const edge = 12;
   const left = Math.max(edge, Math.min(anchor.right - width, window.innerWidth - width - edge));
@@ -62,6 +62,7 @@ type SchedulePageProps = {
   connected: boolean;
   signedOut: boolean;
   returningUserName: string;
+  returningUserUsername: string;
   connecting: boolean;
   connectionResolved: boolean;
   authStep: 'phone' | 'code' | 'password';
@@ -79,7 +80,6 @@ type SchedulePageProps = {
   setAuthError: Dispatch<SetStateAction<string>>;
   handleTelegramAuth: () => Promise<void>;
   handleWelcomeBack: () => Promise<void>;
-  handleForgetAccount: () => Promise<void>;
   chats: Chat[];
   selectedChat: Chat | null;
   selectedChatPermissions: ChatPermissions | null;
@@ -127,6 +127,7 @@ export function SchedulePage(props: SchedulePageProps) {
     connected,
     signedOut,
     returningUserName,
+    returningUserUsername,
     connecting,
     connectionResolved,
     authStep,
@@ -144,7 +145,6 @@ export function SchedulePage(props: SchedulePageProps) {
     setAuthError,
     handleTelegramAuth,
     handleWelcomeBack,
-    handleForgetAccount,
     chats,
     selectedChat,
     selectedChatPermissions,
@@ -197,6 +197,7 @@ export function SchedulePage(props: SchedulePageProps) {
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [showMoreEmojis, setShowMoreEmojis] = useState(false);
   const [messageOptionsOpen, setMessageOptionsOpen] = useState(false);
+  const [reminderModeEnabled, setReminderModeEnabled] = useState(false);
   const [messageOptionsPosition, setMessageOptionsPosition] = useState({ top: 0, left: 0 });
   const [messageEffectsPosition, setMessageEffectsPosition] = useState({ top: 0, left: 0, width: 176 });
   const [selectedMessageOption, setSelectedMessageOption] = useState<'silent' | 'effect' | null>(null);
@@ -222,9 +223,25 @@ export function SchedulePage(props: SchedulePageProps) {
   const selectedEffect = availableEffects.find((effect) => effect.id === selectedEffectId);
   const premiumEffects = availableEffects.filter((effect) => effect.premiumRequired === true);
   const freeEffects = availableEffects.filter((effect) => effect.premiumRequired !== true);
+  const savedMessagesChat = chats.find((chat) => {
+    const normalizedName = chat.name.trim().toLocaleLowerCase();
+    return normalizedName === 'saved messages' || normalizedName === 'сохранённые сообщения';
+  });
   const messageMaxLength = getMessageMaxLength(attachments.length > 0);
   const hasPlannerNotification = connected && notification.visible && notification.message.trim().length > 0;
   const isShortPlannerNotification = notification.message.trim().length <= 32;
+
+  const startSelfReminder = () => {
+    setMessageOptionsOpen(false);
+    setEffectMenuOpen(false);
+    if (!savedMessagesChat) {
+      showNotification(t('composer.savedMessagesUnavailable'), 'warning', t('chat.label'));
+      return;
+    }
+
+    setSelectedChat(savedMessagesChat);
+    window.requestAnimationFrame(() => messageInputRef.current?.focus());
+  };
 
   useLayoutEffect(() => {
     const caretPosition = pendingPasteCaretRef.current;
@@ -558,11 +575,7 @@ export function SchedulePage(props: SchedulePageProps) {
         {!connectionResolved ? (
           <div className="connection-stage" aria-hidden="true" />
         ) : !connected ? (
-          <section className={`auth-panel ${showAuthForm ? 'is-auth-open' : ''}`}>
-            <div className="auth-brand" aria-label="XMSGi">
-              <img className="auth-brand-mark" src={xmsgiLogoWhite} alt="" aria-hidden="true" />
-              <span>XMSGi</span>
-            </div>
+          <section className={`auth-panel ${showAuthForm ? 'is-auth-open' : ''} ${signedOut ? 'is-returning' : ''}`}>
             <div className="auth-language-switch" role="group" aria-label={t('language.title')}>
               <button type="button" className={locale === 'en' ? 'is-selected' : ''} onClick={() => setLocale('en')} aria-pressed={locale === 'en'}>
                 EN
@@ -574,127 +587,126 @@ export function SchedulePage(props: SchedulePageProps) {
             </div>
             <div className="auth-intro">
               <div className="auth-hero-copy" aria-label={t('hero.signInIntro')}>
-                <span className="auth-hero-line auth-hero-line-main">
-                  {locale === 'ru' ? (
-                    <>
-                      <span>Сообщение</span>
-                      <span>подождёт.</span>
-                    </>
-                  ) : t('hero.sloganMain')}
+                <span className="auth-hero-line auth-hero-line-main" role="img" aria-label="XMSGi">
+                  <img className="auth-hero-logo-x" src={xmsgiLogoMaster} alt="" aria-hidden="true" />
+                  <span aria-hidden="true">{t('auth.loginHeroMain')}</span>
                 </span>
-                {locale !== 'ru' && <span className="auth-hero-line auth-hero-line-sub">{t('hero.sloganSub')}</span>}
+                <span className="auth-hero-line auth-hero-line-sub">{t('auth.loginHeroSub')}</span>
+                <span className="auth-hero-tagline">{t('auth.loginHeroTagline')}</span>
+                <span className="auth-hero-tagline-sub">{t('auth.loginHeroTaglineSub')}</span>
               </div>
 
-              {!signedOut && (
-                <button
-                  type="button"
-                  className="auth-cta"
-                  aria-label={t('auth.continueTelegram')}
-                  onClick={() => {
-                    setShowAuthForm((current) => !current);
-                    setAuthStep('phone');
-                    setAuthError('');
-                  }}
-                >
-                  <span>{t('auth.continue')}</span>
-                  <span className="auth-cta-arrow" aria-hidden="true">→</span>
-                  <span>{t('auth.telegram')}</span>
-                </button>
-              )}
-
-              <div className={`auth-form ${showAuthForm ? 'is-visible' : ''}`}>
-                {authStep === 'phone' && (
-                  <div className="field">
-                    <label>{t('auth.phone')}</label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(event) => setPhoneNumber(event.target.value)}
-                      placeholder={t('auth.phonePlaceholder')}
-                      autoComplete="tel"
-                    />
-                  </div>
-                )}
-
-                {authStep !== 'phone' && (
-                  <div className="field">
-                    <label>{t('auth.loginCode')}</label>
-                    <input
-                      type="text"
-                      value={phoneCode}
-                      onChange={(event) => setPhoneCode(event.target.value)}
-                      placeholder={t('auth.loginCodePlaceholder')}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                    />
-                  </div>
-                )}
-
-                {authStep === 'password' && (
-                  <div className="field">
-                    <label>{t('auth.twoFactorPassword')}</label>
-                    <input
-                      type="password"
-                      value={twoFactorPassword}
-                      onChange={(event) => setTwoFactorPassword(event.target.value)}
-                      placeholder={t('auth.twoFactorPasswordPlaceholder')}
-                      autoComplete="current-password"
-                    />
-                  </div>
-                )}
-
-                {authError && <p className="auth-error">{authError}</p>}
-
-                <button
-                  className="action-button"
-                  onClick={handleTelegramAuth}
-                  disabled={authBusy || (authStep === 'phone' ? !phoneNumber.trim() : !phoneCode.trim())}
-                >
-                  {authBusy
-                    ? t('auth.connecting')
-                    : authStep === 'phone'
-                      ? t('auth.signIn')
-                      : authStep === 'password'
-                        ? t('auth.verifyConnect')
-                        : t('auth.verifyCode')}
-                </button>
-
-                {authStep !== 'phone' && (
+              <div className="auth-access">
+                {!signedOut && (
                   <button
-                    className="auth-back-button"
+                    type="button"
+                    className="auth-cta"
+                    aria-label={t('auth.continueTelegram')}
                     onClick={() => {
+                      setShowAuthForm((current) => !current);
                       setAuthStep('phone');
-                      setPhoneCode('');
-                      setTwoFactorPassword('');
                       setAuthError('');
                     }}
-                    disabled={authBusy}
                   >
-                    {t('auth.startOver')}
+                    <span>{t('auth.continue')}</span>
+                    <span className="auth-cta-arrow" aria-hidden="true">→</span>
+                    <span>{t('auth.telegram')}</span>
                   </button>
+                )}
+
+                <div className={`auth-form ${showAuthForm ? 'is-visible' : ''}`}>
+                  {authStep === 'phone' && (
+                    <div className="field">
+                      <label>{t('auth.phone')}</label>
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(event) => setPhoneNumber(event.target.value)}
+                        placeholder={t('auth.phonePlaceholder')}
+                        autoComplete="tel"
+                      />
+                    </div>
+                  )}
+
+                  {authStep !== 'phone' && (
+                    <div className="field">
+                      <label>{t('auth.loginCode')}</label>
+                      <input
+                        type="text"
+                        value={phoneCode}
+                        onChange={(event) => setPhoneCode(event.target.value)}
+                        placeholder={t('auth.loginCodePlaceholder')}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                      />
+                    </div>
+                  )}
+
+                  {authStep === 'password' && (
+                    <div className="field">
+                      <label>{t('auth.twoFactorPassword')}</label>
+                      <input
+                        type="password"
+                        value={twoFactorPassword}
+                        onChange={(event) => setTwoFactorPassword(event.target.value)}
+                        placeholder={t('auth.twoFactorPasswordPlaceholder')}
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  )}
+
+                  {authError && <p className="auth-error" role="alert">{authError}</p>}
+
+                  <button
+                    className="action-button"
+                    onClick={handleTelegramAuth}
+                    disabled={authBusy || (authStep === 'phone' ? !phoneNumber.trim() : !phoneCode.trim())}
+                  >
+                    {authBusy
+                      ? t('auth.connecting')
+                      : authStep === 'phone'
+                        ? t('auth.signIn')
+                        : authStep === 'password'
+                          ? t('auth.verifyConnect')
+                          : t('auth.verifyCode')}
+                  </button>
+
+                  {authStep !== 'phone' && (
+                    <button
+                      className="auth-back-button"
+                      onClick={() => {
+                        setAuthStep('phone');
+                        setPhoneCode('');
+                        setTwoFactorPassword('');
+                        setAuthError('');
+                      }}
+                      disabled={authBusy}
+                    >
+                      {t('auth.startOver')}
+                    </button>
+                  )}
+                </div>
+
+                {signedOut && (
+                  <aside className="returning-user-panel" aria-label={t('auth.returningUser')}>
+                    <div className="returning-user-copy">
+                      <span className="returning-user-greeting">{t('auth.welcomeBack')}</span>
+                      <button
+                        type="button"
+                        className="returning-user-name"
+                        onClick={handleWelcomeBack}
+                        disabled={authBusy}
+                        aria-label={t('auth.returnToApp', { name: returningUserName || returningUserUsername || t('auth.returningUser') })}
+                        title={t('auth.returnToApp', { name: returningUserName || returningUserUsername || t('auth.returningUser') })}
+                      >
+                        <span>{returningUserName || (returningUserUsername ? `@${returningUserUsername}` : t('auth.returningUser'))}</span>
+                        <span className="returning-user-arrow" aria-hidden="true">↗</span>
+                      </button>
+                    </div>
+                  </aside>
                 )}
               </div>
             </div>
-            {signedOut && (
-              <aside className="returning-user-panel" aria-label={t('auth.returningUser')}>
-                <div className="returning-user-copy">
-                  <span className="returning-user-greeting">{t('auth.welcomeBack')}</span>
-                  <button
-                    type="button"
-                    className="returning-user-name"
-                    onClick={handleWelcomeBack}
-                    disabled={authBusy}
-                  >
-                    {returningUserName || 'Telegram account'}
-                  </button>
-                  <div className="returning-user-actions">
-                    <button type="button" onClick={handleForgetAccount} disabled={authBusy}>
-                      {t('auth.notYou')}
-                    </button>
-                  </div>
-                </div>
-              </aside>
-            )}
           </section>
         ) : (
           <>
@@ -808,12 +820,8 @@ export function SchedulePage(props: SchedulePageProps) {
                   onAddChat={handleAddChat}
                   onRemoveChat={handleRemoveChat}
                   onError={(msg, title) => showNotification(msg, 'error', title)}
+                  permissionWarning={selectedChatPermissions?.canSend === false ? t('chat.cannotSend') : undefined}
                 />
-                {selectedChatPermissions?.canSend === false && (
-                  <p className="chat-permission-warning" role="status">
-                    {t('chat.cannotSend')}
-                  </p>
-                )}
               </div>
 
               <div className="field message-field">
@@ -1041,6 +1049,16 @@ export function SchedulePage(props: SchedulePageProps) {
                     >
                       {selectedMessageOption === 'silent' ? '🔕' : selectedEffectId ? selectedEffect?.emoticon : ''}
                     </span>
+                    {reminderModeEnabled && (
+                      <span
+                        className="message-reminder-indicator"
+                        role="img"
+                        aria-label={t('composer.createReminder')}
+                        title={t('composer.createReminder')}
+                      >
+                        <Pencil size={17} strokeWidth={1.8} aria-hidden="true" />
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="message-send-button"
@@ -1056,7 +1074,7 @@ export function SchedulePage(props: SchedulePageProps) {
                         setMessageOptionsOpen((current) => !current);
                       }}
                     >
-                      <Menu size={17} strokeWidth={1.8} aria-hidden="true" />
+                      <Menu size={19} strokeWidth={1.8} aria-hidden="true" />
                     </button>
 
                     {messageOptionsOpen && createPortal(
@@ -1106,6 +1124,23 @@ export function SchedulePage(props: SchedulePageProps) {
                         >
                           <span className="message-option-icon" aria-hidden="true">✨</span>
                           <span className="message-option-label">{t('composer.effect')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={reminderModeEnabled}
+                          disabled={!savedMessagesChat}
+                          className={reminderModeEnabled ? 'is-selected' : ''}
+                          onClick={() => {
+                            const enableReminderMode = !reminderModeEnabled;
+                            setReminderModeEnabled(enableReminderMode);
+                            setMessageOptionsOpen(false);
+                            setEffectMenuOpen(false);
+                            if (enableReminderMode) startSelfReminder();
+                          }}
+                        >
+                          <span className="message-option-icon" aria-hidden="true"><Pencil size={16} strokeWidth={1.8} /></span>
+                          <span className="message-option-label">{t('composer.createReminder')}</span>
                         </button>
                       </div>,
                       document.body,
@@ -1348,6 +1383,7 @@ export function SchedulePage(props: SchedulePageProps) {
             <div className="messages-panel-wrapper" aria-hidden={!hasPlannerNotification}>
               {hasPlannerNotification && (
                 <span
+                  key={notification.revision}
                   className={`planner-inline-notification ${isShortPlannerNotification ? 'is-short' : 'is-long'} is-${notification.type}`}
                   role={notification.type === 'error' ? 'alert' : 'status'}
                   aria-live={notification.type === 'error' ? 'assertive' : 'polite'}

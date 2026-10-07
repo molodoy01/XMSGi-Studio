@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Chat } from '@/types';
-import { ChatAvatar } from '@/components/ChatAvatar';
+import { ChatAvatar } from './ChatAvatar';
+import { useLocale } from '../../../../XMSGi/src/lib/i18n';
 
 interface Props {
   chats: Chat[];
@@ -19,6 +20,7 @@ export function ChatPicker({
   onRemoveChat,
   onError,
 }: Props) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [addQuery, setAddQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -51,13 +53,13 @@ export function ChatPicker({
           setAddQuery('');
           setOpen(false);
         } else if (onError) {
-          onError(result.error || 'That chat could not be found.', 'Chat not found');
+          onError(result.error || t('studio.addChatFailed'), t('studio.chatNotFound'));
         }
       })
       .catch(() => {
         setAdding(false);
         if (onError) {
-          onError('We could not reach Telegram while looking for that chat.', 'Connection problem');
+          onError(t('studio.connectionFailed'), t('studio.connectionProblem'));
         }
       });
   }
@@ -77,7 +79,7 @@ export function ChatPicker({
         tabIndex={0}
         role="button"
       >
-        {selectedChat ? selectedChat.name : 'Choose a chat…'}
+        {selectedChat ? selectedChat.name : t('studio.chooseChat')}
       </div>
 
       <div className={`chat-picker-menu ${open ? 'open' : ''}`}>
@@ -87,10 +89,10 @@ export function ChatPicker({
             value={addQuery}
             onChange={(e) => setAddQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Add chat, @name or phone"
+            placeholder={t('studio.addChatPlaceholder')}
           />
           <button className="chat-add-button" onClick={handleAddChat} disabled={adding}>
-            {adding ? '...' : 'Add'}
+            {adding ? t('studio.addingChat') : t('studio.addChat')}
           </button>
         </div>
 
@@ -106,11 +108,23 @@ export function ChatPicker({
             <ChatAvatar name={chat.name} src={chat.avatarDataUrl} className="chat-option-avatar" />
             <span className="chat-option-copy">
               <strong className="chat-option-name">{chat.name}</strong>
-              <span className="chat-option-type">{chat.name === 'Saved Messages' ? 'Saved Messages' : chat.type || 'Chat'}</span>
+              <span className="chat-option-type">{chat.name === 'Saved Messages'
+                ? t('studio.savedMessagesType')
+                : chat.type === 'private'
+                  ? t('studio.privateChat')
+                  : chat.type === 'group'
+                    ? t('studio.groupChat')
+                    : chat.type === 'supergroup'
+                      ? t('studio.supergroup')
+                      : chat.type === 'channel'
+                        ? t('studio.channelType')
+                        : t('studio.chatType')}</span>
             </span>
             {selectedChat?.id === chat.id && (
               <button
                 className="msg-btn delete"
+                aria-label={t('common.remove')}
+                title={t('common.remove')}
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveChat(chat);

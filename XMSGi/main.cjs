@@ -9,14 +9,20 @@ app.setPath('userData', writableAppDataRoot);
 app.setPath('sessionData', writableAppDataRoot);
 
 if (!app.isPackaged && process.env.npm_lifecycle_event !== 'start') {
-  require('dotenv').config();
-  delete process.env.SESSION_STRING;
+  const developmentEnvironment = {};
+  require('dotenv').config({ processEnv: developmentEnvironment });
+  for (const key of ['API_ID', 'API_HASH', 'GEMINI_MODEL']) {
+    if (process.env[key] === undefined && typeof developmentEnvironment[key] === 'string') {
+      process.env[key] = developmentEnvironment[key];
+    }
+  }
 }
 
 const {
   validateCancelPayload,
   validateChatId,
   validateEnabled,
+  validateDeleteSavedMessagePayload,
   validateGeminiGeneratePayload,
   validateGeminiKey,
   validateHistoryPayload,
@@ -28,13 +34,12 @@ const {
   assertTrustedRenderer
 } = require('./ipc-security.cjs');
 const { readChats, writeChats, readJsonFile, writeJsonFile } = require('./chat-storage.cjs');
+const { resolveAppDataPath } = require('./app-data-path.cjs');
 const { normalizeScheduleMessages } = require('./schedule-history.cjs');
 const draftStoreModulePath = (() => {
   const candidates = [
     app.isPackaged ? path.join(process.resourcesPath, 'draft-store.cjs') : null,
     path.resolve(__dirname, 'draft-store.cjs'),
-    path.resolve(__dirname, '../../AwaitMsg-Studio/draft-store.cjs'),
-    path.resolve(__dirname, '../../AwaitMsg-Studio-old/draft-store.cjs'),
   ].filter(Boolean);
 
   for (const candidate of candidates) {
@@ -47,17 +52,30 @@ const draftStoreModulePath = (() => {
 })();
 const { createDraftStore } = require(draftStoreModulePath);
 
-const SECURE_CONFIG_PATH = path.join(
-  app.getPath('userData'),
-  'awaitmsg-secure-config.json'
+const userDataPath = app.getPath('userData');
+const SECURE_CONFIG_PATH = resolveAppDataPath(
+  fs,
+  path,
+  userDataPath,
+  'xmsgi-studio-secure-config.json',
+  'awaitmsg-secure-config.json',
 );
-const CHAT_STORAGE_PATH = path.join(
-  app.getPath('userData'),
-  'awaitmsg-chats.json'
+const CHAT_STORAGE_PATH = resolveAppDataPath(
+  fs,
+  path,
+  userDataPath,
+  'xmsgi-studio-chats.json',
+  'awaitmsg-chats.json',
 );
 const DRAFT_STORE_DIRECTORY = path.join(app.getPath('userData'), 'drafts');
 const draftStore = createDraftStore({ directory: DRAFT_STORE_DIRECTORY });
-const SCHEDULE_HISTORY_PATH = path.join(app.getPath('userData'), 'awaitmsg-schedule-history.json');
+const SCHEDULE_HISTORY_PATH = resolveAppDataPath(
+  fs,
+  path,
+  userDataPath,
+  'xmsgi-studio-schedule-history.json',
+  'awaitmsg-schedule-history.json',
+);
 
 let mainWindow = null;
 let tray = null;
@@ -232,6 +250,7 @@ const {
   getChatPermissions,
   getChatAvatar,
   getChatHistory,
+  deleteSavedMessage,
   getContacts,
   getAvailableEffects,
   resolveChat,
@@ -290,7 +309,7 @@ function getGeminiErrorCode(error) {
 
 function createWindow() {
    mainWindow = new BrowserWindow({
-    title: 'XMSGi',
+    title: 'XMSGi Studio',
     icon: path.join(__dirname, 'build', 'icon.ico'),
     width: 1200,
     height: 800,
@@ -349,14 +368,14 @@ function requestQuit() {
     tray = null;
   }
 
-  console.log('XMSGi shutting down.');
+  console.log('XMSGi Studio shutting down.');
 
   shutdownTelegram()
     .catch((error) => {
       console.error('Telegram shutdown error:', error?.code || error?.name || 'unknown');
     })
     .finally(() => {
-      console.log('XMSGi shutdown complete.');
+      console.log('XMSGi Studio shutdown complete.');
       app.quit();
     });
 }
@@ -365,11 +384,11 @@ function createTray() {
   if (tray) return;
 
   tray = new Tray(path.join(__dirname, 'build', 'icon.ico'));
-  tray.setToolTip('XMSGi');
+  tray.setToolTip('XMSGi Studio');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'XMSGi', enabled: false },
+    { label: 'XMSGi Studio', enabled: false },
     { type: 'separator' },
-    { label: 'Open XMSGi', click: showMainWindow },
+    { label: 'Open XMSGi Studio', click: showMainWindow },
     { label: 'Exit', click: requestQuit },
   ]));
   tray.on('double-click', showMainWindow);
@@ -697,7 +716,7 @@ ipcMain.handle('draft-store:export', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showSaveDialog(owner, {
     title: 'Export Saved Drafts',
-    defaultPath: 'awaitmsg-drafts-backup.json',
+    defaultPath: 'xmsgi-studio-drafts-backup.json',
     filters: [{ name: 'JSON backup', extensions: ['json'] }],
   });
   if (result.canceled || !result.filePath) return { success: false, cancelled: true };
@@ -1021,6 +1040,22 @@ ipcMain.handle('telegram-chat-history', async (event, data = {}) => {
   }
 });
 
+ipcMain.handle('telegram-saved-message:delete', async (event, data = {}) => {
+  assertTrustedRenderer(
+    event,
+    mainWindow?.webContents,
+    pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href
+  );
+  const validated = validateDeleteSavedMessagePayload(data);
+
+  try {
+    return await deleteSavedMessage(validated.chatId, validated.messageId);
+  } catch (error) {
+    console.error('Telegram saved message deletion error:', error?.code || error?.name || 'unknown');
+    return { success: false, error: error.message };
+  }
+});
+
 // -------------------------
 // Telegram contacts
 // -------------------------
@@ -1259,7 +1294,7 @@ ipcMain.handle('telegram-cancel', async (event, data) => {
 
 app.whenReady().then(() => {
 
-  console.log('XMSGi started.');
+  console.log('XMSGi Studio started.');
   createWindow();
   createTray();
 

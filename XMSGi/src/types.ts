@@ -112,4 +112,5 @@ export type NotificationState = {
   type: NotificationType;
   title: string;
   visible: boolean;
+  revision?: number;
 };

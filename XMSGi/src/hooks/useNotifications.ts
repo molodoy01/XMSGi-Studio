@@ -10,6 +10,7 @@ export function useNotifications() {
   });
 
   const notificationTimeoutRef = useRef<number | null>(null);
+  const notificationRevisionRef = useRef(0);
 
   const showNotification = useCallback(
     (message: string, type: NotificationType, title: string) => {
@@ -22,6 +23,7 @@ export function useNotifications() {
         type,
         title,
         visible: true,
+        revision: ++notificationRevisionRef.current,
       });
 
       notificationTimeoutRef.current = window.setTimeout(() => {

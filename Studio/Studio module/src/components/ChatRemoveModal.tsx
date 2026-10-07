@@ -1,3 +1,5 @@
+import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+
 interface Props {
   show: boolean;
   chatName: string;
@@ -11,12 +13,13 @@ export function ChatRemoveModal({
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useLocale();
   return (
     <div className={`chat-remove-modal ${show ? 'show' : ''}`}>
-      <div className="chat-remove-title">Remove this chat?</div>
+      <div className="chat-remove-title">{t('chatRemove.title')}</div>
 
       <div className="chat-remove-message">
-        "{chatName}" will leave your saved chats. Scheduled and sent messages will stay in your archive.
+        {t('chatRemove.message', { name: chatName })}
       </div>
 
       <div className="chat-remove-actions">
@@ -24,14 +27,14 @@ export function ChatRemoveModal({
           className="chat-remove-cancel"
           onClick={onCancel}
         >
-          Cancel
+          {t('common.cancel')}
         </button>
 
         <button
           className="chat-remove-confirm"
           onClick={onConfirm}
         >
-          Remove
+          {t('common.remove')}
         </button>
       </div>
     </div>

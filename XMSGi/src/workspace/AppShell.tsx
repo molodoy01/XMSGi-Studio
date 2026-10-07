@@ -33,10 +33,11 @@ type AppShellProps = PropsWithChildren<{
   handleForgetAccount: () => Promise<void>;
   onOpenSettings: () => void;
   historyRecords: HistoryItem[];
+  savedMessagesChatId?: string;
   onHistoryCancel: (record: HistoryItem) => void;
   onHistoryReschedule: (record: HistoryItem) => void;
   onHistorySendNow: (record: HistoryItem) => void;
-  onHistoryDelete: (record: HistoryItem) => void;
+  onHistoryDelete: (record: HistoryItem) => void | Promise<boolean>;
   onHistoryOpenDraft: (record: HistoryItem) => void;
   onHistoryUseDraft?: (record: HistoryItem) => void;
   onHistoryClearSent: (source: HistorySource | 'all') => void;
@@ -60,6 +61,7 @@ export function AppShell({
   handleForgetAccount,
   onOpenSettings,
   historyRecords,
+  savedMessagesChatId,
   onHistoryCancel,
   onHistoryReschedule,
   onHistorySendNow,
@@ -71,7 +73,7 @@ export function AppShell({
   onHistoryCancelQueue,
 }: AppShellProps) {
   const { t } = useLocale();
-  const nextViewLabel = view === 'planner' ? 'STUDIO' : 'PLANNER';
+  const nextViewLabel = view === 'planner' ? t('product.studio') : t('product.planner');
   const sectionLabel = view === 'planner' ? t('product.planner') : t('product.studio');
   const [isHistoryOpen, setIsHistoryOpen] = useState(loadHistoryDrawerOpen);
   const updateHistoryOpen = (nextIsOpen: boolean) => {
@@ -118,10 +120,10 @@ export function AppShell({
               type="button"
               className="settings-action"
               onClick={() => updateHistoryOpen(true)}
-              title="Posts"
-              aria-label="Posts"
+              title={t('history.title')}
+              aria-label={t('history.title')}
             >
-              <span className="action-label">Posts</span>
+              <span className="action-label">{t('history.title')}</span>
             </button>
 
             <button
@@ -178,6 +180,7 @@ export function AppShell({
         isOpen={isHistoryOpen}
         onClose={() => updateHistoryOpen(false)}
         records={historyRecords}
+        savedMessagesChatId={savedMessagesChatId}
         onCancel={onHistoryCancel}
         onReschedule={onHistoryReschedule}
         onSendNow={onHistorySendNow}

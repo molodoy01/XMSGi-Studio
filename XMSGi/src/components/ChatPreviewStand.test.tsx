@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MutableRefObject } from 'react';
 import type { Chat } from '@/types';
 import { LocaleProvider } from '@/lib/i18n';
-import { ChatPreviewStand } from '../../../Studio/Studio module/src/components/ChatPreviewStand';
+import { ChatPreviewStand } from '@/components/ChatPreviewStand';
 
 const chats: Chat[] = [
   { id: 'chat-1', name: 'Saved Messages', type: 'private' },
@@ -53,6 +53,9 @@ describe('ChatPreviewStand DOM behavior', () => {
   it('filters the Web chat list from the inline search field', () => {
     renderStand();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Web preview' }));
+
     fireEvent.change(screen.getByRole('textbox', { name: 'Search chats' }), { target: { value: 'design' } });
 
     expect(screen.getByRole('button', { name: /Design Group/ })).toBeInTheDocument();
@@ -63,6 +66,8 @@ describe('ChatPreviewStand DOM behavior', () => {
   it('uses the chat toggle control when the list is closed', () => {
     const { onToggleChatList } = renderStand(false);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Web preview' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
     fireEvent.click(screen.getByRole('button', { name: 'Show chats' }));
     expect(onToggleChatList).toHaveBeenCalledTimes(1);
@@ -92,20 +97,20 @@ describe('ChatPreviewStand DOM behavior', () => {
     const { container, onToggleChatList } = renderStand(false);
     const preview = container.querySelector('.chat-preview-stand');
 
-    expect(preview).toHaveClass('is-web');
-    expect(screen.queryByRole('button', { name: 'Web' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Mobile' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Switch to Mobile preview' }));
     expect(preview).toHaveClass('is-mobile');
+    expect(screen.queryByRole('button', { name: 'Switch to Web preview' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Switch to Mobile preview' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
-    expect(screen.getByRole('button', { name: 'Switch to Web preview' }).querySelector('svg')).toHaveClass('lucide-monitor');
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Web preview' }));
     expect(preview).toHaveClass('is-web');
     expect(screen.queryByRole('button', { name: 'Switch to Web preview' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview settings' }));
+    expect(screen.getByRole('button', { name: 'Switch to Mobile preview' }).querySelector('svg')).toHaveClass('lucide-smartphone');
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Mobile preview' }));
+    expect(preview).toHaveClass('is-mobile');
+    expect(screen.queryByRole('button', { name: 'Switch to Mobile preview' })).not.toBeInTheDocument();
     expect(onToggleChatList).not.toHaveBeenCalled();
   });
 });

@@ -3,14 +3,16 @@ import { createPortal } from 'react-dom';
 import { Download, FileText, Maximize2, Minimize2, Paperclip, Search, Trash2, X } from 'lucide-react';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
 import { richTextToHtml } from '@/lib/richText';
-import type { PersistedDraftStore } from '../../../Studio/Studio module/src/types';
-import { normalizePersistedStudioDrafts, normalizeSavedDraft, sortHistoryItems } from './historyModel';
+import { useLocale, type Locale } from '@/lib/i18n';
+import type { PersistedDraftStore } from '$studio';
+import { normalizePersistedStudioDrafts, normalizeSavedMessagesHistory, sortHistoryItems } from './historyModel';
 import type { HistoryItem } from './historyModel';
 
 type HistorySourceFilter = 'all' | 'workspace' | 'personal';
 type HistoryBulkActionSource = HistorySourceFilter;
-type HistoryStatusFilter = 'scheduled' | 'sent' | 'drafts';
+type HistoryStatusFilter = 'scheduled' | 'sent' | 'drafts' | 'notes';
 type HistoryExportFormat = 'txt' | 'json';
+type HistoryTranslate = ReturnType<typeof useLocale>['t'];
 const HISTORY_FILTER_STORAGE_KEY = 'xmsgi-history-filters';
 
 function loadSavedHistoryFilters() {
@@ -23,13 +25,16 @@ function loadSavedHistoryFilters() {
       ? saved.sourceFilter
       : 'all';
     const storedStatus = saved?.statusFilter;
-    const statusFilter: HistoryStatusFilter = storedStatus === 'sent' || storedStatus === 'drafts'
+    const statusFilter: HistoryStatusFilter = storedStatus === 'sent' || storedStatus === 'drafts' || storedStatus === 'notes'
       ? storedStatus
       : 'scheduled';
 
     return {
       sourceFilter,
-      statusFilter: sourceFilter === 'personal' && statusFilter === 'drafts' ? 'scheduled' : statusFilter,
+      statusFilter: sourceFilter === 'personal' && statusFilter === 'drafts'
+        || sourceFilter !== 'personal' && statusFilter === 'notes'
+        ? 'scheduled'
+        : statusFilter,
     };
   } catch {
     return { sourceFilter: 'all' as const, statusFilter: 'scheduled' as const };
@@ -53,23 +58,24 @@ function toAttachmentUrl(filePath: string) {
 }
 
 function isImageAttachment(filePath: string) {
-  return /\.(?:avif|gif|jpe?g|png|webp)$/i.test(filePath);
+  return /^data:image\//i.test(filePath) || /\.(?:avif|gif|jpe?g|png|webp)$/i.test(filePath);
 }
 
-function getAttachmentName(filePath: string) {
+function getAttachmentName(filePath: string, t: HistoryTranslate) {
+  if (/^data:image\//i.test(filePath)) return t('history.image');
   return filePath.split(/[\\/]/).pop() || filePath;
 }
 
-function formatDateLabel(value: string) {
+function formatDateLabel(value: string, locale: Locale, t: HistoryTranslate) {
   const date = new Date(value);
   const today = new Date();
   const daysDiff = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
 
-  if (daysDiff === 0) return 'Сегодня';
-  if (daysDiff === 1) return 'Завтра';
-  if (daysDiff === -1) return 'Вчера';
+  if (daysDiff === 0) return t('history.today');
+  if (daysDiff === 1) return t('history.tomorrow');
+  if (daysDiff === -1) return t('history.yesterday');
 
-  return new Intl.DateTimeFormat('ru-RU', {
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     day: 'numeric',
     month: 'short',
   }).format(date);
@@ -81,9 +87,9 @@ function getHistoryDayKey(value: string) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function formatHistoryDayLabel(value: string) {
+function formatHistoryDayLabel(value: string, locale: Locale, t: HistoryTranslate) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Без даты';
+  if (Number.isNaN(date.getTime())) return t('history.noDate');
 
   const today = new Date();
   const todayKey = getHistoryDayKey(today.toISOString());
@@ -91,18 +97,29 @@ function formatHistoryDayLabel(value: string) {
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
 
-  if (dateKey === todayKey) return 'Сегодня';
-  if (dateKey === getHistoryDayKey(yesterday.toISOString())) return 'Вчера';
+  if (dateKey === todayKey) return t('history.today');
+  if (dateKey === getHistoryDayKey(yesterday.toISOString())) return t('history.yesterday');
 
-  return new Intl.DateTimeFormat('ru-RU', {
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     day: 'numeric',
     month: 'long',
     ...(date.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' as const }),
   }).format(date);
 }
 
+function isSavedMessagesRecord(record: HistoryItem) {
+  if (record.source !== 'personal') return false;
+  if (record.original.kind === 'telegram-message') return true;
+
+  const chatName = record.original.kind === 'scheduled' ? record.original.message.chatName : '';
+  const normalizedName = chatName.trim().toLocaleLowerCase();
+  return normalizedName === 'saved messages' || normalizedName === 'сохранённые сообщения';
+}
+
 function matchesHistoryStatus(record: HistoryItem, filter: HistoryStatusFilter) {
   if (record.status === 'failed') return false;
+
+  if (filter === 'notes') return isSavedMessagesRecord(record);
 
   if (filter === 'scheduled') {
     return record.status === 'scheduled'
@@ -127,7 +144,9 @@ function isLocalScheduleFailure(record: HistoryItem) {
     && record.original.message.telegramMessageId == null;
 }
 
-function formatHistoryCount(count: number) {
+function formatHistoryCount(count: number, locale: Locale) {
+  if (locale !== 'ru') return `${count} ${count === 1 ? 'record' : 'records'}`;
+
   const lastTwoDigits = count % 100;
   const lastDigit = count % 10;
   const label = lastTwoDigits >= 11 && lastTwoDigits <= 14
@@ -140,7 +159,9 @@ function formatHistoryCount(count: number) {
   return `${count} ${label}`;
 }
 
-function formatDraftCount(count: number) {
+function formatDraftCount(count: number, locale: Locale) {
+  if (locale !== 'ru') return `${count} ${count === 1 ? 'draft' : 'drafts'}`;
+
   const lastTwoDigits = count % 100;
   const lastDigit = count % 10;
   const label = lastTwoDigits >= 11 && lastTwoDigits <= 14
@@ -183,34 +204,35 @@ function scrollHistoryRecordIntoView(list: HTMLDivElement, record: HTMLElement) 
   else list.scrollTop = options.top ?? 0;
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', {
+function formatTime(value: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
 }
 
-function normalizeSearchText(value: string) {
+function normalizeSearchText(value: string, locale: Locale) {
   return value
     .normalize('NFKC')
-    .toLocaleLowerCase('ru-RU')
+    .toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : 'en-US')
     .replace(/(\d{1,2})[.:](\d{2})/g, '$1:$2')
     .replace(/[.,/_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function getHistoryStatusLabel(status: HistoryItem['status']) {
-  if (status === 'scheduled') return 'Запланировано';
-  if (status === 'sending') return 'Отправляется';
-  if (status === 'sent') return 'Отправлено';
-  if (status === 'failed') return 'Ошибка';
-  if (status === 'cancelled') return 'Отменено';
-  if (status === 'draft') return 'Черновик';
-  return 'Черновик';
+function getHistoryStatusLabel(status: HistoryItem['status'], t: HistoryTranslate) {
+  if (status === 'scheduled') return t('history.statusScheduled');
+  if (status === 'sending') return t('history.statusSending');
+  if (status === 'sent') return t('history.statusSent');
+  if (status === 'failed') return t('history.statusFailed');
+  if (status === 'cancelled') return t('history.statusCancelled');
+  return t('history.statusDraft');
 }
 
-function formatAttachmentCount(count: number) {
+function formatAttachmentCount(count: number, locale: Locale) {
+  if (locale !== 'ru') return `${count} ${count === 1 ? 'attachment' : 'attachments'}`;
+
   const lastTwoDigits = count % 100;
   const lastDigit = count % 10;
   const label = lastTwoDigits >= 11 && lastTwoDigits <= 14
@@ -232,8 +254,8 @@ function getHistoryOrderingTimestamp(record: HistoryItem, status: HistoryStatusF
   return getHistoryTimestamp(record);
 }
 
-function matchesHistoryQuery(record: HistoryItem, query: string) {
-  const tokens = normalizeSearchText(query).split(' ').filter(Boolean);
+function matchesHistoryQuery(record: HistoryItem, query: string, locale: Locale, t: HistoryTranslate) {
+  const tokens = normalizeSearchText(query, locale).split(' ').filter(Boolean);
   if (tokens.length === 0) return true;
 
   const timestamp = getHistoryTimestamp(record);
@@ -243,65 +265,67 @@ function matchesHistoryQuery(record: HistoryItem, query: string) {
     record.text,
     record.channelName,
     record.channelLabel,
-    record.source === 'workspace' ? 'Studio' : 'Личное',
-    getHistoryStatusLabel(record.status),
-    formatTime(timestamp),
-    formatDateLabel(timestamp),
-    new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
+    record.source === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal'),
+    getHistoryStatusLabel(record.status, t),
+    formatTime(timestamp, locale),
+    formatDateLabel(timestamp, locale, t),
+    new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
     timestamp,
-  ].map(normalizeSearchText);
+  ].map((value) => normalizeSearchText(value, locale));
 
   return tokens.every((token) => searchableValues.some((value) => value.includes(token)));
 }
 
-function getHistoryCategoryLabel(status: HistoryStatusFilter) {
-  if (status === 'scheduled') return 'Запланировано';
-  if (status === 'sent') return 'Отправлено';
-  return 'Черновики';
+function getHistoryCategoryLabel(status: HistoryStatusFilter, t: HistoryTranslate) {
+  if (status === 'scheduled') return t('history.categoryScheduled');
+  if (status === 'sent') return t('history.categorySent');
+  if (status === 'notes') return t('history.categoryNotes');
+  return t('history.categoryDrafts');
 }
 
-function formatExportText(records: HistoryItem[], status: HistoryStatusFilter, source: HistorySourceFilter) {
-  const exportedAt = new Intl.DateTimeFormat('ru-RU', {
+function formatExportText(records: HistoryItem[], status: HistoryStatusFilter, source: HistorySourceFilter, locale: Locale, t: HistoryTranslate) {
+  const dateLocale = locale === 'ru' ? 'ru-RU' : 'en-US';
+  const exportedAt = new Intl.DateTimeFormat(dateLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date());
   const entries = records.map((record, index) => {
     const timestamp = getHistoryTimestamp(record);
     const dateTime = timestamp && !Number.isNaN(new Date(timestamp).getTime())
-      ? new Intl.DateTimeFormat('ru-RU', {
+      ? new Intl.DateTimeFormat(dateLocale, {
       dateStyle: 'medium',
       timeStyle: 'short',
       }).format(new Date(timestamp))
       : '—';
     const lines = [
       `${index + 1}. ${record.title}`,
-      `Источник: ${record.source === 'workspace' ? 'Studio' : 'Личное'}`,
+      `${t('history.exportSource')}: ${record.source === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal')}`,
       ...(record.channelName
-        ? [`Чат: ${record.channelLabel ? `${record.channelName} (${record.channelLabel})` : record.channelName}`]
+        ? [`${t('history.exportChat')}: ${record.channelLabel ? `${record.channelName} (${record.channelLabel})` : record.channelName}`]
         : []),
-      `Дата и время: ${dateTime}`,
-      `Статус: ${getHistoryStatusLabel(record.status)}`,
+      `${t('history.exportDateTime')}: ${dateTime}`,
+      `${t('history.exportStatus')}: ${getHistoryStatusLabel(record.status, t)}`,
       '',
-      'Текст:',
+      `${t('history.exportText')}:`,
       record.text || '—',
     ];
 
     if (record.attachments.length) {
-      lines.push('', 'Вложения:', ...record.attachments.map((attachment) => `- ${getAttachmentName(attachment)}`));
+      lines.push('', `${t('history.exportAttachments')}:`, ...record.attachments.map((attachment) => `- ${getAttachmentName(attachment, t)}`));
     }
 
-    if (record.lastError) lines.push('', `Ошибка: ${record.lastError}`);
-    if (record.silent) lines.push('', 'Отправка без звука');
-    if (record.effect) lines.push(`Эффект: ${record.effect}`);
+    if (record.lastError) lines.push('', `${t('history.exportError')}: ${record.lastError}`);
+    if (record.silent) lines.push('', t('history.exportSilent'));
+    if (record.effect) lines.push(`${t('history.exportEffect')}: ${record.effect}`);
 
     return lines.join('\n');
   });
 
   return [
-    `XMSGi — ${getHistoryCategoryLabel(status)}`,
-    `Источник: ${source === 'all' ? 'Все' : source === 'workspace' ? 'Studio' : 'Личное'}`,
-    `Экспортировано: ${exportedAt}`,
-    `Всего: ${records.length}`,
+    `XMSGi — ${getHistoryCategoryLabel(status, t)}`,
+    `${t('history.exportSource')}: ${source === 'all' ? t('history.sourceAll') : source === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal')}`,
+    `${t('history.exportedAt')}: ${exportedAt}`,
+    `${t('history.exportTotal')}: ${records.length}`,
     '',
     entries.join('\n\n----------------------------------------\n\n'),
     '',
@@ -314,6 +338,8 @@ function exportHistoryRecords(
   source: HistorySourceFilter,
   query: string,
   format: HistoryExportFormat,
+  locale: Locale,
+  t: HistoryTranslate,
   recordTitle?: string,
 ) {
   const payload = format === 'json'
@@ -322,17 +348,20 @@ function exportHistoryRecords(
       filters: { source, status, query: query.trim() },
       records,
     }, null, 2)
-    : formatExportText(records, status, source);
+    : formatExportText(records, status, source, locale, t);
   const mimeType = format === 'json' ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8';
   const blob = new Blob([payload], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   const date = new Date().toISOString().slice(0, 10);
-  const category = status === 'scheduled' ? 'scheduled' : status === 'sent' ? 'sent' : 'drafts';
+  const category = status === 'scheduled' ? 'scheduled' : status === 'sent' ? 'sent' : status === 'notes' ? 'notes' : 'drafts';
 
   link.href = url;
   const recordName = recordTitle
-    ? `-${recordTitle.replace(/[<>:"|?*\u0000-\u001f]/g, '').replace(/\//g, '').replace(/\\/g, '').trim().replace(/\s+/g, '-').replace(/[.]+$/g, '').slice(0, 80) || 'record'}`
+    ? `-${Array.from(recordTitle).filter((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 0x20 && code !== 0x7f && !'<>:"|?*'.includes(character);
+    }).join('').replace(/\//g, '').replace(/\\/g, '').trim().replace(/\s+/g, '-').replace(/[.]+$/g, '').slice(0, 80) || 'record'}`
     : '';
   link.download = `xmsgi-${category}${recordName}-${date}.${format}`;
   document.body.appendChild(link);
@@ -354,6 +383,7 @@ export function HistoryDrawer({
   onClearSent,
   onClearDrafts,
   onCancelQueue,
+  savedMessagesChatId,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -367,7 +397,9 @@ export function HistoryDrawer({
   onClearSent: (source: HistoryBulkActionSource) => void;
   onClearDrafts?: () => Promise<boolean>;
   onCancelQueue?: (records: HistoryItem[]) => Promise<boolean>;
+  savedMessagesChatId?: string;
 }) {
+  const { locale, t } = useLocale();
   const [savedFilters] = useState(loadSavedHistoryFilters);
   const [sourceFilter, setSourceFilter] = useState<HistorySourceFilter>(savedFilters.sourceFilter);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(savedFilters.statusFilter);
@@ -375,8 +407,10 @@ export function HistoryDrawer({
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<HistoryItem | null>(null);
   const [draftItems, setDraftItems] = useState<HistoryItem[]>([]);
+  const [savedMessagesItems, setSavedMessagesItems] = useState<HistoryItem[]>([]);
+  const [savedMessagesLoading, setSavedMessagesLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'delete' | 'send-now'; recordId: string } | null>(null);
-  const [bulkDeleteCategory, setBulkDeleteCategory] = useState<'scheduled' | 'sent' | 'drafts' | null>(null);
+  const [bulkDeleteCategory, setBulkDeleteCategory] = useState<'scheduled' | 'sent' | 'drafts' | 'notes' | null>(null);
   const [bulkDeleteRecordId, setBulkDeleteRecordId] = useState<string | null>(null);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState('');
@@ -397,6 +431,33 @@ export function HistoryDrawer({
       // Keep history usable when local storage is unavailable.
     }
   }, [sourceFilter, statusFilter]);
+
+  useEffect(() => {
+    const telegram = window.telegram;
+    if (!isOpen || !savedMessagesChatId || typeof telegram?.getChatHistory !== 'function') {
+      setSavedMessagesItems([]);
+      setSavedMessagesLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSavedMessagesLoading(true);
+    void telegram.getChatHistory({ chatId: savedMessagesChatId, limit: 100 })
+      .then((result) => {
+        if (!active) return;
+        setSavedMessagesItems(result.success && result.history
+          ? normalizeSavedMessagesHistory(result.history)
+          : []);
+      })
+      .catch(() => {
+        if (active) setSavedMessagesItems([]);
+      })
+      .finally(() => {
+        if (active) setSavedMessagesLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [isOpen, savedMessagesChatId]);
 
   const openImagePreview = (target: HTMLElement, filePath: string) => {
     const bounds = target.getBoundingClientRect();
@@ -551,15 +612,32 @@ export function HistoryDrawer({
     };
   }, [isExportMenuOpen, isOpen]);
 
+  const historyItems = useMemo(() => {
+    const trackedTelegramIds = new Set<string>();
+    records.forEach((record) => {
+      if (record.original.kind !== 'scheduled') return;
+      const message = record.original.message;
+      [message.telegramMessageId, ...(message.telegramMessageIds ?? [])]
+        .filter((id): id is string | number => id !== undefined && id !== null)
+        .forEach((id) => trackedTelegramIds.add(String(id)));
+    });
+
+    const uniqueSavedMessages = savedMessagesItems.filter((record) => (
+      record.original.kind === 'telegram-message'
+      && !trackedTelegramIds.has(record.original.message.id)
+    ));
+    return [...records, ...uniqueSavedMessages];
+  }, [records, savedMessagesItems]);
+
   const filteredRecords = useMemo(() => {
-    const categoryRecords = [...records, ...draftItems]
+    const categoryRecords = [...historyItems, ...draftItems]
       .filter((record) => {
         if (sourceFilter !== 'all' && record.source !== sourceFilter) return false;
         if (!matchesHistoryStatus(record, statusFilter)) return false;
 
-        return matchesHistoryQuery(record, query);
+        return matchesHistoryQuery(record, query, locale, t);
       });
-    const sortedRecords = sortHistoryItems(categoryRecords, statusFilter);
+    const sortedRecords = sortHistoryItems(categoryRecords, statusFilter === 'notes' ? 'sent' : statusFilter);
     if (sourceFilter !== 'all') return sortedRecords;
 
     return sortedRecords.sort((left, right) => {
@@ -567,7 +645,7 @@ export function HistoryDrawer({
       const rightTime = Date.parse(getHistoryOrderingTimestamp(right, statusFilter)) || 0;
       return rightTime - leftTime;
     });
-  }, [draftItems, query, records, sourceFilter, statusFilter]);
+  }, [draftItems, historyItems, locale, query, sourceFilter, statusFilter, t]);
 
   useEffect(() => {
     if (filteredRecords.length === 0) setIsExportMenuOpen(false);
@@ -589,10 +667,10 @@ export function HistoryDrawer({
     const counts = {
       total: 0,
       source: { all: 0, workspace: 0, personal: 0 },
-      status: { scheduled: 0, sent: 0, drafts: 0 },
+      status: { scheduled: 0, sent: 0, drafts: 0, notes: 0 },
     };
 
-    for (const record of [...records, ...draftItems]) {
+    for (const record of [...historyItems, ...draftItems]) {
       if (record.status === 'failed') continue;
       counts.total += 1;
 
@@ -605,13 +683,14 @@ export function HistoryDrawer({
         if (matchesHistoryStatus(record, 'scheduled')) counts.status.scheduled += 1;
         else if (matchesHistoryStatus(record, 'sent')) counts.status.sent += 1;
         else if (matchesHistoryStatus(record, 'drafts')) counts.status.drafts += 1;
+        if (matchesHistoryStatus(record, 'notes')) counts.status.notes += 1;
       }
     }
 
     return counts;
-  }, [draftItems, records, sourceFilter, statusFilter]);
+  }, [draftItems, historyItems, sourceFilter, statusFilter]);
   const visibleStatusFilters: HistoryStatusFilter[] = sourceFilter === 'personal'
-    ? ['scheduled', 'sent']
+    ? ['scheduled', 'sent', 'notes']
     : ['scheduled', 'sent', 'drafts'];
 
   const selectedRecordIndex = selectedRecord
@@ -623,44 +702,41 @@ export function HistoryDrawer({
   const localScheduleFailureRecords = filteredRecords.filter(isLocalScheduleFailure);
   const scheduleCleanupCount = queueCancellableRecords.length + localScheduleFailureRecords.length;
   const scheduleCleanupLabel = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
-    ? 'Очистить ошибки и отменить расписания'
+    ? t('history.cleanupAndCancel')
     : queueCancellableRecords.length > 0
-      ? `Отменить ${formatHistoryCount(queueCancellableRecords.length)}`
-      : `Удалить ошибки (${localScheduleFailureRecords.length})`;
+      ? t('history.cancelCount', { count: formatHistoryCount(queueCancellableRecords.length, locale) })
+      : t('history.deleteErrors', { count: localScheduleFailureRecords.length });
   const scheduleCleanupAriaLabel = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
-    ? 'Отменить запланированные публикации и удалить ошибки из истории'
+    ? t('history.cancelAndRemoveErrors')
     : queueCancellableRecords.length > 0
-      ? 'Отменить запланированные публикации'
-      : 'Удалить ошибочные записи из истории';
+      ? t('history.cancelScheduled')
+      : t('history.deleteScheduleErrors');
   const scheduleCleanupTitle = queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
-    ? 'Отменить подтверждённые расписания в Telegram и удалить ошибки из истории'
+    ? t('history.cancelAndRemoveErrors')
     : queueCancellableRecords.length > 0
-      ? 'Отменить запланированные публикации в Telegram'
-      : 'Удалить локальные ошибки расписания из истории';
+      ? t('history.cancelScheduled')
+      : t('history.deleteScheduleErrors');
   const visibleRecords = selectedRecordIndex >= 0
     ? filteredRecords.slice(0, selectedRecordIndex + 1)
     : filteredRecords;
-  const selectedSource = sourceFilter === 'all' ? null : sourceFilter;
-  const hasUpcomingInSelectedSource = selectedSource !== null && records.some((record) =>
-    record.source === selectedSource && record.original.kind === 'scheduled' && record.status !== 'sent',
-  );
-  const selectedCategoryLabel = getHistoryCategoryLabel(statusFilter);
-  const exportMenuScope = selectedRecord ? `«${selectedRecord.title}»` : 'текущий список';
+  const selectedCategoryLabel = getHistoryCategoryLabel(statusFilter, t);
+  const exportMenuScope = selectedRecord
+    ? t('history.recordScope', { title: selectedRecord.title })
+    : t('history.currentList');
   const exportMenuHeading = selectedRecord
-    ? `Экспортируется: ${selectedRecord.title}`
-    : `Текущая категория: ${selectedCategoryLabel}`;
+    ? t('history.exporting', { scope: selectedRecord.title })
+    : t('history.exportCategory', { category: selectedCategoryLabel });
   const canDeleteCurrentCategory = statusFilter === 'scheduled'
     ? scheduleCleanupCount > 0
-    : (statusFilter === 'sent' || statusFilter === 'drafts') && historyCounts.status[statusFilter] > 0;
-  const categoryDeleteCount = statusFilter === 'scheduled'
-    ? scheduleCleanupCount
-    : historyCounts.status[statusFilter];
+    : (statusFilter === 'sent' || statusFilter === 'drafts' || statusFilter === 'notes') && historyCounts.status[statusFilter] > 0;
   const selectedRecordMatchesDeleteCategory = Boolean(selectedRecordIndex >= 0 && selectedRecord && (
     statusFilter === 'scheduled'
       ? isQueueCancellationCandidate(selectedRecord) || isLocalScheduleFailure(selectedRecord)
       : statusFilter === 'sent'
         ? selectedRecord.status === 'sent'
-        : selectedRecord.status === 'draft'
+        : statusFilter === 'notes'
+          ? matchesHistoryStatus(selectedRecord, 'notes')
+          : selectedRecord.status === 'draft'
   ));
   const bulkDeleteRecord = bulkDeleteRecordId
     ? filteredRecords.find((record) => record.id === bulkDeleteRecordId) ?? null
@@ -670,14 +746,17 @@ export function HistoryDrawer({
     : null;
   const confirmActionPrompt = confirmAction && confirmActionRecord
     ? confirmAction.type === 'cancel'
-      ? `Убрать публикацию «${confirmActionRecord.title}» из расписания Telegram?`
+      ? t('history.cancelSchedulePrompt', { title: confirmActionRecord.title })
       : confirmAction.type === 'send-now'
-        ? `${confirmActionRecord.status === 'failed' ? 'Повторить отправку' : 'Отправить публикацию'} в «${confirmActionRecord.title}» сейчас?`
+        ? t('history.sendPrompt', {
+          action: t(confirmActionRecord.status === 'failed' ? 'history.retrySendAction' : 'history.sendAction'),
+          title: confirmActionRecord.title,
+        })
         : confirmActionRecord.status === 'failed'
-          ? 'Удалить ошибочную запись из истории? Публикация может остаться в очереди Telegram.'
+          ? t('history.deleteFailedPrompt')
           : confirmActionRecord.status === 'draft'
-            ? `Удалить черновик «${confirmActionRecord.title}»? Восстановление невозможно.`
-            : `Удалить запись «${confirmActionRecord.title}» из истории? Сообщение в Telegram останется.`
+            ? t('history.deleteDraftPrompt', { title: confirmActionRecord.title })
+            : t('history.deleteRecordFromHistory', { title: confirmActionRecord.title })
     : '';
   const bulkDeleteCount = bulkDeleteRecord
     ? 1
@@ -685,35 +764,46 @@ export function HistoryDrawer({
       ? scheduleCleanupCount
       : bulkDeleteCategory ? historyCounts.status[bulkDeleteCategory] : 0;
   const bulkDeletePrompt = bulkDeleteRecord
-    ? bulkDeleteRecord.status === 'scheduled'
-      ? `Убрать публикацию «${bulkDeleteRecord.title}» из расписания Telegram?`
+    ? bulkDeleteRecord.original.kind === 'telegram-message'
+      ? t('history.deleteSavedMessagePrompt')
+      : bulkDeleteRecord.status === 'scheduled'
+      ? t('history.cancelSchedulePrompt', { title: bulkDeleteRecord.title })
       : isLocalScheduleFailure(bulkDeleteRecord)
-        ? `Удалить ошибку «${bulkDeleteRecord.title}» из истории? Telegram не подтвердил создание публикации.`
+        ? t('history.deleteErrorRecordPrompt', { title: bulkDeleteRecord.title })
       : bulkDeleteRecord.status === 'failed' && bulkDeleteRecord.retryAction === 'cancel'
-        ? `Повторить отмену «${bulkDeleteRecord.title}» в Telegram?`
+        ? t('history.retryCancelPrompt', { title: bulkDeleteRecord.title })
       : bulkDeleteRecord.status === 'sent'
-        ? `Удалить «${bulkDeleteRecord.title}» из истории? Сообщение в Telegram останется.`
-        : `Удалить черновик «${bulkDeleteRecord.title}»? Восстановление невозможно.`
-    : bulkDeleteCategory === 'sent'
-      ? `Удалить ${formatHistoryCount(bulkDeleteCount)} из истории? Сообщения в Telegram останутся.`
+        ? t('history.deleteRecordFromHistory', { title: bulkDeleteRecord.title })
+        : t('history.deleteDraftPrompt', { title: bulkDeleteRecord.title })
+    : bulkDeleteCategory === 'notes'
+      ? t('history.deleteNotesPrompt', { count: formatHistoryCount(bulkDeleteCount, locale) })
+      : bulkDeleteCategory === 'sent'
+      ? t('history.deleteSentPrompt', { count: formatHistoryCount(bulkDeleteCount, locale) })
       : bulkDeleteCategory === 'drafts'
-        ? `Удалить ${formatDraftCount(bulkDeleteCount)}? Восстановление невозможно.`
+        ? t('history.deleteDraftsPrompt', { count: formatDraftCount(bulkDeleteCount, locale) })
         : queueCancellableRecords.length > 0 && localScheduleFailureRecords.length > 0
-          ? `Отменить в Telegram ${formatHistoryCount(queueCancellableRecords.length)} и удалить ошибки (${localScheduleFailureRecords.length}) из истории?`
+          ? t('history.cancelAndDeleteErrorsPrompt', {
+            cancelCount: formatHistoryCount(queueCancellableRecords.length, locale),
+            errorCount: localScheduleFailureRecords.length,
+          })
           : queueCancellableRecords.length > 0
-            ? `Снять с расписания ${formatHistoryCount(queueCancellableRecords.length)} в Telegram? Если отмена не подтвердится, публикации останутся в очереди.`
-            : `Удалить ошибки (${localScheduleFailureRecords.length}) из истории? Telegram не подтвердил создание публикаций.`;
+            ? t('history.cancelQueuePrompt', { count: formatHistoryCount(queueCancellableRecords.length, locale) })
+            : t('history.deleteErrorsPrompt', { count: localScheduleFailureRecords.length });
   const bulkDeleteActionLabel = bulkDeleteRecord
-    ? bulkDeleteRecord.status === 'scheduled'
-      ? 'Отменить расписание'
+    ? bulkDeleteRecord.original.kind === 'telegram-message'
+      ? t('history.deleteNoteAction')
+      : bulkDeleteRecord.status === 'scheduled'
+      ? t('history.unscheduleAction')
       : isLocalScheduleFailure(bulkDeleteRecord)
-        ? 'Удалить ошибку'
+        ? t('history.deleteErrorAction')
       : bulkDeleteRecord.status === 'failed' && bulkDeleteRecord.retryAction === 'cancel'
-        ? 'Повторить отмену'
-      : bulkDeleteRecord.status === 'draft' ? 'Удалить черновик' : 'Удалить запись'
+        ? t('history.retryCancelAction')
+      : bulkDeleteRecord.status === 'draft' ? t('history.deleteDraftAction') : t('history.deleteRecordAction')
     : bulkDeleteCategory === 'scheduled'
       ? scheduleCleanupLabel
-      : `Удалить ${bulkDeleteCategory === 'sent' ? formatHistoryCount(bulkDeleteCount) : formatDraftCount(bulkDeleteCount)}`;
+      : bulkDeleteCategory === 'notes'
+        ? t('history.deleteNotesAction', { count: formatHistoryCount(bulkDeleteCount, locale) })
+        : t('history.deleteCount', { count: bulkDeleteCategory === 'sent' ? formatHistoryCount(bulkDeleteCount, locale) : formatDraftCount(bulkDeleteCount, locale) });
   const exportRecords = (format: HistoryExportFormat) => {
     const recordsToExport = selectedRecord ? [selectedRecord] : filteredRecords;
     exportHistoryRecords(
@@ -722,6 +812,8 @@ export function HistoryDrawer({
       selectedRecord?.source ?? sourceFilter,
       query,
       format,
+      locale,
+      t,
       selectedRecord?.title,
     );
     setIsExportMenuOpen(false);
@@ -733,6 +825,22 @@ export function HistoryDrawer({
 
     try {
       if (bulkDeleteRecord) {
+        if (bulkDeleteCategory === 'notes'
+          && bulkDeleteRecord.original.kind === 'scheduled'
+          && bulkDeleteRecord.status === 'scheduled') {
+          if (isQueueCancellationCandidate(bulkDeleteRecord)) {
+            if (!onCancelQueue || !await onCancelQueue([bulkDeleteRecord])) {
+              setBulkDeleteError(t('history.cancelFailed'));
+              return;
+            }
+          } else {
+            onCancel(bulkDeleteRecord);
+          }
+          setBulkDeleteRecordId(null);
+          setBulkDeleteCategory(null);
+          return;
+        }
+
         if (bulkDeleteCategory === 'scheduled') {
           if (isLocalScheduleFailure(bulkDeleteRecord)) {
             await onDelete(bulkDeleteRecord);
@@ -742,7 +850,7 @@ export function HistoryDrawer({
             return;
           }
           if (!onCancelQueue || !await onCancelQueue([bulkDeleteRecord])) {
-            setBulkDeleteError('Не удалось отменить публикацию в Telegram. Запись осталась в очереди.');
+            setBulkDeleteError(t('history.cancelFailed'));
             return;
           }
           setSelectedRecord(null);
@@ -753,11 +861,28 @@ export function HistoryDrawer({
 
         const deletionResult = await onDelete(bulkDeleteRecord);
         if (bulkDeleteRecord.status === 'draft' && deletionResult !== true) {
-          setBulkDeleteError('Не удалось удалить черновик. Попробуйте ещё раз.');
+          setBulkDeleteError(t('history.deleteDraftFailed'));
+          return;
+        }
+        if (bulkDeleteRecord.original.kind === 'telegram-message' && deletionResult !== true) {
+          setBulkDeleteError(t('history.deleteNoteFailed'));
+          return;
+        }
+        if (bulkDeleteCategory === 'notes'
+          && bulkDeleteRecord.status === 'sent'
+          && bulkDeleteRecord.original.kind === 'scheduled'
+          && isSavedMessagesRecord(bulkDeleteRecord)
+          && (bulkDeleteRecord.original.message.telegramMessageId != null
+            || (bulkDeleteRecord.original.message.telegramMessageIds ?? []).some((id) => id != null))
+          && deletionResult !== true) {
+          setBulkDeleteError(t('history.deleteNoteFailed'));
           return;
         }
         if (bulkDeleteRecord.status === 'draft') {
           setDraftItems((current) => current.filter((record) => record.id !== bulkDeleteRecord.id));
+        }
+        if (bulkDeleteRecord.original.kind === 'telegram-message') {
+          setSavedMessagesItems((current) => current.filter((record) => record.id !== bulkDeleteRecord.id));
         }
         setSelectedRecord(null);
         setBulkDeleteRecordId(null);
@@ -771,9 +896,9 @@ export function HistoryDrawer({
         }
 
         if (queueCancellableRecords.length > 0 && (!onCancelQueue || !await onCancelQueue(queueCancellableRecords))) {
-          setBulkDeleteError(localScheduleFailureRecords.length > 0
-            ? 'Ошибки удалены из истории. Не все расписания удалось отменить; оставшиеся публикации сохранены в очереди.'
-            : 'Не все публикации удалось отменить. Оставшиеся записи сохранены в очереди.');
+          setBulkDeleteError(t(localScheduleFailureRecords.length > 0
+            ? 'history.cancelPartialWithErrors'
+            : 'history.cancelPartial'));
           return;
         }
         setBulkDeleteCategory(null);
@@ -788,8 +913,56 @@ export function HistoryDrawer({
         return;
       }
 
+      if (bulkDeleteCategory === 'notes') {
+        const noteRecords = historyItems.filter((record) => matchesHistoryStatus(record, 'notes'));
+        const deletedSavedMessageIds = new Set<string>();
+        const failedRecords: HistoryItem[] = [];
+
+        for (const record of noteRecords) {
+          try {
+            if (record.original.kind === 'scheduled' && record.status === 'scheduled') {
+              if (isQueueCancellationCandidate(record)) {
+                if (!onCancelQueue || !await onCancelQueue([record])) failedRecords.push(record);
+              } else {
+                onCancel(record);
+              }
+              continue;
+            }
+
+            const deletionResult = await onDelete(record);
+            const requiresTelegramDelete = record.original.kind === 'telegram-message'
+              || (record.status === 'sent'
+                && record.original.kind === 'scheduled'
+                && isSavedMessagesRecord(record)
+                && (record.original.message.telegramMessageId != null
+                  || (record.original.message.telegramMessageIds ?? []).some((id) => id != null)));
+            const succeeded = requiresTelegramDelete
+              ? deletionResult === true
+              : deletionResult !== false;
+            if (succeeded) {
+              if (record.original.kind === 'telegram-message') deletedSavedMessageIds.add(record.id);
+            } else {
+              failedRecords.push(record);
+            }
+          } catch {
+            failedRecords.push(record);
+          }
+        }
+
+        setSavedMessagesItems((current) => current.filter((record) => !deletedSavedMessageIds.has(record.id)));
+        setSelectedRecord(null);
+        setBulkDeleteRecordId(null);
+        if (failedRecords.length > 0) {
+          setBulkDeleteError(t('history.deleteFailedCount', { count: formatHistoryCount(failedRecords.length, locale) }));
+          return;
+        }
+
+        setBulkDeleteCategory(null);
+        return;
+      }
+
       if (!onClearDrafts || !await onClearDrafts()) {
-        setBulkDeleteError('Не удалось удалить черновики. Попробуйте ещё раз.');
+        setBulkDeleteError(t('history.deleteDraftsFailed'));
         return;
       }
 
@@ -798,20 +971,21 @@ export function HistoryDrawer({
       setBulkDeleteRecordId(null);
       setBulkDeleteCategory(null);
     } catch (error) {
-      setBulkDeleteError(error instanceof Error ? error.message : 'Не удалось удалить выбранную категорию.');
+      setBulkDeleteError(error instanceof Error ? error.message : t('history.deleteCategoryFailed'));
     } finally {
       setBulkDeleteBusy(false);
     }
   };
 
   useEffect(() => {
-    if (bulkDeleteCategory && (statusFilter !== bulkDeleteCategory || historyCounts.status[bulkDeleteCategory] === 0
+    const isSavedMessageDelete = bulkDeleteRecord?.original.kind === 'telegram-message';
+    if (bulkDeleteCategory && ((!isSavedMessageDelete && (statusFilter !== bulkDeleteCategory || historyCounts.status[bulkDeleteCategory] === 0))
       || (bulkDeleteRecordId !== null && bulkDeleteRecord?.id !== bulkDeleteRecordId))) {
       setBulkDeleteCategory(null);
       setBulkDeleteRecordId(null);
       setBulkDeleteError('');
     }
-  }, [bulkDeleteCategory, bulkDeleteRecord?.id, bulkDeleteRecordId, historyCounts.status, statusFilter]);
+  }, [bulkDeleteCategory, bulkDeleteRecord?.id, bulkDeleteRecord?.original.kind, bulkDeleteRecordId, historyCounts.status, statusFilter]);
 
   if (!isOpen) return null;
 
@@ -827,14 +1001,14 @@ export function HistoryDrawer({
         className="history-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="Публикации"
+        aria-label={t('history.title')}
       >
         <header className="history-drawer-header">
-          <h2 aria-label="Публикации">Публикации <span aria-hidden="true">{historyCounts.total}</span></h2>
+          <h2 aria-label={t('history.title')}>{t('history.title')} <span aria-hidden="true">{historyCounts.total}</span></h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Закрыть историю"
+            aria-label={t('history.close')}
             className="history-drawer-close"
           >
             <X size={20} strokeWidth={1.7} />
@@ -842,23 +1016,24 @@ export function HistoryDrawer({
         </header>
 
         <div className="history-drawer-controls">
-          <div className="history-source-filters" role="group" aria-label="Источник записей">
+          <div className="history-source-filters" role="group" aria-label={t('history.sources')}>
             {(['all', 'workspace', 'personal'] as const).map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => {
                   setSourceFilter(item);
-                  if (item === 'personal' && statusFilter === 'drafts') setStatusFilter('scheduled');
+                  if (item === 'personal' && statusFilter === 'drafts'
+                    || item !== 'personal' && statusFilter === 'notes') setStatusFilter('scheduled');
                   setBulkDeleteCategory(null);
                   setBulkDeleteRecordId(null);
                   setBulkDeleteError('');
                 }}
                 className={`history-filter${sourceFilter === item ? ' is-active' : ''}`}
                 aria-pressed={sourceFilter === item}
-                aria-label={item === 'all' ? 'Все' : item === 'workspace' ? 'Studio' : 'Личное'}
+                aria-label={item === 'all' ? t('history.sourceAll') : item === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal')}
               >
-                <span>{item === 'all' ? 'Все' : item === 'workspace' ? 'Studio' : 'Личное'}</span>
+                <span>{item === 'all' ? t('history.sourceAll') : item === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal')}</span>
                 <span className="history-filter-count" aria-hidden="true">{historyCounts.source[item]}</span>
               </button>
             ))}
@@ -870,42 +1045,48 @@ export function HistoryDrawer({
           {filteredRecords.length === 0 ? (
             <div className="history-empty" role="status">
               <Search size={21} strokeWidth={1.5} aria-hidden="true" />
-              <strong>{query ? 'Ничего не найдено' : 'В этой категории пока пусто'}</strong>
-              <span>{query
-                ? 'Измените запрос или очистите поиск.'
-                : sourceFilter === 'personal'
-                  ? 'Здесь появятся ваши сообщения.'
-                  : 'Здесь появятся ваши сообщения и черновики.'}</span>
-              {query && <button type="button" onClick={() => setQuery('')}>Сбросить запрос</button>}
+              <strong>{query ? t('history.noResults') : t('history.emptyCategory')}</strong>
+              <span>{savedMessagesLoading && sourceFilter === 'personal' && statusFilter === 'notes'
+                ? t('history.loadingMessages')
+                : query
+                ? t('history.changeSearch')
+                : sourceFilter === 'personal' && statusFilter === 'notes'
+                  ? t('history.savedMessagesHint')
+                  : sourceFilter === 'personal'
+                  ? t('history.personalEmpty')
+                  : t('history.generalEmpty')}</span>
+              {query && <button type="button" onClick={() => setQuery('')}>{t('history.resetSearch')}</button>}
             </div>
           ) : (
             visibleRecords.map((record, index) => {
               const isExpanded = selectedRecord?.id === record.id;
               const timestamp = getHistoryTimestamp(record);
-              const orderingTimestamp = getHistoryOrderingTimestamp(record, statusFilter);
               const channelDetail = [record.channelLabel, record.channelName]
                 .find((value) => value.trim() && value.trim() !== record.title.trim());
               const startsNewDay = index === 0
                 || getHistoryDayKey(getHistoryTimestamp(visibleRecords[index - 1])) !== getHistoryDayKey(timestamp);
               const entities = record.entities;
               const scheduleMessage = record.original.kind === 'scheduled' ? record.original.message : null;
+              const replyMarkup = record.original.kind === 'telegram-message'
+                ? record.original.message.replyMarkup
+                : scheduleMessage?.replyMarkup;
               const canReschedule = record.source === 'workspace' && record.status === 'scheduled' && scheduleMessage;
               const primaryAction = record.status === 'failed'
-                ? { label: 'Повторить отправку', handler: () => confirmSendNow(record), type: 'send-now' }
+                ? { label: t('history.retrySend'), handler: () => confirmSendNow(record), type: 'send-now' }
                 : record.status === 'scheduled'
                   ? canReschedule
-                    ? { label: 'Изменить', handler: () => { onReschedule(record); onClose(); }, type: 'reschedule' }
+                    ? { label: t('history.edit'), handler: () => { onReschedule(record); onClose(); }, type: 'reschedule' }
                     : record.source === 'personal'
                       ? null
-                      : { label: 'Отправить сейчас', handler: () => confirmSendNow(record), type: 'send-now' }
+                      : { label: t('history.sendNow'), handler: () => confirmSendNow(record), type: 'send-now' }
                   : record.status === 'draft'
-                      ? { label: 'Использовать', handler: () => { onUseDraft?.(record); onClose(); }, type: 'use-draft' }
+                      ? { label: t('history.useDraft'), handler: () => { onUseDraft?.(record); onClose(); }, type: 'use-draft' }
                     : null;
               const secondaryActions = [
                 ...(record.status === 'draft'
                   ? [
-                    { label: 'Редактировать', handler: () => { onOpenDraft(record); onClose(); }, type: 'open-draft' },
-                    { label: 'Удалить', handler: () => {
+                    { label: t('history.editDraft'), handler: () => { onOpenDraft(record); onClose(); }, type: 'open-draft' },
+                    { label: t('history.delete'), handler: () => {
                       setBulkDeleteError('');
                       setBulkDeleteCategory('drafts');
                       setBulkDeleteRecordId(record.id);
@@ -915,21 +1096,29 @@ export function HistoryDrawer({
                 ...(record.status === 'scheduled' && scheduleMessage
                   ? [
                     ...(canReschedule || record.source === 'personal'
-                      ? [{ label: 'Отправить сейчас', handler: () => confirmSendNow(record), type: 'send-now' }]
+                      ? [{ label: t('history.sendNow'), handler: () => confirmSendNow(record), type: 'send-now' }]
                       : []),
-                    { label: 'Отменить', handler: () => setConfirmAction({ type: 'cancel', recordId: record.id }), type: 'cancel' },
+                    { label: t('history.cancel'), handler: () => setConfirmAction({ type: 'cancel', recordId: record.id }), type: 'cancel' },
                   ]
                   : []),
-                ...((record.status === 'sent' || record.status === 'failed') && scheduleMessage
-                  ? [{ label: 'Удалить', handler: () => setConfirmAction({ type: 'delete', recordId: record.id }), type: 'delete' }] 
+                ...((record.status === 'sent' || record.status === 'failed') && (scheduleMessage || record.original.kind === 'telegram-message')
+                  ? [{ label: t('history.delete'), handler: () => {
+                    if (record.original.kind === 'telegram-message') {
+                      setBulkDeleteError('');
+                      setBulkDeleteCategory('sent');
+                      setBulkDeleteRecordId(record.id);
+                      return;
+                    }
+                    setConfirmAction({ type: 'delete', recordId: record.id });
+                  }, type: 'delete' }]
                   : []),
               ];
 
               return (
               <Fragment key={record.id}>
               {startsNewDay && (
-                <h3 className="history-date-heading" aria-label={formatHistoryDayLabel(timestamp)}>
-                  {formatHistoryDayLabel(timestamp)}
+                <h3 className="history-date-heading" aria-label={formatHistoryDayLabel(timestamp, locale, t)}>
+                  {formatHistoryDayLabel(timestamp, locale, t)}
                 </h3>
               )}
               <article
@@ -941,30 +1130,30 @@ export function HistoryDrawer({
                   type="button"
                   className="history-record-open"
                   onClick={() => toggleExpandedRecord(record, isExpanded)}
-                  aria-label={`${isExpanded ? 'Свернуть' : 'Открыть'} публикацию: ${record.title}`}
+                  aria-label={t('history.expandRecord', { action: t(isExpanded ? 'history.collapse' : 'history.open'), title: record.title })}
                   aria-expanded={isExpanded}
                 >
                   <span className="history-record-meta">
                     <span className="history-record-source-group">
                       <span className={`history-record-source is-${record.source === 'workspace' ? 'studio' : 'personal'}`}>
-                        {record.source === 'workspace' ? 'Studio' : 'Личное'}
+                        {record.source === 'workspace' ? t('history.sourceStudio') : t('history.sourcePersonal')}
                       </span>
                       {record.status === 'draft' && (
                         <span
                           className="history-record-draft-dot"
                           data-color={record.draftColor ?? 'gray'}
-                          aria-label={`Цвет черновика: ${record.draftColor ?? 'gray'}`}
-                          title={`Цвет: ${record.draftColor ?? 'gray'}`}
+                          aria-label={t('history.draftColor', { color: record.draftColor ?? 'gray' })}
+                          title={t('history.color', { color: record.draftColor ?? 'gray' })}
                         />
                       )}
                     </span>
                     {!isExpanded && (
                       <span className="history-record-date">
-                        {getHistoryStatusLabel(record.status)} · {formatDateLabel(timestamp)}
+                        {getHistoryStatusLabel(record.status, t)} · {formatDateLabel(timestamp, locale, t)}
                       </span>
                     )}
                     {record.attachments.length > 0 ? (
-                      <span className="history-record-attachments" aria-label={formatAttachmentCount(record.attachments.length)} title={formatAttachmentCount(record.attachments.length)}>
+                      <span className="history-record-attachments" aria-label={formatAttachmentCount(record.attachments.length, locale)} title={formatAttachmentCount(record.attachments.length, locale)}>
                         <span className="history-record-attachment-preview" aria-hidden="true">
                           {record.attachments.slice(0, 2).map((attachment) => (
                             isImageAttachment(attachment)
@@ -992,7 +1181,7 @@ export function HistoryDrawer({
 
                   <span className="history-record-heading">
                     <strong>{record.title}</strong>
-                    {!isExpanded && <time dateTime={timestamp}>{formatTime(timestamp)}</time>}
+                    {!isExpanded && <time dateTime={timestamp}>{formatTime(timestamp, locale)}</time>}
                   </span>
 
                   {channelDetail && <span className="history-record-chat">{channelDetail}</span>}
@@ -1002,7 +1191,7 @@ export function HistoryDrawer({
                 {isExpanded && (
                   <div
                     className="history-post-expanded"
-                    aria-label={`Полное содержимое записи: ${record.title}`}
+                    aria-label={t('history.fullContent', { title: record.title })}
                     onClick={(event) => {
                       if (event.target !== event.currentTarget) return;
                       const bubble = event.currentTarget.querySelector('.history-post-bubble');
@@ -1012,19 +1201,19 @@ export function HistoryDrawer({
                     }}
                   >
                     <div className="history-post-time-row">
-                      <time dateTime={timestamp}>{formatTime(timestamp)}</time>
-                      <span>{getHistoryStatusLabel(record.status)}</span>
+                      <time dateTime={timestamp}>{formatTime(timestamp, locale)}</time>
+                      <span>{getHistoryStatusLabel(record.status, t)}</span>
                     </div>
                     {record.lastError && <p className="history-record-error" role="alert">{record.lastError}</p>}
                     <div className="history-post-bubble">
                       {Boolean(record.attachments.length) && (
-                        <div className="history-post-attachments" aria-label="Вложения">
+                        <div className="history-post-attachments" aria-label={t('history.attachmentsLabel')}>
                           {record.attachments.map((attachment) => (
                             isImageAttachment(attachment) ? (
                               <img
                                 key={attachment}
                                 src={toAttachmentUrl(attachment)}
-                                alt={getAttachmentName(attachment)}
+                                alt={getAttachmentName(attachment, t)}
                                 onPointerEnter={(event) => openImagePreview(event.currentTarget, attachment)}
                                 onPointerLeave={closeImagePreview}
                                 onLoad={() => {
@@ -1034,9 +1223,9 @@ export function HistoryDrawer({
                                 }}
                               />
                             ) : (
-                              <a key={attachment} href={toAttachmentUrl(attachment)} download={getAttachmentName(attachment)}>
+                              <a key={attachment} href={toAttachmentUrl(attachment)} download={getAttachmentName(attachment, t)}>
                                 <FileText size={17} strokeWidth={1.7} aria-hidden="true" />
-                                <span>{getAttachmentName(attachment)}</span>
+                                <span>{getAttachmentName(attachment, t)}</span>
                               </a>
                             )
                           ))}
@@ -1048,12 +1237,12 @@ export function HistoryDrawer({
                           __html: richTextToHtml(record.text, entities),
                         }}
                       />
-                      <InlineKeyboardPreview markup={scheduleMessage?.replyMarkup} />
+                      <InlineKeyboardPreview markup={replyMarkup} />
                     </div>
                     {(record.silent || record.effect) && (
                       <div className="history-post-options">
-                        {record.silent && <span>Без звука</span>}
-                        {record.effect && <span>Эффект: {record.effect}</span>}
+                        {record.silent && <span>{t('history.silent')}</span>}
+                        {record.effect && <span>{t('history.effect', { effect: record.effect })}</span>}
                       </div>
                     )}
                   </div>
@@ -1063,13 +1252,13 @@ export function HistoryDrawer({
                     type="button"
                     className="history-record-action is-expand"
                     onClick={() => toggleExpandedRecord(record, isExpanded)}
-                    aria-label={`${isExpanded ? 'Свернуть' : 'Показать полностью'}: ${record.title}`}
+                    aria-label={t('history.showRecord', { action: t(isExpanded ? 'history.collapse' : 'history.showFull'), title: record.title })}
                     aria-expanded={isExpanded}
                   >
                     {isExpanded
                       ? <Minimize2 size={14} strokeWidth={1.8} aria-hidden="true" />
                       : <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />}
-                    <span>{isExpanded ? 'Свернуть' : 'Полный размер'}</span>
+                    <span>{t(isExpanded ? 'history.collapse' : 'history.fullSize')}</span>
                   </button>
                   {primaryAction && (
                     <button
@@ -1077,11 +1266,11 @@ export function HistoryDrawer({
                       className="history-record-action is-primary"
                       onClick={primaryAction.handler}
                       aria-label={primaryAction.type === 'reschedule'
-                        ? `Изменить: ${record.title}`
+                        ? t('history.showRecord', { action: t('history.edit'), title: record.title })
                         : primaryAction.type === 'open-draft'
-                          ? `Редактировать черновик: ${record.title}`
+                          ? t('history.editDraftTitle', { title: record.title })
                           : primaryAction.type === 'use-draft'
-                            ? `Использовать черновик: ${record.title}`
+                            ? t('history.useDraftTitle', { title: record.title })
                           : primaryAction.label}
                     >
                       <span>{primaryAction.label}</span>
@@ -1093,13 +1282,13 @@ export function HistoryDrawer({
                         type="button"
                         className="history-record-action is-more"
                         onClick={() => setActionMenuOpenId((current) => current === record.id ? null : record.id)}
-                        aria-label="Ещё"
+                        aria-label={t('history.more')}
                         aria-expanded={actionMenuOpenId === record.id}
                       >
-                        <span>Ещё</span>
+                        <span>{t('history.more')}</span>
                       </button>
                       {actionMenuOpenId === record.id && (
-                        <div ref={actionMenuRef} className="history-record-action-menu" role="menu" aria-label={`Дополнительные действия для ${record.title}`}>
+                        <div ref={actionMenuRef} className="history-record-action-menu" role="menu" aria-label={t('history.moreActions', { title: record.title })}>
                           {secondaryActions.map((action) => (
                             <button
                               key={action.type}
@@ -1110,7 +1299,7 @@ export function HistoryDrawer({
                                 action.handler();
                                 setActionMenuOpenId(null);
                               }}
-                              aria-label={action.type === 'reschedule' ? `Изменить: ${record.title}` : action.label}
+                              aria-label={action.type === 'reschedule' ? t('history.showRecord', { action: t('history.edit'), title: record.title }) : action.label}
                             >
                               {action.label}
                             </button>
@@ -1121,7 +1310,7 @@ export function HistoryDrawer({
                   )}
                   {record.status === 'sending' && scheduleMessage && (
                     <button type="button" className="history-record-action is-send-now" disabled>
-                      <span>Отправляется…</span>
+                      <span>{t('history.sending')}</span>
                     </button>
                   )}
                 </div>
@@ -1140,15 +1329,15 @@ export function HistoryDrawer({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Поиск по истории"
-                aria-label="Поиск по истории"
+                placeholder={t('history.searchPlaceholder')}
+                aria-label={t('history.searchPlaceholder')}
               />
               <button
                 type="button"
                 className={`history-search-clear${query.length > 0 ? '' : ' is-reserved'}`}
                 onClick={() => setQuery('')}
                 disabled={query.length === 0}
-                aria-label="Очистить поиск"
+                aria-label={t('history.clearSearch')}
               >
                 <X size={15} strokeWidth={1.8} aria-hidden="true" />
               </button>
@@ -1157,63 +1346,78 @@ export function HistoryDrawer({
               className="history-result-count"
               role="status"
               aria-live="polite"
-              aria-label={`Найдено ${filteredRecords.length} из ${historyCounts.total} записей`}
-              title={`Найдено ${filteredRecords.length} из ${historyCounts.total} записей`}
+              aria-label={t('history.results', { shown: filteredRecords.length, total: historyCounts.total })}
+              title={t('history.results', { shown: filteredRecords.length, total: historyCounts.total })}
             >
-              {`Найдено ${filteredRecords.length} из ${historyCounts.total}`}
+              {t('history.results', { shown: filteredRecords.length, total: historyCounts.total })}
             </div>
           </div>
           </div>
 
-          <div className="history-drawer-footer" aria-label="Панель действий истории">
+          <div className="history-drawer-footer" aria-label={t('history.actionsPanel')}>
             <div className="history-status-row">
-            <div className="history-status-filters" role="tablist" aria-label="Статус записей">
-              {visibleStatusFilters.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter(item);
-                    setBulkDeleteCategory(null);
-                    setBulkDeleteRecordId(null);
-                    setBulkDeleteError('');
-                  }}
-                  className={`history-status-tab${statusFilter === item ? ' is-active' : ''}`}
-                  role="tab"
-                  aria-selected={statusFilter === item}
-                  aria-label={item === 'scheduled' ? 'Запланировано' : item === 'sent' ? 'Отправлено' : 'Черновики'}
-                >
-                  <span>{item === 'scheduled'
-                    ? 'Запланировано'
-                    : item === 'sent'
-                      ? 'Отправлено'
-                      : 'Черновики'}</span>
-                  <span className="history-filter-count" aria-hidden="true">{historyCounts.status[item]}</span>
-                </button>
-              ))}
+            <div className="history-status-filters" role="tablist" aria-label={t('history.statuses')}>
+              {visibleStatusFilters.map((item) => {
+                const labelKey = item === 'scheduled'
+                  ? 'history.categoryScheduled'
+                  : item === 'sent'
+                    ? 'history.categorySent'
+                    : item === 'notes'
+                      ? 'history.categoryNotes'
+                      : 'history.categoryDrafts';
+                const compactLabelKey = item === 'scheduled'
+                  ? 'history.categoryScheduledCompact'
+                  : item === 'sent'
+                    ? 'history.categorySentCompact'
+                    : item === 'notes'
+                      ? 'history.categoryNotesCompact'
+                      : 'history.categoryDraftsCompact';
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(item);
+                      setBulkDeleteCategory(null);
+                      setBulkDeleteRecordId(null);
+                      setBulkDeleteError('');
+                    }}
+                    className={`history-status-tab${statusFilter === item ? ' is-active' : ''}`}
+                    role="tab"
+                    aria-selected={statusFilter === item}
+                    aria-label={t(labelKey)}
+                    title={t(labelKey)}
+                  >
+                    <span className="history-status-label">{t(labelKey)}</span>
+                    <span className="history-status-label-compact">{t(compactLabelKey)}</span>
+                    <span className="history-filter-count" aria-hidden="true">{historyCounts.status[item]}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="history-export-control" ref={exportMenuRef}>
-              {canDeleteCurrentCategory && (
+              {canDeleteCurrentCategory ? (
                 <button
                   type="button"
                   className="history-delete-button"
                   aria-label={selectedRecordMatchesDeleteCategory && selectedRecord
                     ? statusFilter === 'scheduled'
-                      ? isLocalScheduleFailure(selectedRecord) ? `Удалить ошибку ${selectedRecord.title}` : `Отменить ${selectedRecord.title}`
-                      : `Удалить ${selectedRecord.title}`
+                      ? isLocalScheduleFailure(selectedRecord) ? t('history.deleteErrorTitle', { title: selectedRecord.title }) : t('history.cancelTitle', { title: selectedRecord.title })
+                      : t('history.deleteTitle', { title: selectedRecord.title })
                     : statusFilter === 'scheduled'
                       ? scheduleCleanupAriaLabel
-                      : statusFilter === 'sent' ? 'Удалить историю отправленных' : 'Удалить черновики'}
+                      : statusFilter === 'sent' ? t('history.deleteSent') : statusFilter === 'notes' ? t('history.deleteNotes') : t('history.deleteDrafts')}
                   aria-haspopup="dialog"
                   aria-expanded={Boolean(bulkDeleteCategory)}
                   title={selectedRecordMatchesDeleteCategory && selectedRecord
                     ? statusFilter === 'scheduled'
-                      ? isLocalScheduleFailure(selectedRecord) ? `Удалить ошибку ${selectedRecord.title} из истории` : `Отменить ${selectedRecord.title} в Telegram`
-                      : `Удалить ${selectedRecord.title}`
+                      ? isLocalScheduleFailure(selectedRecord) ? t('history.deleteErrorFromHistoryTitle', { title: selectedRecord.title }) : t('history.cancelTelegramTitle', { title: selectedRecord.title })
+                      : t('history.deleteTitle', { title: selectedRecord.title })
                     : statusFilter === 'scheduled'
                       ? scheduleCleanupTitle
-                      : statusFilter === 'sent' ? 'Удалить историю отправленных' : 'Удалить все черновики'}
+                      : statusFilter === 'sent' ? t('history.deleteSent') : statusFilter === 'notes' ? t('history.deleteNotesTitle') : t('history.deleteDrafts')}
                   onClick={() => {
                     const category = statusFilter;
                     const recordId = selectedRecordMatchesDeleteCategory && selectedRecord
@@ -1228,6 +1432,8 @@ export function HistoryDrawer({
                 >
                   <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
                 </button>
+              ) : (
+                <span className="history-delete-placeholder" aria-hidden="true" />
               )}
               <button
                 type="button"
@@ -1238,36 +1444,36 @@ export function HistoryDrawer({
                   setIsExportMenuOpen((current) => !current);
                 }}
                 disabled={filteredRecords.length === 0}
-                aria-label={selectedRecord ? `Экспортировать ${selectedRecord.title}` : 'Экспортировать текущую категорию'}
+                aria-label={selectedRecord ? t('history.exportRecord', { title: selectedRecord.title }) : t('history.exportCurrent')}
                 aria-haspopup="menu"
                 aria-expanded={isExportMenuOpen}
-                title={selectedRecord ? `Экспортировать ${selectedRecord.title}` : `Экспортировать ${formatHistoryCount(filteredRecords.length)} из выбранной категории`}
+                title={selectedRecord ? t('history.exportRecord', { title: selectedRecord.title }) : t('history.exportCount', { count: formatHistoryCount(filteredRecords.length, locale) })}
               >
                 <Download size={15} strokeWidth={1.8} aria-hidden="true" />
-                <span>Экспорт</span>
+                <span>{t('history.export')}</span>
               </button>
               {isExportMenuOpen && (
-                <div className="history-export-menu" role="menu" aria-label="Формат экспорта">
+                <div className="history-export-menu" role="menu" aria-label={t('history.exportMenu')}>
                   <span className="history-export-menu-label">{exportMenuHeading}</span>
                   <button
                     type="button"
                     role="menuitem"
                     className="history-export-option"
-                    aria-label={`Экспортировать ${exportMenuScope} как TXT (.txt)`}
-                    title={selectedRecord ? 'Сохранить это сообщение в текстовый файл.' : 'Лучше для чтения, печати и отправки человеку.'}
+                    aria-label={t('history.exportAsTxt', { scope: exportMenuScope })}
+                    title={t(selectedRecord ? 'history.saveTxtSingle' : 'history.saveTxtMultiple')}
                     onClick={() => exportRecords('txt')}
                   >
-                    <span>Текстовый файл (.txt)</span>
+                    <span>{t('history.textFile')}</span>
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     className="history-export-option"
-                    aria-label={`Экспортировать ${exportMenuScope} как JSON (.json)`}
-                    title={selectedRecord ? 'Сохранить это сообщение в формате JSON.' : 'Лучше для резервной копии и переноса данных.'}
+                    aria-label={t('history.exportAsJson', { scope: exportMenuScope })}
+                    title={t(selectedRecord ? 'history.saveJsonSingle' : 'history.saveJsonMultiple')}
                     onClick={() => exportRecords('json')}
                   >
-                    <span>Резервная копия (.json)</span>
+                    <span>{t('history.jsonFile')}</span>
                   </button>
                 </div>
               )}
@@ -1287,8 +1493,8 @@ export function HistoryDrawer({
               role="alertdialog"
               aria-modal="true"
               aria-label={confirmAction.type === 'cancel'
-                ? 'Подтвердить отмену публикации'
-                : confirmAction.type === 'send-now' ? 'Подтвердить отправку' : 'Подтвердить удаление'}
+                ? t('history.confirmCancel')
+                : confirmAction.type === 'send-now' ? t('history.confirmSend') : t('history.confirmDelete')}
             >
               <p>{confirmActionPrompt}</p>
               <div className="history-record-confirmation-actions">
@@ -1298,7 +1504,7 @@ export function HistoryDrawer({
                   autoFocus
                   onClick={() => setConfirmAction(null)}
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -1316,10 +1522,10 @@ export function HistoryDrawer({
                   }}
                 >
                   {confirmAction.type === 'cancel'
-                    ? 'Отменить публикацию'
+                    ? t('history.cancelAction')
                     : confirmAction.type === 'send-now'
-                      ? 'Отправить сейчас'
-                      : confirmActionRecord.status === 'draft' ? 'Удалить черновик' : 'Удалить запись'}
+                      ? t('history.sendNow')
+                      : confirmActionRecord.status === 'draft' ? t('history.deleteDraftAction') : t('history.deleteRecordAction')}
                 </button>
               </div>
             </div>
@@ -1340,12 +1546,14 @@ export function HistoryDrawer({
               role="alertdialog"
               aria-modal="true"
               aria-label={bulkDeleteCategory === 'scheduled'
-                ? bulkDeleteRecord
-                  ? isLocalScheduleFailure(bulkDeleteRecord) ? 'Подтвердить удаление ошибки расписания' : 'Подтвердить отмену публикации'
+                  ? bulkDeleteRecord
+                  ? isLocalScheduleFailure(bulkDeleteRecord) ? t('history.confirmDeleteScheduleError') : t('history.confirmCancel')
                   : localScheduleFailureRecords.length > 0 && queueCancellableRecords.length > 0
-                    ? 'Подтвердить очистку расписаний и ошибок'
-                    : localScheduleFailureRecords.length > 0 ? 'Подтвердить удаление ошибочных записей' : 'Подтвердить отмену очереди'
-                : bulkDeleteRecord ? 'Подтвердить удаление записи' : 'Подтвердить удаление категории'}
+                    ? t('history.confirmCleanup')
+                    : localScheduleFailureRecords.length > 0 ? t('history.confirmDeleteErrors') : t('history.confirmCancelQueue')
+                : bulkDeleteCategory === 'notes' && !bulkDeleteRecord
+                  ? t('history.confirmDeleteNotes')
+                  : bulkDeleteRecord ? t('history.confirmDeleteRecord') : t('history.confirmDeleteCategory')}
             >
               <p>{bulkDeletePrompt}</p>
               {bulkDeleteError && <p className="history-bulk-delete-error" role="alert">{bulkDeleteError}</p>}
@@ -1361,7 +1569,7 @@ export function HistoryDrawer({
                   }}
                   disabled={bulkDeleteBusy}
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -1370,7 +1578,7 @@ export function HistoryDrawer({
                   disabled={bulkDeleteBusy}
                 >
                   {bulkDeleteBusy
-                    ? bulkDeleteCategory === 'scheduled' ? 'Отмена…' : 'Удаление…'
+                    ? bulkDeleteCategory === 'scheduled' ? t('history.cancelling') : t('history.deleting')
                     : bulkDeleteActionLabel}
                 </button>
               </div>
@@ -1381,11 +1589,11 @@ export function HistoryDrawer({
           <div
             className="message-attachment-preview"
             style={{ left: `${previewImagePosition.left}px`, top: `${previewImagePosition.top}px` }}
-            aria-label={`Увеличенное фото: ${getAttachmentName(previewImagePath)}`}
+            aria-label={t('history.increasedImage', { name: getAttachmentName(previewImagePath, t) })}
           >
             <img
               src={toAttachmentUrl(previewImagePath)}
-              alt={getAttachmentName(previewImagePath)}
+              alt={getAttachmentName(previewImagePath, t)}
               draggable={false}
             />
           </div>,
