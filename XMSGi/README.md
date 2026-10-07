@@ -57,6 +57,20 @@ We welcome focused pull requests and bug reports. Please read [CONTRIBUTING.md](
 
 Please report vulnerabilities privately through the repository security process. Do not disclose critical issues in public issues or pull requests. See [SECURITY.md](SECURITY.md).
 
+## Repository
+
+GitHub repository:
+
+- https://github.com/molodoy01/XMSGi-Studio.git
+
+To connect this project to the remote repository manually:
+
+```bash
+git remote add origin https://github.com/molodoy01/XMSGi-Studio.git
+git branch -M main
+git push -u origin main
+```
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
