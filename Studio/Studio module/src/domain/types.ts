@@ -1,3 +1,5 @@
+import type { TelegramOperationErrorDetails } from '@shared/types';
+
 export type AccountType = 'personal' | 'workspace' | 'channel' | 'service';
 export type ChannelProvider = 'telegram' | 'instagram' | 'vk' | 'discord' | 'linkedin' | 'custom';
 export type PublishStatus = 'draft' | 'ready' | 'scheduled' | 'sending' | 'sent' | 'failed';
@@ -109,6 +111,7 @@ export interface PublishResult {
   messageId?: string;
   confirmed?: boolean;
   error?: string;
+  errorDetails?: TelegramOperationErrorDetails;
 }
 
 export interface NormalizedMessage {

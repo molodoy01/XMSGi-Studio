@@ -7,6 +7,8 @@ import type {
   PublishResult,
   Schedule,
 } from '../domain/types';
+import type { TelegramErrorCategory, TelegramOperationName } from '@shared/types';
+import { handleTelegramError } from './telegramErrorHandler';
 
 export const telegramCapabilities: ChannelCapabilities = {
   supportsRichText: true,
@@ -69,8 +71,9 @@ function getReplyMarkup(value: unknown): TelegramReplyMarkup | undefined {
   return validMarkup ? value as TelegramReplyMarkup : undefined;
 }
 
-function failedResult(error: string): PublishResult {
-  return { ok: false, provider: 'telegram', error };
+function failedResult(source: unknown, operation: TelegramOperationName, fallbackMessage: string): PublishResult {
+  const errorDetails = handleTelegramError(source, operation, fallbackMessage);
+  return { ok: false, provider: 'telegram', error: errorDetails.message, errorDetails };
 }
 
 function toPublishResult(result: {
@@ -79,10 +82,28 @@ function toPublishResult(result: {
   telegramMessageId?: string | number;
   confirmed?: boolean;
   error?: string;
-}): PublishResult {
+  code?: string;
+  category?: TelegramErrorCategory;
+  retryable?: boolean;
+  waitSeconds?: number;
+  cancelled?: boolean;
+}, operation: TelegramOperationName): PublishResult {
   const messageId = result.telegramMessageId ?? result.id;
+  if (!result.success) {
+    const errorDetails = handleTelegramError(result, operation, operation === 'cancel'
+      ? 'Telegram could not cancel the scheduled message.'
+      : 'Telegram could not publish the message.');
+    return {
+      ok: false,
+      provider: 'telegram',
+      ...(messageId === undefined ? {} : { messageId: String(messageId) }),
+      error: errorDetails.message,
+      errorDetails,
+    };
+  }
+
   return {
-    ok: result.success,
+    ok: true,
     provider: 'telegram',
     ...(messageId === undefined ? {} : { messageId: String(messageId) }),
     ...(result.confirmed === undefined ? {} : { confirmed: result.confirmed }),
@@ -108,7 +129,7 @@ export class TelegramChannelAdapter implements ChannelAdapter {
 
   async send(post: Post): Promise<PublishResult> {
     const telegram = getTelegramBridge();
-    if (!telegram?.send) return failedResult('Telegram bridge is not connected.');
+    if (!telegram?.send) return failedResult('Telegram bridge is not connected.', 'publish', 'Telegram bridge is not connected.');
 
     try {
       const message = await this.normalizeMessage(post);
@@ -118,18 +139,18 @@ export class TelegramChannelAdapter implements ChannelAdapter {
         message.mediaIds,
         getFormattingEntities(message.entities),
         getReplyMarkup(message.replyMarkup),
-      ));
+      ), 'publish');
     } catch (error) {
-      return failedResult(error instanceof Error ? error.message : 'Telegram could not send the message.');
+      return failedResult(error, 'publish', 'Telegram could not send the message.');
     }
   }
 
   async schedule(post: Post, schedule: Schedule): Promise<PublishResult> {
     const telegram = getTelegramBridge();
-    if (!telegram?.schedule) return failedResult('Telegram bridge is not connected.');
+    if (!telegram?.schedule) return failedResult('Telegram bridge is not connected.', 'publish', 'Telegram bridge is not connected.');
 
     const targetTimestamp = Math.floor(new Date(schedule.triggerAt).getTime() / 1000);
-    if (!Number.isFinite(targetTimestamp)) return failedResult('Schedule time is invalid.');
+    if (!Number.isFinite(targetTimestamp)) return failedResult('Schedule time is invalid.', 'publish', 'Telegram could not schedule the message.');
 
     try {
       const message = await this.normalizeMessage(post);
@@ -140,20 +161,20 @@ export class TelegramChannelAdapter implements ChannelAdapter {
         attachments: message.mediaIds,
         entities: getFormattingEntities(message.entities),
         replyMarkup: getReplyMarkup(message.replyMarkup),
-      }));
+      }), 'publish');
     } catch (error) {
-      return failedResult(error instanceof Error ? error.message : 'Telegram could not schedule the message.');
+      return failedResult(error, 'publish', 'Telegram could not schedule the message.');
     }
   }
 
   async cancelScheduled(channelId: string, messageId: string | number): Promise<PublishResult> {
     const telegram = getTelegramBridge();
-    if (!telegram?.cancel) return failedResult('Telegram bridge is not connected.');
+    if (!telegram?.cancel) return failedResult('Telegram bridge is not connected.', 'cancel', 'Telegram bridge is not connected.');
 
     try {
-      return toPublishResult(await telegram.cancel({ chatId: channelId, telegramMessageId: messageId }));
+      return toPublishResult(await telegram.cancel({ chatId: channelId, telegramMessageId: messageId }), 'cancel');
     } catch (error) {
-      return failedResult(error instanceof Error ? error.message : 'Telegram could not cancel the scheduled message.');
+      return failedResult(error, 'cancel', 'Telegram could not cancel the scheduled message.');
     }
   }
 

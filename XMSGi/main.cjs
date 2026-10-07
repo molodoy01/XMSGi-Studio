@@ -4,9 +4,18 @@ const { pathToFileURL } = require('url');
 const { app, BrowserWindow, Tray, Menu, ipcMain, safeStorage, shell, dialog } = require('electron');
 
 const writableAppDataRoot = path.join(process.env.LOCALAPPDATA || app.getPath('appData'), 'XMSGi');
+const writableCacheRoot = path.join(writableAppDataRoot, 'Cache');
+const writableTempRoot = path.join(writableAppDataRoot, 'Temp');
+
 fs.mkdirSync(writableAppDataRoot, { recursive: true });
+fs.mkdirSync(writableCacheRoot, { recursive: true });
+fs.mkdirSync(writableTempRoot, { recursive: true });
+
 app.setPath('userData', writableAppDataRoot);
 app.setPath('sessionData', writableAppDataRoot);
+app.setPath('cache', writableCacheRoot);
+app.setPath('temp', writableTempRoot);
+app.commandLine.appendSwitch('disk-cache-dir', writableCacheRoot);
 
 if (!app.isPackaged && process.env.npm_lifecycle_event !== 'start') {
   const developmentEnvironment = {};
@@ -51,6 +60,7 @@ const draftStoreModulePath = (() => {
   return path.resolve(__dirname, 'draft-store.cjs');
 })();
 const { createDraftStore } = require(draftStoreModulePath);
+const { classifyTelegramError } = require('./telegram-errors.cjs');
 
 const userDataPath = app.getPath('userData');
 const SECURE_CONFIG_PATH = resolveAppDataPath(
@@ -265,6 +275,21 @@ const {
   setTelegramStatusCallback
 } = require('./telegram.cjs');
 const { generateGeminiContent } = require('./gemini.cjs');
+
+function telegramOperationFailure(error) {
+  const classification = classifyTelegramError(error);
+  const normalizedError = classification.error;
+  const code = normalizedError?.code || error?.code;
+  return {
+    success: false,
+    error: normalizedError?.message || 'Telegram request failed.',
+    ...(code ? { code } : {}),
+    category: classification.category,
+    retryable: classification.retryable,
+    ...(normalizedError?.waitSeconds === undefined ? {} : { waitSeconds: normalizedError.waitSeconds }),
+    ...(classification.category === 'cancelled' ? { cancelled: true } : {}),
+  };
+}
 
 setTelegramStatusCallback((status) => {
   sendTelegramStatus(status);
@@ -1166,14 +1191,10 @@ ipcMain.handle('telegram-send', async (event, data) => {
 
   } catch (error) {
     console.error('Telegram send error:', error?.code || error?.name || 'unknown');
-
     return {
-      success: false,
-      error: error.message,
-      code: error.code,
-      waitSeconds: error.waitSeconds,
-      telegramMessageId: error.telegramMessageId,
-      telegramMessageIds: error.telegramMessageIds,
+      ...telegramOperationFailure(error),
+      ...(error.telegramMessageId === undefined ? {} : { telegramMessageId: error.telegramMessageId }),
+      ...(error.telegramMessageIds === undefined ? {} : { telegramMessageIds: error.telegramMessageIds }),
     };
   }
 });
@@ -1241,14 +1262,10 @@ ipcMain.handle('telegram-schedule', async (event, data) => {
 
   } catch (error) {
     console.error('Schedule error:', error?.code || error?.name || 'unknown');
-
     return {
-      success: false,
-      error: error.message,
-      code: error.code,
-      waitSeconds: error.waitSeconds,
-      telegramMessageId: error.telegramMessageId,
-      telegramMessageIds: error.telegramMessageIds,
+      ...telegramOperationFailure(error),
+      ...(error.telegramMessageId === undefined ? {} : { telegramMessageId: error.telegramMessageId }),
+      ...(error.telegramMessageIds === undefined ? {} : { telegramMessageIds: error.telegramMessageIds }),
     };
   }
 });
@@ -1280,11 +1297,7 @@ ipcMain.handle('telegram-cancel', async (event, data) => {
 
   } catch (error) {
     console.error('Cancel error:', error?.code || error?.name || 'unknown');
-
-    return {
-      success: false,
-      error: error.message
-    };
+    return telegramOperationFailure(error);
   }
 });
 

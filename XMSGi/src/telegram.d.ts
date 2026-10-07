@@ -7,6 +7,8 @@ type TelegramFormattingEntity = {
   url?: string;
 };
 
+type TelegramErrorCategory = import('@shared/types').TelegramErrorCategory;
+
 declare global {
   interface TelegramAuthState {
     hasSession: boolean;
@@ -154,7 +156,10 @@ declare global {
         success: boolean;
         error?: string;
         code?: string;
+        category?: TelegramErrorCategory;
+        retryable?: boolean;
         waitSeconds?: number;
+        cancelled?: boolean;
       }>;
       getScheduleIdentities: (operations: Array<{
         chatId: string;
@@ -185,7 +190,10 @@ declare global {
         operationIdentity?: string;
         error?: string;
         code?: string;
+        category?: TelegramErrorCategory;
+        retryable?: boolean;
         waitSeconds?: number;
+        cancelled?: boolean;
       }>;
       getChatHistory: (data: { chatId: string; limit?: number }) => Promise<{
         success: boolean;
@@ -238,6 +246,11 @@ declare global {
       }) => Promise<{
         success: boolean;
         alreadySent?: boolean;
+        code?: string;
+        category?: TelegramErrorCategory;
+        retryable?: boolean;
+        waitSeconds?: number;
+        cancelled?: boolean;
         telegramMessageId?: string | number;
         sentAt?: string;
         error?: string;

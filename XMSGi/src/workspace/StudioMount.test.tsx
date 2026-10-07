@@ -17,6 +17,6 @@ describe('StudioMount', () => {
       </LocaleProvider>,
     );
 
-    expect(screen.getByText('STUDIO')).toBeInTheDocument();
+    expect(screen.getByText(/Create post/i)).toBeInTheDocument();
   });
 });

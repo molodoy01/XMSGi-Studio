@@ -233,6 +233,7 @@ describe('Telegram account rate-limit interceptor', () => {
   it.each([
     [Object.assign(new Error('AUTH_KEY_INVALID'), { code: 'AUTH_KEY_INVALID' }), 'auth', false],
     [Object.assign(new Error('CHAT_WRITE_FORBIDDEN'), { code: 'CHAT_WRITE_FORBIDDEN' }), 'permission', false],
+    [Object.assign(new Error('Telegram request was cancelled.'), { code: 'TELEGRAM_REQUEST_CANCELLED' }), 'cancelled', false],
     [Object.assign(new Error('Network timeout'), { code: 'ETIMEDOUT' }), 'network', true],
     [new Error('unexpected failure'), 'unknown', false],
   ])('classifies %s as %s', (error, category, retryable) => {

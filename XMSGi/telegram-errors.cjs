@@ -127,6 +127,10 @@ function classifyTelegramError(error) {
     source.name,
   ].filter(Boolean).join(' ');
 
+  if (/TELEGRAM_REQUEST_CANCELLED|ERR_CANCELED|ABORT_ERR|AbortError|(?:telegram\s+)?(?:request|operation|cancel)\s+(?:was\s+)?cancelled/i.test(sourceText)) {
+    return { category: 'cancelled', retryable: false, error: source };
+  }
+
   if (/AUTH(?:ORIZATION|_KEY|_TOO_MUCH|_SIGN_UP|_SIGN_IN)?|SESSION_(?:REVOKED|EXPIRED|INVALID)|PHONE_CODE|PASSWORD|USER_DEACTIVATED/i.test(sourceText)) {
     return { category: 'auth', retryable: false, error: source };
   }

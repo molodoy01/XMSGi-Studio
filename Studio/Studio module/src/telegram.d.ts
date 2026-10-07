@@ -24,6 +24,8 @@ type TelegramFormattingEntity = {
   url?: string;
 };
 
+type TelegramBridgeErrorCategory = import('@shared/types').TelegramErrorCategory;
+
 declare global {
   interface TelegramAuthState {
     hasSession: boolean;
@@ -131,6 +133,11 @@ declare global {
       send: (chatId: string, message: string, attachments?: string[], entities?: TelegramFormattingEntity[], replyMarkup?: { inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> }) => Promise<{
         success: boolean;
         error?: string;
+        code?: string;
+        category?: TelegramBridgeErrorCategory;
+        retryable?: boolean;
+        waitSeconds?: number;
+        cancelled?: boolean;
       }>;
       schedule: (data: {
         chatId: string;
@@ -145,6 +152,11 @@ declare global {
         telegramMessageId?: string | number;
         confirmed?: boolean;
         error?: string;
+        code?: string;
+        category?: TelegramBridgeErrorCategory;
+        retryable?: boolean;
+        waitSeconds?: number;
+        cancelled?: boolean;
       }>;
       getChatHistory: (data: { chatId: string; limit?: number }) => Promise<{
         success: boolean;
@@ -189,6 +201,11 @@ declare global {
       }) => Promise<{
         success: boolean;
         error?: string;
+        code?: string;
+        category?: TelegramBridgeErrorCategory;
+        retryable?: boolean;
+        waitSeconds?: number;
+        cancelled?: boolean;
       }>;
       onStatus: (callback: (status: unknown) => void) => void;
     };

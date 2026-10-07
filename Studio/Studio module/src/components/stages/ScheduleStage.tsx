@@ -170,7 +170,7 @@ export function ScheduleStage({
     : t('studio.chooseTime');
   const scheduleDateLabel = date
     ? new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T12:00:00`))
-    : t('studio.chooseDate');
+    : t('composer.chooseDate');
   const scheduleRepeatLabel = {
     none: t('studio.repeatNone'),
     daily: t('studio.repeatDaily'),

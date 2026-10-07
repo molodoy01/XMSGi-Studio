@@ -695,6 +695,9 @@ async function telegramRequest(request) {
       return result;
     } catch (error) {
       const classification = classifyTelegramError(error);
+      if (classification.category === 'cancelled') {
+        throw classification.error;
+      }
       const statusByCategory = {
         slowmode: 'slowmode',
         auth: 'auth required',

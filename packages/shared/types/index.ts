@@ -134,3 +134,16 @@ export type NotificationState = {
   visible: boolean;
   revision?: number;
 };
+
+export type TelegramOperationName = 'publish' | 'cancel';
+
+export type TelegramErrorCategory = 'flood' | 'slowmode' | 'cancelled' | 'auth' | 'permission' | 'network' | 'error' | 'unknown';
+
+export interface TelegramOperationErrorDetails {
+  operation: TelegramOperationName;
+  category: TelegramErrorCategory;
+  retryable: boolean;
+  message: string;
+  code?: string;
+  waitSeconds?: number;
+}

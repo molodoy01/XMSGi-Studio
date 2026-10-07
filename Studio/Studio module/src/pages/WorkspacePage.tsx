@@ -23,7 +23,9 @@ import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type
 import type {
   Chat,
   DraftAttachment,
+  DraftColor,
   PersistedDraftStore,
+  PreviewChatHistory,
   RichTextEntity,
   ScheduledMessage,
   SavedDraft,
