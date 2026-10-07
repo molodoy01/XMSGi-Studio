@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LocaleProvider } from '../../../XMSGi/src/lib/i18n';
+import { LocaleProvider } from '@/lib/i18n';
 import App from './App';
 import './index.css';
 import './styles/globals.css';

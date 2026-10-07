@@ -7,7 +7,7 @@ import { getScheduleDateTimeAfter, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeat
 import { InlineKeyboardBuilder } from '@/components/InlineKeyboardBuilder';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 type StudioTranslate = ReturnType<typeof useLocale>['t'];
 

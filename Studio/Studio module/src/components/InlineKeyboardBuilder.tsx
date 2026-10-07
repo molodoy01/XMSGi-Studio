@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { InlineButton, InlineButtonRow } from '@/lib/inlineKeyboard';
 import { createInlineButton, getInlineButtonError, limitInlineRows, MAX_INLINE_BUTTONS, MAX_INLINE_BUTTON_LABEL_LENGTH, normalizeInlineUrl } from '@/lib/inlineKeyboard';
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 import './InlineKeyboardBuilder.css';
 
 type InlineKeyboardBuilderProps = {

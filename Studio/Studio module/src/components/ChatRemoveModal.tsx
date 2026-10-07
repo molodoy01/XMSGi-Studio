@@ -1,4 +1,4 @@
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 interface Props {
   show: boolean;

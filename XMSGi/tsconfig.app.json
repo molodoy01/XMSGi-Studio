@@ -17,7 +17,9 @@
     /* Path alias — depth-invariant imports for src (@/foo === src/foo from any file) */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "react": ["node_modules/@types/react/index.d.ts"],
+      "@shared/*": ["../packages/shared/*"]
     },
 
     /* Linting */

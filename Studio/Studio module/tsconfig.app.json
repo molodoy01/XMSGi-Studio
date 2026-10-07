@@ -16,7 +16,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/lib/i18n": ["../../packages/shared/i18n/index.ts"],
+      "@/*": ["src/*"],
+      "react": ["node_modules/@types/react/index.d.ts"],
+      "@shared/*": ["../../packages/shared/*"]
+    }
   },
   "include": ["src"]
 }

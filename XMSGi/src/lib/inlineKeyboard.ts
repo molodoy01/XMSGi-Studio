@@ -1,25 +1,18 @@
-export type InlineButtonActionType = 'url' | 'callback';
+import type {
+  InlineButton,
+  InlineButtonActionType,
+  InlineButtonRow,
+  InlineKeyboardButton,
+  InlineKeyboardMarkup,
+} from '@shared/types';
 
-export type InlineButton = {
-  id: string;
-  label: string;
-  action: {
-    type: InlineButtonActionType;
-    value: string;
-  };
-};
-
-export type InlineButtonRow = InlineButton[];
-
-export type InlineKeyboardButton = {
-  text: string;
-  url?: string;
-  callback_data?: string;
-};
-
-export type InlineKeyboardMarkup = {
-  inline_keyboard: InlineKeyboardButton[][];
-};
+export type {
+  InlineButton,
+  InlineButtonActionType,
+  InlineButtonRow,
+  InlineKeyboardButton,
+  InlineKeyboardMarkup,
+} from '@shared/types';
 
 export const MAX_INLINE_BUTTONS = 100;
 export const MAX_INLINE_BUTTONS_PER_ROW = 8;

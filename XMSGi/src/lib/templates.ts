@@ -1,5 +1,5 @@
 import type { Template } from '@/types';
-import { uid } from './utils';
+import { uid } from '@shared/utils';
 
 export type TemplateInput = Pick<Template, 'name' | 'body'>;
 

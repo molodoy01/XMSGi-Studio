@@ -5,7 +5,7 @@ import editorLogo from '@/assets/logo.png';
 import type { RichTextEntity } from '@/types';
 import { editorHtmlToRichText, normalizeEditorText, richTextToHtml, sanitizeEditorDom, sliceRichText } from '@/lib/richText';
 import { getMessageCounterTone, getRemainingMessageLength } from '@/lib/messageLimits';
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 interface Props {
   text: string;

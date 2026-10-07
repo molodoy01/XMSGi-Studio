@@ -1,5 +1,5 @@
 import type { DraftColor } from '@/types';
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 const draftColorOptions: Array<{ value: DraftColor; labelKey: 'studio.colorGray' | 'studio.colorCoral' | 'studio.colorAmber' | 'studio.colorGreen' | 'studio.colorTeal' | 'studio.colorBlue' }> = [
   { value: 'gray', labelKey: 'studio.colorGray' },

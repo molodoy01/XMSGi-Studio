@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       $studio: studioEntry,
+      '@shared': fileURLToPath(new URL('../packages/shared', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

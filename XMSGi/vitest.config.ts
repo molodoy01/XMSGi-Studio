@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@shared': fileURLToPath(new URL('../packages/shared', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       $studio: studioEntry,
     },

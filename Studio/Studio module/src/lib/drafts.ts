@@ -1,5 +1,5 @@
 import type { SavedDraft } from '@/types';
-import { uid } from './utils';
+import { uid } from '@shared/utils';
 
 export type SavedDraftInput = Pick<SavedDraft, 'name' | 'body'> & Partial<Omit<SavedDraft, 'id' | 'name' | 'body' | 'createdAt' | 'updatedAt'>>;
 

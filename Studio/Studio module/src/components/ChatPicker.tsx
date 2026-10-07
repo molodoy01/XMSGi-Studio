@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Chat } from '@/types';
 import { ChatAvatar } from './ChatAvatar';
-import { useLocale } from '../../../../XMSGi/src/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 interface Props {
   chats: Chat[];

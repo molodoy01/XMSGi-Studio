@@ -7,10 +7,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      {
-        find: '@/lib/i18n',
-        replacement: fileURLToPath(new URL('../../XMSGi/src/lib/i18n.ts', import.meta.url)).replace(/\\/g, '/'),
-      },
+      { find: '@/lib/i18n', replacement: fileURLToPath(new URL('../../packages/shared/i18n/index.ts', import.meta.url)).replace(/\\/g, '/') },
+      { find: '@shared', replacement: fileURLToPath(new URL('../../packages/shared', import.meta.url)).replace(/\\/g, '/') },
       { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
     ],
   },
