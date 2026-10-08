@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Upload } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import type { DraftColor, SavedDraft } from '@/types';
 import { useLocale } from '@/lib/i18n';
 import { DraftColorPicker } from '@/components/DraftColorPicker';
@@ -61,7 +61,7 @@ export function DraftsStage({
   const { t } = useLocale();
 
   return (
-    <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage workspace-page-rich-text-draft-stage ${mode === 'draft' ? 'is-active' : ''}`} aria-hidden={mode !== 'draft'}>
+    <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage workspace-page-rich-text-draft-stage ${mode === 'draft' ? 'is-active' : ''}${draftEditingId ? ' has-draft-editor' : ''}`} aria-hidden={mode !== 'draft'}>
       <header className="workspace-page-stage-header workspace-page-template-stage-header">
         <strong>{draftEditingId ? t('studio.draft') : t('studio.savedDrafts')}</strong>
         <span>{draftEditingId ? t('studio.editSavedContent') : `${t('studio.savedCount', { count: savedDrafts.length })} · ${draftStoreSaving ? t('studio.saving') : draftStoreReady ? t('studio.savedLocally') : t('studio.loading')}`}</span>
@@ -117,27 +117,29 @@ export function DraftsStage({
       <footer className="workspace-page-stage-actions workspace-page-template-stage-footer workspace-page-draft-stage-footer">
         <div className="workspace-page-draft-stage-footer-left">
           <button type="button" className="workspace-page-stage-secondary" onClick={draftEditingId ? closeDraftEditor : () => onModeChange('editor')}>← {t('studio.back')}</button>
-          {!draftEditingId && (
-            <>
-              <button type="button" className="workspace-page-stage-secondary" onClick={onImportEditorText} aria-label={t('studio.importText')} title={t('studio.importTextTitle')}>
-                <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.importTxt')}
-              </button>
-            </>
-          )}
         </div>
-        <div className="workspace-page-template-stage-footer-actions">
-          {draftEditingId ? (
+        {draftEditingId ? (
+          <div className="workspace-page-template-stage-footer-actions">
             <button type="submit" form="workspace-draft-editor-form" className="workspace-page-stage-primary" disabled={!draftStoreReady || draftStoreSaving || !draftName.trim() || !draftBodyText.trim()}>
               {draftStoreSaving ? t('studio.saving') : t('studio.save')}
             </button>
-          ) : (
-            <>
-              <button type="button" className="workspace-page-stage-secondary" onClick={onExportDrafts} disabled={!draftStoreReady || draftStoreSaving}>{t('studio.exportAllDrafts')}</button>
-              <button type="button" className="workspace-page-stage-secondary" onClick={onImportDrafts} disabled={!draftStoreReady || draftStoreSaving}>{t('studio.importDrafts')}</button>
-              <button type="button" className="workspace-page-stage-primary" onClick={() => openDraftEditor()} disabled={!draftStoreReady || draftStoreSaving}>+ {t('studio.draft')}</button>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="workspace-page-draft-stage-tools">
+              <button type="button" className="workspace-page-stage-secondary" onClick={onImportEditorText} aria-label={t('studio.importText')} title={t('studio.importTextTitle')}>
+                <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.importTxt')}
+              </button>
+              <button type="button" className="workspace-page-stage-secondary" onClick={onExportDrafts} disabled={!draftStoreReady || draftStoreSaving} aria-label={t('studio.exportAllDrafts')} title={t('studio.exportAllDrafts')}>
+                <Download size={14} strokeWidth={1.8} aria-hidden="true" /> <span>{t('studio.exportAllDraftsCompact')}</span>
+              </button>
+              <button type="button" className="workspace-page-stage-secondary" onClick={onImportDrafts} disabled={!draftStoreReady || draftStoreSaving} aria-label={t('studio.importDrafts')} title={t('studio.importDrafts')}>
+                <Upload size={14} strokeWidth={1.8} aria-hidden="true" /> <span>{t('studio.importDraftsCompact')}</span>
+              </button>
+            </div>
+            <button type="button" className="workspace-page-stage-primary workspace-page-draft-stage-add" onClick={() => openDraftEditor()} disabled={!draftStoreReady || draftStoreSaving}>+ {t('studio.draft')}</button>
+          </>
+        )}
       </footer>
     </div>
   );

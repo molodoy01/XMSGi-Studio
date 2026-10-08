@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, FileText, Maximize2, Minimize2, Paperclip, Search, Trash2, X } from 'lucide-react';
+import { Download, Ellipsis, FileText, Maximize2, Minimize2, Paperclip, Search, Trash2, X } from 'lucide-react';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
 import { richTextToHtml } from '@/lib/richText';
 import { useLocale, type Locale } from '@/lib/i18n';
@@ -1172,22 +1172,57 @@ export function HistoryDrawer({
                   </div>
                 )}
                 <div className="history-record-actions">
-                  {primaryAction && (
-                    <button
-                      type="button"
-                      className="history-record-action is-primary"
-                      onClick={primaryAction.handler}
-                      aria-label={primaryAction.type === 'reschedule'
-                        ? t('history.showRecord', { action: t('history.edit'), title: record.title })
-                        : primaryAction.type === 'open-draft'
-                          ? t('history.editDraftTitle', { title: record.title })
-                          : primaryAction.type === 'use-draft'
-                            ? t('history.useDraftTitle', { title: record.title })
-                          : primaryAction.label}
-                    >
-                      <span>{primaryAction.label}</span>
-                    </button>
-                  )}
+                  <div className="history-record-leading-actions">
+                    {primaryAction && (
+                      <button
+                        type="button"
+                        className="history-record-action is-primary"
+                        onClick={primaryAction.handler}
+                        aria-label={primaryAction.type === 'reschedule'
+                          ? t('history.showRecord', { action: t('history.edit'), title: record.title })
+                          : primaryAction.type === 'open-draft'
+                            ? t('history.editDraftTitle', { title: record.title })
+                            : primaryAction.type === 'use-draft'
+                              ? t('history.useDraftTitle', { title: record.title })
+                              : primaryAction.label}
+                      >
+                        <span>{primaryAction.label}</span>
+                      </button>
+                    )}
+                    {secondaryActions.length > 0 && (
+                      <div className="history-record-more">
+                        <button
+                          type="button"
+                          className="history-record-action is-more"
+                          onClick={() => setActionMenuOpenId((current) => current === record.id ? null : record.id)}
+                          aria-label={t('history.more')}
+                          title={t('history.more')}
+                          aria-expanded={actionMenuOpenId === record.id}
+                        >
+                          <Ellipsis size={19} strokeWidth={2} aria-hidden="true" />
+                        </button>
+                        {actionMenuOpenId === record.id && (
+                          <div ref={actionMenuRef} className="history-record-action-menu" role="menu" aria-label={t('history.moreActions', { title: record.title })}>
+                            {secondaryActions.map((action) => (
+                              <button
+                                key={action.type}
+                                type="button"
+                                role="menuitem"
+                                className={`history-record-action-menu-item${action.type === 'cancel' || action.type === 'delete' ? ' is-danger' : ''}`}
+                                onClick={() => {
+                                  action.handler();
+                                  setActionMenuOpenId(null);
+                                }}
+                                aria-label={action.type === 'reschedule' ? t('history.showRecord', { action: t('history.edit'), title: record.title }) : action.label}
+                              >
+                                {action.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="history-record-action is-expand"
@@ -1200,38 +1235,6 @@ export function HistoryDrawer({
                       : <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />}
                     <span>{t(isExpanded ? 'history.collapse' : 'history.fullSize')}</span>
                   </button>
-                  {secondaryActions.length > 0 && (
-                    <div className="history-record-more">
-                      <button
-                        type="button"
-                        className="history-record-action is-more"
-                        onClick={() => setActionMenuOpenId((current) => current === record.id ? null : record.id)}
-                        aria-label={t('history.more')}
-                        aria-expanded={actionMenuOpenId === record.id}
-                      >
-                        <span>{t('history.more')}</span>
-                      </button>
-                      {actionMenuOpenId === record.id && (
-                        <div ref={actionMenuRef} className="history-record-action-menu" role="menu" aria-label={t('history.moreActions', { title: record.title })}>
-                          {secondaryActions.map((action) => (
-                            <button
-                              key={action.type}
-                              type="button"
-                              role="menuitem"
-                              className={`history-record-action-menu-item${action.type === 'cancel' || action.type === 'delete' ? ' is-danger' : ''}`}
-                              onClick={() => {
-                                action.handler();
-                                setActionMenuOpenId(null);
-                              }}
-                              aria-label={action.type === 'reschedule' ? t('history.showRecord', { action: t('history.edit'), title: record.title }) : action.label}
-                            >
-                              {action.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                   {record.status === 'sending' && scheduleMessage && (
                     <button type="button" className="history-record-action is-send-now" disabled>
                       <span>{t('history.sending')}</span>

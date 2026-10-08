@@ -5367,6 +5367,69 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
   flex-wrap: wrap;
 }
 
+.workspace-page-rich-text-draft-stage {
+  container-name: draft-stage;
+  container-type: inline-size;
+}
+
+.workspace-page-rich-text-draft-stage:not(.has-draft-editor) > .workspace-page-draft-stage-footer {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: clamp(2px, calc(0.81cqi - 2.3px), 5px);
+}
+
+.workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-footer-left {
+  grid-column: 1;
+  flex-wrap: nowrap;
+}
+
+.workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-tools {
+  display: flex;
+  min-width: 0;
+  grid-column: 2;
+  align-items: center;
+  justify-self: center;
+  gap: clamp(2px, calc(0.81cqi - 2.3px), 5px);
+}
+
+.workspace-page-draft-stage-tools .workspace-page-stage-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, calc(0.54cqi + 0.1px), 5px);
+  padding-right: clamp(7px, calc(1.08cqi + 1.3px), 11px);
+  padding-left: clamp(7px, calc(1.08cqi + 1.3px), 11px);
+  white-space: nowrap;
+}
+
+.workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-add {
+  grid-column: 3;
+  justify-self: end;
+}
+
+@container draft-stage (max-width: 530px) {
+  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) > .workspace-page-draft-stage-footer {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-rows: auto auto;
+  }
+
+  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-tools {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-footer-left {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-add {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
 .workspace-page-draft-stage-footer .workspace-page-stage-secondary,
 .workspace-page-draft-stage-footer .workspace-page-stage-primary {
   min-height: 34px;
@@ -6901,12 +6964,34 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 
   .workspace-page-schedule-row {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
     justify-content: stretch;
+    gap: clamp(6px, calc(0.59vw + 1.5px), 8px);
+    padding-right: clamp(8px, calc(1.77vw - 5.5px), 14px);
+    padding-left: clamp(8px, calc(1.77vw - 5.5px), 14px);
   }
 
   .workspace-page-action-left-group {
-    min-width: max-content;
+    min-width: 0;
+    gap: clamp(5px, calc(0.885vw - 1.7px), 8px);
+  }
+
+  .workspace-page-schedule-row > .workspace-page-action-left-group {
+    flex: 0 1 auto;
+  }
+
+  .workspace-page-schedule-row > .workspace-page-action-left-group .workspace-page-mode-button {
+    min-width: clamp(68px, calc(7vw + 5px), 82px) !important;
+    padding-right: clamp(6px, calc(0.59vw + 1.5px), 8px) !important;
+    padding-left: clamp(6px, calc(0.59vw + 1.5px), 8px) !important;
+    font-size: clamp(8px, calc(0.295vw + 5.75px), 9px) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .workspace-page-schedule-compact-group {
+    gap: clamp(4px, calc(0.59vw - 0.5px), 6px);
   }
 
   .workspace-page-schedule-popover-wrap {
@@ -6927,34 +7012,6 @@ input[type='date'].workspace-page-schedule-date-native-input::-webkit-calendar-p
 .workspace-page-rich-text-buttons-stage button:not(.workspace-page-stage-secondary):not(.workspace-page-stage-primary):focus-visible,
 .workspace-page-rich-text-template-stage button:not(.workspace-page-stage-secondary):not(.workspace-page-stage-primary):focus-visible {
   outline: none;
-}
-
-@media (min-width: 761px) and (max-width: 900px) {
-  .workspace-page-action-row.workspace-page-schedule-row {
-    grid-template-columns: minmax(0, 1fr) max-content max-content;
-    display: grid;
-    grid-template-areas:
-      'tools tools tools'
-      'when send publish';
-    row-gap: 8px;
-  }
-
-  .workspace-page-action-left-group {
-    grid-area: tools;
-  }
-
-  .workspace-page-schedule-popover-wrap {
-    grid-area: when;
-    justify-self: start;
-  }
-
-  .workspace-page-send-button {
-    grid-area: publish;
-  }
-
-  .workspace-page-schedule-button {
-    grid-area: send;
-  }
 }
 
 @media (max-width: 760px) {

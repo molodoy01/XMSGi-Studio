@@ -2158,8 +2158,8 @@ export function WorkspacePage({
                       {publishAction === 'schedule'
                         ? (scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule'))
                         : publishAction === 'draft'
-                          ? t('studio.saveDraft')
-                          : (publishingDraft ? t('studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendNow'))}
+                          ? t('studio.saveAction')
+                          : (publishingDraft ? t('studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendAction'))}
                     </span>
                   </button>
                   <button

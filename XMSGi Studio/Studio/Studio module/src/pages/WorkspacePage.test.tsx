@@ -599,12 +599,16 @@ describe('WorkspacePage main-screen flows', () => {
     });
     const menuToggle = document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement;
 
-    for (const label of ['Schedule', 'Save draft', 'Send now']) {
+    for (const { menuLabel, buttonLabel } of [
+      { menuLabel: 'Schedule', buttonLabel: 'Schedule' },
+      { menuLabel: 'Save draft', buttonLabel: 'Save draft' },
+      { menuLabel: 'Send now', buttonLabel: 'Send now' },
+    ]) {
       await act(async () => {
         menuToggle.click();
       });
       const option = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
-        .find((button) => button.textContent?.trim() === label) as HTMLButtonElement;
+        .find((button) => button.textContent?.trim() === menuLabel) as HTMLButtonElement;
 
       expect(option).toBeTruthy();
       expect(option.disabled).toBe(false);
@@ -614,10 +618,10 @@ describe('WorkspacePage main-screen flows', () => {
       });
 
       const primaryLabel = document.querySelector('.workspace-page-publish-trigger-main')?.textContent?.trim();
-      expect(primaryLabel).toBe(label);
+      expect(primaryLabel).toBe(buttonLabel);
       expect((document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).disabled).toBe(false);
 
-      if (label === 'Schedule') {
+      if (menuLabel === 'Schedule') {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).toBeNull();
         const timeButton = Array.from(document.querySelectorAll('.workspace-page-schedule-compact-button'))
           .find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement;
@@ -628,7 +632,7 @@ describe('WorkspacePage main-screen flows', () => {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).not.toBeNull();
       }
 
-      if (label === 'Save draft') {
+      if (menuLabel === 'Save draft') {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).toBeNull();
       }
     }
@@ -1137,9 +1141,9 @@ describe('WorkspacePage main-screen flows', () => {
     await openDraftsStage();
     const footer = document.querySelector('.workspace-page-draft-stage-footer');
     const exportButton = Array.from(footer?.querySelectorAll('button') ?? [])
-      .find((button) => button.textContent?.trim() === 'Export all drafts') as HTMLButtonElement;
+      .find((button) => button.getAttribute('aria-label') === 'Export all drafts') as HTMLButtonElement;
     const importButton = Array.from(footer?.querySelectorAll('button') ?? [])
-      .find((button) => button.textContent?.trim() === 'Import drafts') as HTMLButtonElement;
+      .find((button) => button.getAttribute('aria-label') === 'Import drafts') as HTMLButtonElement;
 
     expect(exportButton).toBeTruthy();
     expect(importButton).toBeTruthy();

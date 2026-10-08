@@ -1129,9 +1129,21 @@
   margin-top: 12px;
 }
 
-.history-record-more {
+.history-record-leading-actions {
+  grid-row: 1;
   grid-column: 3;
+  display: flex;
+  min-width: 0;
+  align-items: center;
   justify-self: end;
+  gap: 6px;
+}
+
+.history-record-leading-actions:empty {
+  display: none;
+}
+
+.history-record-more {
   position: relative;
 }
 
@@ -1154,8 +1166,6 @@
 }
 
 .history-record-action.is-primary {
-  grid-column: 1;
-  justify-self: start;
   margin-left: 0;
   border-color: rgba(154, 168, 184, 0.25);
   background: rgba(154, 168, 184, 0.11);
@@ -1174,11 +1184,33 @@
   box-shadow: inset 0 0 0 1px rgba(139, 205, 242, 0.35);
 }
 
-.history-record-action.is-send-now,
-.history-record-action.is-more {
+.history-record-action.is-send-now {
   border-color: rgba(154, 168, 184, 0.14);
   background: rgba(154, 168, 184, 0.035);
   color: #b8c1c9;
+}
+
+.history-record-action.is-more {
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  border-color: transparent;
+  background: rgba(154, 168, 184, 0.1);
+  color: #e0e6eb;
+}
+
+.history-record-action.is-more:hover {
+  border-color: transparent;
+  background: rgba(154, 168, 184, 0.17);
+  color: #f0f3f6;
+}
+
+.history-record-action.is-more:focus-visible {
+  outline: 2px solid rgba(139, 205, 242, 0.56);
+  outline-offset: 2px;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .history-record-action.is-reschedule {
@@ -1244,14 +1276,16 @@
 }
 
 .history-record-action.is-expand {
-  grid-column: 2;
-  justify-self: center;
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
   border-color: transparent;
   background: transparent;
   color: #aeb8c1;
 }
 
 .history-record-action.is-send-now {
+  grid-row: 1;
   grid-column: 3;
   justify-self: end;
 }
