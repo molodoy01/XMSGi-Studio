@@ -8,9 +8,20 @@ import { DraftColorPicker } from '../components/DraftColorPicker';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { WorkspaceTextStage } from '../components/WorkspaceTextStage';
 import { NOTIFICATION_DURATION_MS } from '../hooks/useNotifications';
+import { useStudioDrafts } from '../hooks/useStudioDrafts';
 import { createTemplate, deleteTemplate, insertTextAtSelection, updateTemplate } from '../lib/templates';
 import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '../lib/drafts';
-import { DRAFT_STORE_SCHEMA_VERSION } from '../lib/draftStoreVersion';
+import { inferAttachmentMimeType, normalizeAttachments } from '../lib/draftAttachments';
+import {
+  DEFAULT_DRAFT_BODY,
+  DEFAULT_DRAFT_NAME,
+  getDraftStorageApi,
+  hasDraftContent,
+  readInitialWorkspaceDraft,
+  readWorkspaceDraftStoreFallback,
+  WORKSPACE_DRAFT_KEY,
+} from '../lib/draftStore';
+import type { WorkspaceDraft } from '../lib/draftStore';
 import { normalizeRichTextEntities } from '../lib/richText';
 import { sliceRichText } from '../lib/richText';
 import { getMessageMaxLength } from '../lib/messageLimits';
@@ -18,13 +29,12 @@ import { appendPreviewMessage } from '../lib/preview';
 import { toInlineKeyboardMarkup } from '../lib/inlineKeyboard';
 import { useLocale } from '@/lib/i18n';
 import type { InlineButtonRow } from '../lib/inlineKeyboard';
-import { loadSavedDrafts, loadTemplates, saveTemplates } from '../lib/storage';
+import { loadTemplates, saveTemplates } from '../lib/storage';
 import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, type ScheduleRepeatOptions } from '../lib/scheduling';
 import type {
   Chat,
   DraftAttachment,
   DraftColor,
-  PersistedDraftStore,
   PreviewChatHistory,
   RichTextEntity,
   ScheduledMessage,
@@ -32,6 +42,9 @@ import type {
   Template,
 } from '../types';
 import './WorkspacePage.css';
+
+export { normalizeAttachments } from '../lib/draftAttachments';
+export { hasDraftContent, readWorkspaceDraftStoreFallback, writeWorkspaceDraftStoreFallback } from '../lib/draftStore';
 
 type WorkspacePageProps = {
   connected: boolean;
@@ -317,25 +330,7 @@ function useTimedStatus(
   }, [clearMessage, duration, message]);
 }
 
-type WorkspaceDraft = {
-  body: string;
-  entities?: RichTextEntity[];
-  attachments: WorkspaceAttachment[];
-  selectedChat?: Chat | null;
-  savedAt: string;
-  inlineButtons?: InlineButtonRow[];
-  date?: string;
-  time?: string;
-  repeatMode?: ScheduleRepeatOptions['mode'];
-  repeatDays?: string[];
-  repeatOccurrences?: number;
-};
-
 type WorkspaceAttachment = DraftAttachment;
-
-export function hasDraftContent(body: string, attachments: WorkspaceAttachment[] = []): boolean {
-  return body.trim().length > 0 || attachments.some((attachment) => Boolean(attachment.path || attachment.previewUrl || attachment.name));
-}
 
 export function remapAttachmentPositions(
   attachments: WorkspaceAttachment[],
@@ -372,19 +367,11 @@ export function remapAttachmentPositions(
   });
 }
 
-const WORKSPACE_DRAFT_KEY = 'xmsgi-workspace-draft';
-const LEGACY_WORKSPACE_DRAFT_KEY = 'awaitmsg-workspace-draft';
 const PREVIEW_LAYOUT_KEY = 'xmsgi-preview-layout';
 const LEGACY_PREVIEW_LAYOUT_KEY = 'awaitmsg-preview-layout';
 const CHAT_WALLPAPER_STORAGE_KEY = 'xmsgi-chat-preview-wallpaper';
 const LEGACY_CHAT_WALLPAPER_STORAGE_KEY = 'awaitmsg-chat-preview-wallpaper';
-const DRAFT_STORE_FALLBACK_KEY = 'xmsgi-draft-store-fallback';
-const LEGACY_DRAFT_STORE_FALLBACK_KEY = 'awaitmsg-draft-store-fallback';
 const DEFAULT_TEMPLATE_SEEDED_KEY = 'xmsgi-default-template-seeded-v1';
-const DEFAULT_DRAFT_SEEDED_KEY = 'xmsgi-default-draft-seeded-v1';
-const DEFAULT_DRAFT_ID = 'xmsgi-default-draft-00-55';
-const DEFAULT_DRAFT_NAME = 'Draft 00:55';
-const DEFAULT_DRAFT_BODY = '💣 **ДЕЙСТВУЙ**\n\n🔥 **[Название]**\n🚀 [Главный результат]\n⚡ [Ключевая фишка]\n\n😈 Остальное увидишь сам.\n\n👉 @username\n';
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024;
 const MAX_ATTACHMENTS_TOTAL_SIZE = 200 * 1024 * 1024;
@@ -414,52 +401,6 @@ function loadTemplatesWithDefault(): Template[] {
   }
 
   return templates;
-}
-
-function seedDefaultDraft(store: PersistedDraftStore): { store: PersistedDraftStore; added: boolean } {
-  try {
-    if (window.localStorage.getItem(DEFAULT_DRAFT_SEEDED_KEY) === '1') return { store, added: false };
-
-    const alreadyPresent = store.savedDrafts.some((draft) => (
-      draft.id === DEFAULT_DRAFT_ID
-      || (draft.name === DEFAULT_DRAFT_NAME && draft.body === DEFAULT_DRAFT_BODY)
-    ));
-    if (alreadyPresent) {
-      window.localStorage.setItem(DEFAULT_DRAFT_SEEDED_KEY, '1');
-      return { store, added: false };
-    }
-  } catch {
-    return { store, added: false };
-  }
-
-  const now = new Date().toISOString();
-  const defaultDraft: SavedDraft = {
-    id: DEFAULT_DRAFT_ID,
-    name: DEFAULT_DRAFT_NAME,
-    body: DEFAULT_DRAFT_BODY,
-    color: 'coral',
-    entities: [],
-    attachments: [],
-    selectedChat: null,
-    inlineButtons: [],
-    date: '',
-    time: '',
-    repeatMode: 'none',
-    repeatDays: [],
-    repeatOccurrences: 1,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  return { store: { ...store, savedDrafts: [...store.savedDrafts, defaultDraft] }, added: true };
-}
-
-function markDefaultDraftSeeded() {
-  try {
-    window.localStorage.setItem(DEFAULT_DRAFT_SEEDED_KEY, '1');
-  } catch {
-    // The saved draft remains available for the current session.
-  }
 }
 
 function isLivePreviewSurface() {
@@ -508,152 +449,10 @@ function readChatWallpaper(): ChatWallpaper {
   }
 }
 
-export function readWorkspaceDraftStoreFallback(): PersistedDraftStore | null {
-  try {
-    const primaryRaw = window.localStorage.getItem(DRAFT_STORE_FALLBACK_KEY);
-    const raw = primaryRaw ?? window.localStorage.getItem(LEGACY_DRAFT_STORE_FALLBACK_KEY);
-    if (!raw) return null;
-    if (!primaryRaw) {
-      window.localStorage.setItem(DRAFT_STORE_FALLBACK_KEY, raw);
-    }
-
-    const parsed = JSON.parse(raw) as Partial<PersistedDraftStore>;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (!Array.isArray(parsed.savedDrafts)) return null;
-    const storedSchemaVersion = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
-    if (!Number.isInteger(storedSchemaVersion)
-      || storedSchemaVersion < 1
-      || storedSchemaVersion > DRAFT_STORE_SCHEMA_VERSION) return null;
-
-    return {
-      schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-      migrationVersion: typeof parsed.migrationVersion === 'number' ? parsed.migrationVersion : 1,
-      savedDrafts: parsed.savedDrafts,
-      workspaceDraft: parsed.workspaceDraft ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function isBrowserRuntimeFallback(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.protocol === 'http:' || window.location.protocol === 'https:';
-}
-
-export function writeWorkspaceDraftStoreFallback(store: PersistedDraftStore): void {
-  try {
-    const serialized = JSON.stringify(store);
-    window.localStorage.setItem(DRAFT_STORE_FALLBACK_KEY, serialized);
-    window.localStorage.setItem(LEGACY_DRAFT_STORE_FALLBACK_KEY, serialized);
-  } catch {
-    // ignore
-  }
-}
-
-function getDraftStorageApi() {
-  if (typeof window === 'undefined') return null;
-
-  const storage = (window as typeof window & {
-    draftStorage?: {
-      load: () => Promise<{ success: boolean; store?: PersistedDraftStore; backupIndexes?: number[]; error?: string; needsMigration?: boolean; schemaMigrated?: boolean; migrated?: boolean; recovered?: boolean }>;
-      migrate: (legacy: { savedDrafts: unknown[]; workspaceDraft: Record<string, unknown> | null }) => Promise<{ success: boolean; store?: PersistedDraftStore; error?: string }>;
-      save: (store: PersistedDraftStore) => Promise<{ success: boolean; store?: PersistedDraftStore; backupIndexes?: number[]; error?: string }>;
-      flush: (store: PersistedDraftStore) => { success: boolean; store?: PersistedDraftStore; error?: string };
-      restoreBackup: (index: number) => Promise<{ success: boolean; store?: PersistedDraftStore; error?: string }>;
-      exportBackup: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
-      importBackup: () => Promise<{ success: boolean; cancelled?: boolean; store?: PersistedDraftStore; error?: string }>;
-      copyAttachment: (file: File) => Promise<{ success: boolean; attachment?: { name: string; path: string; size: number }; error?: string }>;
-      importText: () => Promise<{ success: boolean; cancelled?: boolean; text?: string; error?: string }>;
-    };
-  }).draftStorage;
-
-  return storage && typeof storage.load === 'function' ? storage : null;
-}
-
-export function normalizeAttachments(value: unknown): WorkspaceAttachment[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((attachment, index) => {
-    if (typeof attachment === 'string') {
-      const name = attachment.split(/[\\/]/).pop() || attachment;
-      const mimeType = inferAttachmentMimeType(name);
-      return [{
-        id: `legacy-${index}-${name}`,
-        type: mimeType.startsWith('image/') ? 'image' : 'file',
-        name,
-        mimeType,
-        path: attachment,
-        size: 0,
-        position: 0,
-      }];
-    }
-
-    if (
-      attachment &&
-      typeof attachment === 'object' &&
-      typeof attachment.name === 'string'
-    ) {
-      const path = typeof attachment.path === 'string' ? attachment.path : typeof attachment.previewUrl === 'string' ? attachment.previewUrl : '';
-      if (!path) return [];
-
-      const mimeType = typeof attachment.mimeType === 'string' && attachment.mimeType
-        ? attachment.mimeType
-        : inferAttachmentMimeType(attachment.name);
-      const type = attachment.type === 'image' || attachment.type === 'file'
-        ? attachment.type
-        : mimeType.startsWith('image/') ? 'image' : 'file';
-
-      return [{
-        id: typeof attachment.id === 'string' && attachment.id ? attachment.id : `legacy-${index}-${attachment.name}`,
-        type,
-        name: attachment.name,
-        mimeType,
-        path,
-        size: typeof attachment.size === 'number' && attachment.size >= 0 ? attachment.size : 0,
-        previewUrl: typeof attachment.previewUrl === 'string' ? attachment.previewUrl : undefined,
-        position: typeof attachment.position === 'number' && Number.isFinite(attachment.position)
-          ? Math.max(0, attachment.position)
-          : 0,
-      }];
-    }
-
-    return [];
-  });
-}
-
-function inferAttachmentMimeType(name: string) {
-  const extension = name.split('.').pop()?.toLowerCase();
-  const imageMimeTypes: Record<string, string> = {
-    avif: 'image/avif',
-    gif: 'image/gif',
-    jpeg: 'image/jpeg',
-    jpg: 'image/jpeg',
-    png: 'image/png',
-    webp: 'image/webp',
-  };
-  return extension ? imageMimeTypes[extension] ?? 'application/octet-stream' : 'application/octet-stream';
-}
-
 function createAttachmentId() {
   return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `attachment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function normalizeDraftChat(value: unknown): Chat | null {
-  if (!value || typeof value !== 'object') return null;
-
-  const chat = value as Partial<Chat>;
-  if (typeof chat.id !== 'string' || typeof chat.name !== 'string') return null;
-
-  return {
-    id: chat.id,
-    name: chat.name,
-    username: typeof chat.username === 'string' ? chat.username : '',
-    type: chat.type,
-    avatarDataUrl: typeof chat.avatarDataUrl === 'string' ? chat.avatarDataUrl : '',
-  };
 }
 
 function isImageAttachment(attachment: WorkspaceAttachment) {
@@ -743,22 +542,7 @@ export function WorkspacePage({
   }
 
   if (initialDraftRef.current === null) {
-    try {
-      const primaryRaw = window.localStorage.getItem(WORKSPACE_DRAFT_KEY);
-      const raw = primaryRaw ?? window.localStorage.getItem(LEGACY_WORKSPACE_DRAFT_KEY);
-      const parsed = raw ? (JSON.parse(raw) as Partial<WorkspaceDraft>) : {};
-      if (!primaryRaw && raw) {
-        window.localStorage.setItem(WORKSPACE_DRAFT_KEY, raw);
-      }
-      initialDraftRef.current = {
-        ...parsed,
-        entities: normalizeRichTextEntities(parsed.entities, parsed.body?.length ?? 0),
-        attachments: normalizeAttachments(parsed.attachments),
-        selectedChat: normalizeDraftChat(parsed.selectedChat),
-      };
-    } catch {
-      initialDraftRef.current = {};
-    }
+    initialDraftRef.current = readInitialWorkspaceDraft();
   }
 
   const [draftBody, setDraftBody] = useState(() => initialDraftRef.current?.body ?? '');
@@ -796,17 +580,6 @@ export function WorkspacePage({
     () => initialDraftRef.current?.inlineButtons ?? [],
   );
   const [templates, setTemplates] = useState<Template[]>(loadTemplatesWithDefault);
-  const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>(() => loadSavedDrafts());
-  const savedDraftsRef = useRef(savedDrafts);
-  const [draftStoreReady, setDraftStoreReady] = useState(false);
-  const [draftStoreSaving, setDraftStoreSaving] = useState(false);
-  const [draftStoreError, setDraftStoreError] = useState('');
-  const [draftStoreBackups, setDraftStoreBackups] = useState<number[]>([]);
-  const draftStoreQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const draftStorePendingRef = useRef(0);
-  const [savedAt, setSavedAt] = useState(
-    () => initialDraftRef.current?.savedAt ?? '',
-  );
   const [stageMode, setStageMode] = useState<'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons'>(() => {
     return isLivePreviewSurface() ? 'schedule' : 'editor';
   });
@@ -820,8 +593,6 @@ export function WorkspacePage({
   const [repeatMode, setRepeatMode] = useState<ScheduleRepeatOptions['mode']>('none');
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
   const [repeatOccurrences, setRepeatOccurrences] = useState(5);
-  const scheduleDraftHydratedRef = useRef(false);
-  const draftAutosaveTimeoutRef = useRef<number | null>(null);
   const [templateEditingId, setTemplateEditingId] = useState<string | null>(null);
   const [templateDraftName, setTemplateDraftName] = useState('');
   const [templateDraftBody, setTemplateDraftBody] = useState('');
@@ -864,6 +635,67 @@ export function WorkspacePage({
   });
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
+
+  const applyWorkspaceDraft = (workspaceDraft: Partial<WorkspaceDraft> | null) => {
+    if (rescheduleSourceRef.current) return;
+    attachmentSelectionGenerationRef.current += 1;
+    if (workspaceDraft) {
+      setDraftBody(workspaceDraft.body ?? '');
+      setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
+      replaceAttachments(normalizeAttachments(workspaceDraft.attachments));
+      setInlineButtons(workspaceDraft.inlineButtons ?? []);
+      if (workspaceDraft.date) setDate(workspaceDraft.date);
+      if (workspaceDraft.time) setTime(workspaceDraft.time);
+      if (workspaceDraft.repeatMode) setRepeatMode(workspaceDraft.repeatMode);
+      setRepeatDays(workspaceDraft.repeatDays ?? []);
+      if (workspaceDraft.repeatOccurrences) setRepeatOccurrences(workspaceDraft.repeatOccurrences);
+    } else {
+      setDraftBody('');
+      setDraftEntities([]);
+      replaceAttachments([]);
+      setInlineButtons([]);
+    }
+  };
+
+  const draftLifecycle = useStudioDrafts({
+    initialWorkspaceDraftRef: initialDraftRef,
+    workspace: {
+      body: draftBody,
+      entities: draftEntities,
+      attachments,
+      selectedChat,
+      inlineButtons,
+      date,
+      time,
+      repeatMode,
+      repeatDays,
+      repeatOccurrences,
+    },
+    chats,
+    setSelectedChat,
+    setDate,
+    setTime,
+    rescheduleSourceRef,
+    onWorkspaceDraftLoaded: applyWorkspaceDraft,
+  });
+  const {
+    savedDrafts,
+    savedDraftsRef,
+    replaceSavedDrafts,
+    draftStoreReady,
+    draftStoreSaving,
+    draftStoreError,
+    setDraftStoreError,
+    draftStoreBackups,
+    savedAt,
+    setSavedAt,
+    persistDraftStore,
+    cancelPendingAutosave,
+    createWorkspaceDraftSnapshot,
+    handleRestoreDraftBackup: restoreDraftBackup,
+    handleExportDrafts: exportDrafts,
+    handleImportDrafts: importDrafts,
+  } = draftLifecycle;
 
   useLayoutEffect(() => {
     if (stageMode !== 'editor' || !focusRescheduledEditorAtEndRef.current) return;
@@ -958,104 +790,6 @@ export function WorkspacePage({
       publishFeedbackTimerRef.current = null;
     }, kind === 'warning' ? FOOTER_STATUS_DURATION_MS.publishWarning : FOOTER_STATUS_DURATION_MS.publishSuccess);
   };
-
-  const createWorkspaceDraftSnapshot = (): WorkspaceDraft | null => hasDraftContent(draftBody, attachments) ? {
-    body: draftBody,
-    entities: draftEntities,
-    attachments: attachments
-      .filter((attachment) => attachment.path)
-      .map(({ previewUrl: _previewUrl, ...attachment }) => attachment),
-    selectedChat,
-    inlineButtons,
-    date,
-    time,
-    repeatMode,
-    repeatDays,
-    repeatOccurrences,
-    savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  } : null;
-
-  const persistDraftStore = (
-    getSavedDrafts: SavedDraft[] | (() => SavedDraft[]),
-    workspaceDraft: WorkspaceDraft | null,
-    onPersisted?: () => void,
-  ) => {
-    draftStorePendingRef.current += 1;
-    setDraftStoreSaving(true);
-    const operation = draftStoreQueueRef.current.then(async () => {
-      const data: PersistedDraftStore = {
-        schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-        migrationVersion: 1,
-        savedDrafts: typeof getSavedDrafts === 'function' ? getSavedDrafts() : getSavedDrafts,
-        workspaceDraft,
-      };
-
-      const draftStorage = getDraftStorageApi();
-      if (!draftStorage) {
-        writeWorkspaceDraftStoreFallback(data);
-        setDraftStoreError('');
-        setDraftStoreBackups([]);
-        onPersisted?.();
-        return true;
-      }
-
-      try {
-        const result = await draftStorage.save(data);
-        if (!result.success) {
-          setDraftStoreError(result.error || t('studio.draftsCouldNotSave'));
-          setDraftStoreBackups(result.backupIndexes ?? []);
-          return false;
-        }
-        setDraftStoreError('');
-        setDraftStoreBackups([]);
-        onPersisted?.();
-        return true;
-      } catch (error) {
-        setDraftStoreError(error instanceof Error ? error.message : 'Drafts could not be saved.');
-        return false;
-      } finally {
-        draftStorePendingRef.current -= 1;
-        setDraftStoreSaving(draftStorePendingRef.current > 0);
-      }
-    });
-    draftStoreQueueRef.current = operation.then(() => undefined, () => undefined);
-    return operation;
-  };
-
-  const applyPersistedDraftStore = (store: PersistedDraftStore) => {
-    setSavedDrafts(store.savedDrafts);
-    savedDraftsRef.current = store.savedDrafts;
-    const workspaceDraft = store.workspaceDraft as Partial<WorkspaceDraft> | null;
-    initialDraftRef.current = workspaceDraft ?? {};
-    if (!rescheduleSourceRef.current) {
-      attachmentSelectionGenerationRef.current += 1;
-      if (workspaceDraft) {
-        setDraftBody(workspaceDraft.body ?? '');
-        setDraftEntities(normalizeRichTextEntities(workspaceDraft.entities, workspaceDraft.body?.length ?? 0));
-        replaceAttachments(normalizeAttachments(workspaceDraft.attachments));
-        setInlineButtons(workspaceDraft.inlineButtons ?? []);
-        setSavedAt(workspaceDraft.savedAt || '');
-        if (workspaceDraft.date) setDate(workspaceDraft.date);
-        if (workspaceDraft.time) setTime(workspaceDraft.time);
-        if (workspaceDraft.repeatMode) setRepeatMode(workspaceDraft.repeatMode);
-        setRepeatDays(workspaceDraft.repeatDays ?? []);
-        if (workspaceDraft.repeatOccurrences) setRepeatOccurrences(workspaceDraft.repeatOccurrences);
-      } else {
-        setDraftBody('');
-        setDraftEntities([]);
-        replaceAttachments([]);
-        setInlineButtons([]);
-        setSavedAt('');
-      }
-    }
-    setDraftStoreBackups([]);
-    setDraftStoreError('');
-    setDraftStoreReady(true);
-  };
-
-  useEffect(() => {
-    savedDraftsRef.current = savedDrafts;
-  }, [savedDrafts]);
 
   useEffect(() => {
     if (draftBody.length <= maxDraftLength) return;
@@ -1171,158 +905,6 @@ export function WorkspacePage({
     document.addEventListener('keydown', returnToSchedule);
     return () => document.removeEventListener('keydown', returnToSchedule);
   }, [chatListOpen, publishMenuOpen, stageMode]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const initializeDraftStore = async () => {
-      const draftStorage = getDraftStorageApi();
-
-      if (!draftStorage) {
-        const fallbackStore = readWorkspaceDraftStoreFallback();
-        if (fallbackStore) {
-          const seeded = seedDefaultDraft(fallbackStore);
-          if (seeded.added) {
-            writeWorkspaceDraftStoreFallback(seeded.store);
-            markDefaultDraftSeeded();
-          }
-          applyPersistedDraftStore(seeded.store);
-          return;
-        }
-
-        if (isBrowserRuntimeFallback()) {
-          const emptyStore: PersistedDraftStore = {
-            schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-            migrationVersion: 1,
-            savedDrafts: [],
-            workspaceDraft: null,
-          };
-          const seeded = seedDefaultDraft(emptyStore);
-          writeWorkspaceDraftStoreFallback(seeded.store);
-          if (seeded.added) markDefaultDraftSeeded();
-          applyPersistedDraftStore(seeded.store);
-          return;
-        }
-
-        setDraftStoreError('Saved drafts are unavailable in this runtime.');
-        return;
-      }
-
-      try {
-        let result = await draftStorage.load();
-        if (!result.success) {
-          const backups = result.backupIndexes ?? [];
-          setDraftStoreBackups(backups);
-          if (!backups.length || !window.confirm(t('studio.draftsDamagedPrompt'))) {
-            setDraftStoreError(result.error || t('studio.draftsCouldNotLoad'));
-            return;
-          }
-
-          const restored = await draftStorage.restoreBackup(backups[0]);
-          if (!restored.success) throw new Error(restored.error || t('studio.backupCouldNotRestore'));
-          result = await draftStorage.load();
-        }
-        if (!result.success || !result.store) throw new Error(result.error || t('studio.draftsCouldNotLoad'));
-
-        let store = result.store;
-        if (result.needsMigration || store.migrationVersion < 1) {
-          const migrated = await draftStorage.migrate({
-            savedDrafts: loadSavedDrafts(),
-            workspaceDraft: initialDraftRef.current as Record<string, unknown> | null,
-          });
-          if (!migrated.success || !migrated.store) {
-            throw new Error(migrated.error || t('studio.draftsMigrationFailed'));
-          }
-          store = migrated.store;
-        }
-
-        const seeded = seedDefaultDraft(store);
-        store = seeded.store;
-        if (seeded.added) {
-          const saved = await draftStorage.save(store);
-          if (saved.success) {
-            store = saved.store ?? store;
-            markDefaultDraftSeeded();
-          } else {
-            setDraftStoreError(saved.error || t('studio.defaultDraftCouldNotSave'));
-          }
-        }
-
-        if (cancelled) return;
-        window.localStorage.removeItem('xmsgi_saved_drafts');
-        window.localStorage.removeItem(WORKSPACE_DRAFT_KEY);
-        writeWorkspaceDraftStoreFallback(store);
-        applyPersistedDraftStore(store);
-      } catch (error) {
-        if (!cancelled) setDraftStoreError(error instanceof Error ? error.message : 'Saved drafts could not be loaded.');
-      }
-    };
-
-    void initializeDraftStore();
-    return () => { cancelled = true; };
-  }, [setDate, setTime]);
-
-  useEffect(() => {
-    if (!draftStoreReady || scheduleDraftHydratedRef.current) return;
-    const savedDraft = initialDraftRef.current;
-    if (!rescheduleSourceRef.current && savedDraft?.selectedChat && chats.some((chat) => chat.id === savedDraft.selectedChat?.id)) {
-      setSelectedChat(savedDraft.selectedChat);
-    }
-    scheduleDraftHydratedRef.current = true;
-  }, [chats, draftStoreReady, setSelectedChat]);
-
-  useEffect(() => {
-    if (!draftStoreReady || !scheduleDraftHydratedRef.current) return;
-    if (draftAutosaveTimeoutRef.current) window.clearTimeout(draftAutosaveTimeoutRef.current);
-
-    draftAutosaveTimeoutRef.current = window.setTimeout(() => {
-      const workspaceDraft = createWorkspaceDraftSnapshot();
-      if (workspaceDraft) setSavedAt(workspaceDraft.savedAt);
-      void persistDraftStore(() => savedDraftsRef.current, workspaceDraft);
-    }, 350);
-
-    return () => {
-      if (draftAutosaveTimeoutRef.current) {
-        window.clearTimeout(draftAutosaveTimeoutRef.current);
-        draftAutosaveTimeoutRef.current = null;
-      }
-    };
-  }, [attachments, date, draftBody, draftEntities, draftStoreReady, inlineButtons, repeatDays, repeatMode, repeatOccurrences, selectedChat, time]);
-
-  useEffect(() => {
-    if (!draftStoreReady || !scheduleDraftHydratedRef.current) return;
-    const flushDraftOnClose = (event: BeforeUnloadEvent) => {
-      const draftStorage = getDraftStorageApi();
-      if (!draftStorage) {
-        writeWorkspaceDraftStoreFallback({
-          schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-          migrationVersion: 1,
-          savedDrafts: savedDraftsRef.current,
-          workspaceDraft: createWorkspaceDraftSnapshot(),
-        });
-        return;
-      }
-
-      try {
-        const result = draftStorage.flush({
-          schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-          migrationVersion: 1,
-          savedDrafts: savedDraftsRef.current,
-          workspaceDraft: createWorkspaceDraftSnapshot(),
-        });
-        if (result.success) return;
-        event.preventDefault();
-        event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
-        setDraftStoreError(result.error || t('studio.latestDraftCouldNotSave'));
-      } catch (error) {
-        event.preventDefault();
-        event.returnValue = 'Draft data could not be saved. Keep this page open and retry.';
-        setDraftStoreError(error instanceof Error ? error.message : 'The latest draft could not be saved. Keep this window open and retry.');
-      }
-    };
-    window.addEventListener('beforeunload', flushDraftOnClose);
-    return () => window.removeEventListener('beforeunload', flushDraftOnClose);
-  }, [attachments, date, draftBody, draftEntities, draftStoreReady, inlineButtons, repeatDays, repeatMode, repeatOccurrences, selectedChat, time]);
 
   useEffect(() => {
     if (successPulse) {
@@ -1639,8 +1221,7 @@ export function WorkspacePage({
     });
     const nextSavedDrafts = [...savedDraftsRef.current, savedDraft];
     if (!await persistDraftStore(nextSavedDrafts, nextDraft, () => {
-      savedDraftsRef.current = nextSavedDrafts;
-      setSavedDrafts(nextSavedDrafts);
+      replaceSavedDrafts(nextSavedDrafts);
       setSavedAt(nextDraft.savedAt);
     })) return;
     showPublishFeedback(t('studio.draftSavedNotice'), 'success');
@@ -1806,7 +1387,7 @@ export function WorkspacePage({
     if (draftChat) setSelectedChat(draftChat);
     setDraftBody(draft.body);
     setDraftEntities(draft.entities ?? []);
-    replaceAttachments(draft.attachments ?? []);
+    replaceAttachments(normalizeAttachments(draft.attachments));
     setInlineButtons(draft.inlineButtons ?? []);
     if (draft.date) setDate(draft.date);
     if (draft.time) setTime(draft.time);
@@ -1913,21 +1494,16 @@ export function WorkspacePage({
 
     const nextSavedDrafts = deleteSavedDraft(savedDraftsRef.current, draft.id);
     const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      savedDraftsRef.current = nextSavedDrafts;
-      setSavedDrafts(nextSavedDrafts);
+      replaceSavedDrafts(nextSavedDrafts);
     });
     if (deleted) showPublishFeedback(t('studio.draftDeleted'), 'success');
   };
 
   historyDraftClearerRef.current = async () => {
-    if (draftAutosaveTimeoutRef.current) {
-      window.clearTimeout(draftAutosaveTimeoutRef.current);
-      draftAutosaveTimeoutRef.current = null;
-    }
+    cancelPendingAutosave();
     const nextSavedDrafts: SavedDraft[] = [];
     return persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      savedDraftsRef.current = nextSavedDrafts;
-      setSavedDrafts(nextSavedDrafts);
+      replaceSavedDrafts(nextSavedDrafts);
       showPublishFeedback(t('studio.draftsDeleted'), 'success');
     });
   };
@@ -1938,8 +1514,7 @@ export function WorkspacePage({
     if (nextSavedDrafts.length === currentSavedDrafts.length) return false;
 
     const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      savedDraftsRef.current = nextSavedDrafts;
-      setSavedDrafts(nextSavedDrafts);
+      replaceSavedDrafts(nextSavedDrafts);
     });
     if (!deleted) return false;
 
@@ -1984,8 +1559,7 @@ export function WorkspacePage({
     }
 
     if (!await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      savedDraftsRef.current = nextSavedDrafts;
-      setSavedDrafts(nextSavedDrafts);
+      replaceSavedDrafts(nextSavedDrafts);
     })) return;
     closeDraftEditor();
   };
@@ -2003,77 +1577,6 @@ export function WorkspacePage({
     setRepeatDays(draft.repeatDays ?? []);
     setRepeatOccurrences(draft.repeatOccurrences ?? 1);
     changeStageMode('editor');
-  };
-
-  const handleRestoreDraftBackup = async (index: number) => {
-    const draftStorage = getDraftStorageApi();
-    if (!draftStorage) {
-      const fallback = readWorkspaceDraftStoreFallback();
-      if (!fallback) {
-        setDraftStoreError('No saved draft backup is available for this runtime.');
-        return;
-      }
-      applyPersistedDraftStore(fallback);
-      return;
-    }
-
-    const result = await draftStorage.restoreBackup(index);
-    if (!result.success || !result.store) {
-      setDraftStoreError(result.error || t('studio.selectedBackupCouldNotRestore'));
-      return;
-    }
-    applyPersistedDraftStore(result.store);
-  };
-
-  const handleExportDrafts = async () => {
-    if (draftAutosaveTimeoutRef.current) {
-      window.clearTimeout(draftAutosaveTimeoutRef.current);
-      draftAutosaveTimeoutRef.current = null;
-    }
-    const workspaceDraft = createWorkspaceDraftSnapshot();
-    if (workspaceDraft) setSavedAt(workspaceDraft.savedAt);
-    if (!await persistDraftStore(() => savedDraftsRef.current, workspaceDraft)) return;
-
-    const draftStorage = getDraftStorageApi();
-    if (!draftStorage) {
-      writeWorkspaceDraftStoreFallback({
-        schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
-        migrationVersion: 1,
-        savedDrafts: savedDraftsRef.current,
-        workspaceDraft,
-      });
-      showPublishFeedback(t('studio.draftStorageSaved'), 'success');
-      return;
-    }
-
-    const result = await draftStorage.exportBackup();
-    if (!result.success && !result.cancelled) setDraftStoreError(result.error || t('studio.backupCouldNotExport'));
-    else if (result.success) {
-      setDraftStoreError('');
-      showPublishFeedback(t('studio.draftExported'), 'success');
-    }
-  };
-
-  const handleImportDrafts = async () => {
-    const draftStorage = getDraftStorageApi();
-    if (!draftStorage) {
-      const fallback = readWorkspaceDraftStoreFallback();
-      if (fallback) {
-        applyPersistedDraftStore(fallback);
-        showPublishFeedback(t('studio.draftsRestored'), 'success');
-      }
-      return;
-    }
-
-    const result = await draftStorage.importBackup();
-    if (!result.success) {
-      if (!result.cancelled) setDraftStoreError(result.error || t('studio.backupCouldNotImport'));
-      return;
-    }
-    if (result.store) {
-      applyPersistedDraftStore(result.store);
-      showPublishFeedback(t('studio.draftsImported'), 'success');
-    }
   };
 
   const openChatSelection = () => {
@@ -2426,8 +1929,8 @@ export function WorkspacePage({
                         saveDraftStage={saveDraftStage}
                         draftStoreReady={draftStoreReady}
                         draftStoreSaving={draftStoreSaving}
-                        onExportDrafts={handleExportDrafts}
-                        onImportDrafts={handleImportDrafts}
+                        onExportDrafts={() => { void exportDrafts(showPublishFeedback); }}
+                        onImportDrafts={() => { void importDrafts(showPublishFeedback); }}
                         onImportEditorText={() => void handleImportEditorText()}
                         onInsertTemplate={insertTextAtCursor}
                         templateEditingId={templateEditingId}
@@ -2506,8 +2009,8 @@ export function WorkspacePage({
                             type="button"
                             className="workspace-page-attachment-remove"
                             onClick={() => handleRemoveAttachment(file.id)}
-                            aria-label={t('common.remove')}
-                            title={t('common.remove')}
+                            aria-label={t('composer.removeAttachment', { name: file.name })}
+                            title={t('composer.removeAttachment', { name: file.name })}
                           >
                             ×
                           </button>
@@ -2573,6 +2076,9 @@ export function WorkspacePage({
                         <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                         <circle cx="12" cy="12" r="2.65" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.22" />
+                        <g className="workspace-page-preview-eyelashes">
+                          <path d="M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8" fill="none" stroke="#c2d8e5" strokeWidth="1.4" strokeLinecap="round" />
+                        </g>
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2773,7 +2279,7 @@ export function WorkspacePage({
                       </button>
                     )}
                     {draftStoreError && publishFooterStatus.message === draftStoreError && draftStoreBackups.map((index) => (
-                      <button key={index} type="button" className="workspace-page-send-retry" onClick={() => void handleRestoreDraftBackup(index)}>
+                      <button key={index} type="button" className="workspace-page-send-retry" onClick={() => void restoreDraftBackup(index)}>
                         {t('studio.restoreBackup', { number: index })}
                       </button>
                     ))}

@@ -3,10 +3,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { LocaleProvider } from '@/lib/i18n';
 import type { Chat, SavedDraft, Template } from '@/types';
-import { RichTextEditor } from './RichTextEditor';
+import { RichTextEditor as BaseRichTextEditor } from './RichTextEditor';
 import { WorkspaceTextStage } from './WorkspaceTextStage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+function RichTextEditor(props: React.ComponentProps<typeof BaseRichTextEditor>) {
+  return <LocaleProvider><BaseRichTextEditor {...props} /></LocaleProvider>;
+}
 
 const chatA: Chat = {
   id: 'chat-1',
@@ -166,7 +170,7 @@ function createLogoHarness() {
     value: () => ({ width: 240, height: 240, top: 0, right: 240, bottom: 240, left: 0, x: 0, y: 0, toJSON: () => ({}) }),
   });
   act(() => root.render(
-    <RichTextEditor text="" entities={[]} onChange={vi.fn()} maxLength={4096} />,
+    <LocaleProvider><RichTextEditor text="" entities={[]} onChange={vi.fn()} maxLength={4096} /></LocaleProvider>,
   ));
   const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
   let cleanedUp = false;
@@ -267,7 +271,7 @@ describe('WorkspaceTextStage editor flows', () => {
     const savedDraftButton = Array.from(draftView?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes('Follow-up'));
 
     expect(draftView?.classList.contains('workspace-page-rich-text-template-stage')).toBe(true);
-    expect(draftView?.querySelector('header strong')?.textContent).toBe('Saved Drafts');
+    expect(draftView?.querySelector('header strong')?.textContent).toBe('Saved drafts');
     expect(savedDraftButton).toBeTruthy();
     expect(savedDraftButton?.querySelector('.workspace-page-draft-color-dot')?.getAttribute('data-color')).toBe('gray');
 
@@ -321,7 +325,7 @@ describe('WorkspaceTextStage editor flows', () => {
 
     const draftEditor = document.querySelector('#workspace-draft-editor-form') as HTMLFormElement;
     expect((draftEditor.querySelector('[aria-label="Draft name"]') as HTMLInputElement).value).toBe('New note');
-    expect((draftEditor.querySelector('[aria-label="Draft body"]') as HTMLTextAreaElement).value).toBe('Draft body');
+    expect((draftEditor.querySelector('[aria-label="Draft text"]') as HTMLTextAreaElement).value).toBe('Draft body');
     expect(draftEditor.querySelector('[aria-label="Coral draft color"]')?.getAttribute('aria-checked')).toBe('true');
 
     act(() => {
@@ -540,8 +544,8 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(document.querySelector('.workspace-page-schedule-repeat-panel')).toBeTruthy();
     expect(document.querySelector('.workspace-page-schedule-main .workspace-page-schedule-repeat-panel')).toBeTruthy();
     expect(document.querySelector('.workspace-page-schedule-footer .workspace-page-stage-primary')).toBeTruthy();
-    expect(document.querySelector('.workspace-page-schedule-header-time')?.textContent).toContain('Every week');
-    expect(document.querySelector('.workspace-page-schedule-header-time')?.textContent).toContain('5x');
+    expect(document.querySelector('.workspace-page-schedule-header-time')?.textContent).toContain('Weekly');
+    expect(document.querySelector('.workspace-page-schedule-header-time')?.textContent).toContain('5 times');
     expect(document.querySelector('.workspace-page-schedule-more')).toBeNull();
     expect(document.querySelectorAll('.workspace-page-schedule-repeat-menu button')).toHaveLength(5);
     expect(document.querySelectorAll('.workspace-page-weekday-list button')).toHaveLength(7);
@@ -585,17 +589,17 @@ describe('WorkspaceTextStage editor flows', () => {
       expect(quickDatePanel.nextElementSibling).toBe(quickTimePanel);
       expect(document.querySelector('.workspace-page-schedule-summary')).toBeNull();
 
-      act(() => (document.querySelector('[aria-label="Set time Now"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set time: Now"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenCalledWith('2026-10-04');
       expect(setTime).toHaveBeenCalledWith('00:00');
 
       rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-10-03', time: '23:50', setDate, setTime });
-      act(() => (document.querySelector('[aria-label="Set time +15m"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set time: In 15 min"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenLastCalledWith('2026-10-04');
       expect(setTime).toHaveBeenLastCalledWith('00:05');
 
       rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-10-04', time: '00:05', setDate, setTime });
-      act(() => (document.querySelector('[aria-label="Set time +15m"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set time: In 15 min"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenLastCalledWith('2026-10-04');
       expect(setTime).toHaveBeenLastCalledWith('00:20');
     } finally {
@@ -622,16 +626,16 @@ describe('WorkspaceTextStage editor flows', () => {
       const dateRow = document.querySelector('.workspace-page-schedule-quick-date-panel .workspace-page-schedule-quick-row') as HTMLElement;
       expect(dateRow.querySelectorAll('button')).toHaveLength(4);
 
-      act(() => (document.querySelector('[aria-label="Set date +1 month"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set date: In 1 month"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenLastCalledWith('2026-02-28');
       expect(setTime).not.toHaveBeenCalled();
 
       rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-02-28', time: '09:00', setDate, setTime });
-      act(() => (document.querySelector('[aria-label="Set date +1 week"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set date: In 1 week"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenLastCalledWith('2026-03-07');
 
       rerender({ mode: 'schedule', scheduleFocus: 'time', date: '2026-03-07', time: '09:00', setDate, setTime });
-      act(() => (document.querySelector('[aria-label="Set date Today"]') as HTMLButtonElement).click());
+      act(() => (document.querySelector('[aria-label="Set date: Today"]') as HTMLButtonElement).click());
       expect(setDate).toHaveBeenLastCalledWith('2026-10-03');
     } finally {
       unmount();
@@ -924,7 +928,7 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     act(() => (container.querySelector('[aria-label="Insert link"]') as HTMLButtonElement).click());
-    const input = container.querySelector('[aria-label="Insert link URL"]') as HTMLInputElement;
+    const input = container.querySelector('[role="dialog"] input[type="url"]') as HTMLInputElement;
     act(() => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
 
     expect(container.querySelector('[role="dialog"][aria-label="Insert link"]')).toBeNull();
@@ -1240,7 +1244,7 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
-    editor.focus();
+    act(() => editor.focus());
     const selection = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(editor);
@@ -1315,7 +1319,7 @@ describe('WorkspaceTextStage editor flows', () => {
     const root = createRoot(container);
     const onChange = vi.fn();
     const renderEditor = (text: string) => root.render(
-      <RichTextEditor text={text} entities={[]} onChange={onChange} maxLength={4096} />,
+      <LocaleProvider><RichTextEditor text={text} entities={[]} onChange={onChange} maxLength={4096} /></LocaleProvider>,
     );
 
     act(() => renderEditor(''));
@@ -1347,7 +1351,7 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(window.getSelection()?.anchorNode).toBe(editor);
     expect(window.getSelection()?.anchorOffset).toBe(0);
     expect(editor.classList.contains('is-empty')).toBe(true);
-    expect(editor.getAttribute('data-placeholder')).toBe('Start writing your post...');
+    expect(editor.getAttribute('data-placeholder')).toBe('Start writing your post…');
     expect(logo?.querySelector('img')?.getAttribute('src')).toContain('logo.png');
     expect(editor.contains(logo)).toBe(false);
     expect(animate).toHaveBeenCalledTimes(1);

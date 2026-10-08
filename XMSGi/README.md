@@ -69,6 +69,12 @@ Studio's locale context is provided by the host. Keep `StudioMount` under the ho
 
 The `$studio`, `@/` and `@shared/` aliases are configured by the host Vite plugin. The Studio module is embedded from this repository's source tree rather than consumed as a separately published npm package. To check it directly, run `npm --prefix "Studio/Studio module" run typecheck`, `npm --prefix "Studio/Studio module" test` and `npm --prefix "Studio/Studio module" run build` from the repository root.
 
+### Scheduler ownership
+
+When Studio is embedded, the Host `useScheduler` runtime is authoritative for scheduling history, cancellation, retry state and FloodWait pauses. Studio receives that runtime through the versioned React-props contract in `packages/shared/bridge/`; History/Archive callbacks are part of the same contract. There is no separate event stream.
+
+If the scheduler prop is omitted, Studio uses `useStudioScheduler` as a standalone fallback. It is a separate, simpler implementation and is not the source of truth for embedded History/Archive workflows. Keep changes to the two paths aligned and covered independently; do not combine them into one scheduler until standalone support requirements are decided.
+
 ## Security and privacy
 
 XMSGi Studio keeps Telegram data local to the device. Session and account data are stored in the user data directory, and secure storage is used where the platform supports it.

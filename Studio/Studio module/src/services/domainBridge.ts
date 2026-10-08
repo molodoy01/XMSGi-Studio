@@ -1,4 +1,5 @@
 import { resolveAccountId } from '../domain/accountContext';
+import { normalizeAttachments } from '../lib/draftAttachments';
 import type { SavedDraft, Template as LegacyTemplate } from '../types';
 import type { Draft as DomainDraft, Template as DomainTemplate } from '../domain/types';
 
@@ -37,7 +38,7 @@ export function convertLegacyDraftToDomain(draft: SavedDraft, authorAccountId?: 
     postId: undefined,
     contentBody: draft.body,
     richText: draft.body,
-    attachments: draft.attachments ?? [],
+    attachments: normalizeAttachments(draft.attachments),
     metadata: {
       name: draft.name,
       color: draft.color,

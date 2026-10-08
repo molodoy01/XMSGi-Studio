@@ -731,7 +731,7 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Введите текст сообщения');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Enter a message.');
     expect(document.querySelector('.workspace-page-publish-transient-feedback')?.parentElement?.classList.contains('workspace-page-draft-footer')).toBe(true);
     expect(document.querySelector('.workspace-page-publish-footer-content')?.classList.contains('is-feedback-hidden')).toBe(true);
     expect(inMemoryDraftStore.savedDrafts).toHaveLength(0);
@@ -741,7 +741,7 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
     });
     const repeatedFeedback = document.querySelector('.workspace-page-publish-transient-feedback');
-    expect(repeatedFeedback?.textContent).toBe('Введите текст сообщения');
+    expect(repeatedFeedback?.textContent).toBe('Enter a message.');
     expect(repeatedFeedback).not.toBe(firstFeedback);
 
     await act(async () => {
@@ -850,14 +850,14 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
       await Promise.resolve();
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Отправка…');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Sending…');
     expect((document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).disabled).toBe(true);
 
     await act(async () => {
       resolveFirstSend?.(false);
       await Promise.resolve();
     });
-    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Не удалось отправить сообщение.');
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Could not send the message.');
     expect(document.querySelector('[role="textbox"]')?.textContent).toContain('Hello world');
     const retryButton = document.querySelector('.workspace-page-publish-transient-feedback .workspace-page-send-retry') as HTMLButtonElement;
     expect(retryButton).toBeTruthy();
@@ -870,7 +870,7 @@ describe('WorkspacePage main-screen flows', () => {
     });
     expect(handleSendDraftNow).toHaveBeenCalledTimes(2);
     expect(document.querySelector('[role="textbox"]')?.textContent?.trim()).toBe('');
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Сообщение отправлено');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Message sent.');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3360);
     });
@@ -922,7 +922,7 @@ describe('WorkspacePage main-screen flows', () => {
     await act(async () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-warning')?.textContent).toBe('Введите текст сообщения');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-warning')?.textContent).toBe('Enter a message.');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4999);
     });
@@ -987,13 +987,13 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
       await Promise.resolve();
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Отправка…');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Sending…');
 
     await act(async () => {
       resolveSend?.(true);
       await Promise.resolve();
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Сообщение отправлено');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Message sent.');
     unmount();
   });
 
@@ -1050,7 +1050,7 @@ describe('WorkspacePage main-screen flows', () => {
       time: '09:00',
       repeatMode: 'none',
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Черновик сохранён');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Draft saved.');
     expect(document.querySelector('.workspace-page-publish-transient-feedback')?.classList.contains('is-success')).toBe(true);
 
     const activeActionGroup = document.querySelector('.workspace-page-action-left-group');
@@ -1071,7 +1071,7 @@ describe('WorkspacePage main-screen flows', () => {
       (draftToggle as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Saved Drafts');
+    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Saved drafts');
   expect(draftToggle?.classList.contains('is-active')).toBe(true);
   expect(draftToggle?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector('.workspace-page-rich-text-draft-stage .workspace-page-template-stage-item strong')?.textContent).toMatch(/^Draft /);
@@ -1136,7 +1136,7 @@ describe('WorkspacePage main-screen flows', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Резервная копия экспортирована');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Backup exported.');
 
     vi.mocked(window.draftStorage.importBackup).mockResolvedValueOnce({
       success: true,
@@ -1150,7 +1150,7 @@ describe('WorkspacePage main-screen flows', () => {
     expect(window.draftStorage.exportBackup).toHaveBeenCalledTimes(1);
     expect(window.draftStorage.importBackup).toHaveBeenCalledTimes(1);
     expect(inMemoryDraftStore.workspaceDraft.body).toBe('Latest unsaved text');
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Черновики импортированы');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Drafts imported.');
     unmount();
   });
 
@@ -1186,7 +1186,7 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(confirmDelete).toHaveBeenCalledWith(expect.stringContaining('Draft'));
     expect(document.querySelector('.workspace-page-template-stage-item')).toBeNull();
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Черновик удалён');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Draft deleted.');
     confirmDelete.mockRestore();
     unmount();
   });
@@ -1213,9 +1213,9 @@ describe('WorkspacePage main-screen flows', () => {
       deleteButton.click();
     });
 
-    expect(confirmDelete).toHaveBeenCalledWith('Delete template "Welcome"?');
+    expect(confirmDelete).toHaveBeenCalledWith('Delete template “Welcome”?');
     expect(document.querySelector('.workspace-page-rich-text-template-stage .workspace-page-template-stage-item')).toBeNull();
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Шаблон удалён');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Template deleted.');
     confirmDelete.mockRestore();
     unmount();
   });
@@ -1245,7 +1245,7 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('[form="workspace-template-editor-form"]') as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Шаблон создан');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Template created.');
     const editButton = Array.from(document.querySelectorAll('.workspace-page-rich-text-template-stage .workspace-page-template-stage-item > div button'))
       .find((button) => button.textContent?.trim() === 'Edit') as HTMLButtonElement;
     await act(async () => {
@@ -1261,7 +1261,7 @@ describe('WorkspacePage main-screen flows', () => {
       (document.querySelector('[form="workspace-template-editor-form"]') as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Шаблон обновлён');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Template updated.');
     expect(document.querySelector('.workspace-page-rich-text-template-stage .workspace-page-template-stage-item strong')?.textContent).toContain('Updated greeting');
     unmount();
   });
@@ -1295,7 +1295,7 @@ describe('WorkspacePage main-screen flows', () => {
     expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active')).toBeNull();
     expect((document.querySelector('[role="textbox"]') as HTMLDivElement).textContent).toContain('Imported plain text');
     expect(document.querySelector('.workspace-page-attachment-name')?.textContent).toBe('photo.png');
-    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Текст импортирован в редактор');
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Text imported into the editor.');
     confirmReplace.mockRestore();
     unmount();
   });
@@ -1425,7 +1425,7 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(4);
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent)
-      .toContain('200 МБ');
+      .toContain('200 MB');
 
     await act(async () => {
       pendingCopies.forEach((resolve, index) => resolve({
@@ -1525,7 +1525,7 @@ describe('WorkspacePage main-screen flows', () => {
     });
     expect(window.draftStorage.copyAttachment).toHaveBeenCalledTimes(5);
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent)
-      .toContain('200 МБ');
+      .toContain('200 MB');
     unmount();
   });
 
@@ -1855,13 +1855,15 @@ describe('WorkspacePage main-screen flows', () => {
     });
     const { unmount } = await renderWorkspacePage();
     const closeEvent = new Event('beforeunload', { cancelable: true });
+    Object.defineProperty(closeEvent, 'returnValue', { configurable: true, value: '', writable: true });
 
-    act(() => {
+    await act(async () => {
       window.dispatchEvent(closeEvent);
+      await Promise.resolve();
     });
 
     expect(closeEvent.defaultPrevented).toBe(true);
-    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Flush failed');
+    expect(String(closeEvent.returnValue)).toContain('Draft data could not be saved');
     unmount();
   });
 
@@ -1876,6 +1878,9 @@ describe('WorkspacePage main-screen flows', () => {
 
     document.body.innerHTML = '';
     localStorage.clear();
+    localStorage.setItem('awaitmsg_locale', 'en');
+    localStorage.setItem('xmsgi-default-draft-seeded-v1', '1');
+    localStorage.setItem('xmsgi-default-template-seeded-v1', '1');
     localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
       body: 'Hello world',
       entities: [],
@@ -1986,7 +1991,7 @@ describe('WorkspacePage main-screen flows', () => {
       expect(savedDraft.body).toBe('Recovered rich draft');
       expect(savedDraft.entities).toEqual([{ type: 'bold', offset: 0, length: 20 }]);
       expect(savedDraft.selectedChat).toMatchObject({ id: chatA.id, name: chatA.name });
-      expect(savedDraft.attachments).toEqual([{ name: 'photo.png', path: '/tmp/photo.png', size: 1234 }]);
+      expect(savedDraft.attachments).toMatchObject([{ name: 'photo.png', path: '/tmp/photo.png', size: 1234 }]);
       expect(savedDraft.date).toBe('2026-02-14');
       expect(savedDraft.time).toBe('18:30');
       expect(savedDraft.repeatMode).toBe('weekly');

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Chat, NotificationState, ScheduledMessage } from '@/types';
 import type { SavedDraft, StudioScheduledMessage, StudioSchedulerRuntime } from '$studio';
+import { BRIDGE_PROTOCOL_VERSION } from '@shared/bridge';
 import { AppShell, StudioMount } from './workspace';
 import { normalizeSavedDraft, normalizeScheduledMessages } from './workspace/historyModel';
 import type { HistoryItem } from './workspace/historyModel';
@@ -112,6 +113,7 @@ try {
   // Keep the dev preview usable if browser storage is unavailable.
 }
 const demoScheduler: StudioSchedulerRuntime = {
+  protocolVersion: BRIDGE_PROTOCOL_VERSION,
   upcoming: demoHistoryMessages,
   sent: [],
   scheduling: false,
@@ -129,6 +131,7 @@ const demoScheduler: StudioSchedulerRuntime = {
   handleDeleteMessage: noOperation,
   handleClearSent: noOperation,
   handleCancelMessage: async () => {},
+  handleCancelMessages: async () => true,
 };
 
 export default function DevPreviewHarness() {

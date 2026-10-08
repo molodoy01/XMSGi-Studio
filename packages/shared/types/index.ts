@@ -25,6 +25,56 @@ export interface Template {
   updatedAt: string;
 }
 
+export type DraftColor =
+  | 'gray'
+  | 'coral'
+  | 'amber'
+  | 'green'
+  | 'teal'
+  | 'blue'
+  | 'orange'
+  | 'purple'
+  | 'red'
+  | 'pink'
+  | 'yellow';
+
+export interface SavedDraftAttachment {
+  id?: string;
+  type?: 'image' | 'file';
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  path?: string;
+  previewUrl?: string;
+  position?: number;
+}
+
+export interface SavedDraft {
+  id: string;
+  name: string;
+  body: string;
+  color?: DraftColor;
+  entities?: RichTextEntity[];
+  attachments?: SavedDraftAttachment[];
+  selectedChat?: Pick<Chat, 'id' | 'name' | 'username' | 'type' | 'avatarDataUrl'> | null;
+  inlineButtons?: InlineButtonRow[];
+  date?: string;
+  time?: string;
+  repeatMode?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  repeatDays?: string[];
+  repeatOccurrences?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersistedDraftStore {
+  schemaVersion?: number;
+  migrationVersion?: number;
+  savedDrafts: SavedDraft[];
+  workspaceDraft?: SavedDraft | Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export type RichTextEntityType =
   | 'bold'
   | 'italic'
@@ -71,6 +121,7 @@ export interface ScheduledMessage {
   createdAt: string;
   status: 'pending' | 'scheduled' | 'confirmed' | 'sending' | 'sent' | 'failed';
   lastError?: string;
+  lastErrorDetails?: BridgeErrorDetails;
   retryAction?: 'schedule' | 'send' | 'cancel';
   lastAttemptAt?: string;
   sendAttemptId?: string;
@@ -133,6 +184,7 @@ export type NotificationState = {
   title: string;
   visible: boolean;
   revision?: number;
+  errorDetails?: BridgeErrorDetails;
 };
 
 export type TelegramOperationName = 'publish' | 'cancel';
@@ -147,3 +199,13 @@ export interface TelegramOperationErrorDetails {
   code?: string;
   waitSeconds?: number;
 }
+
+export interface BridgeValidationErrorDetails {
+  operation: 'validate';
+  category: 'validation';
+  retryable: false;
+  message: string;
+  code?: string;
+}
+
+export type BridgeErrorDetails = TelegramOperationErrorDetails | BridgeValidationErrorDetails;

@@ -3,6 +3,8 @@ export type {
   Chat,
   ChatPermissionValue,
   ChatPermissions,
+  BridgeErrorDetails,
+  DraftColor,
   InlineButton,
   InlineButtonActionType,
   InlineButtonRow,
@@ -14,6 +16,9 @@ export type {
   PreviewHistoryMessage,
   RichTextEntity,
   RichTextEntityType,
+  SavedDraft,
+  SavedDraftAttachment,
+  PersistedDraftStore,
   ScheduledMessage,
   Template,
 } from '@shared/types';

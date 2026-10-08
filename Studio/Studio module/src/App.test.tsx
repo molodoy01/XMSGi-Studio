@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LocaleProvider } from '@/lib/i18n';
 import App from './App';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -10,7 +11,7 @@ async function renderApp() {
   document.body.appendChild(container);
   const root: Root = createRoot(container);
   await act(async () => {
-    root.render(<App connected />);
+    root.render(<LocaleProvider><App connected /></LocaleProvider>);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -176,7 +177,7 @@ describe('App media publishing', () => {
     });
 
     expect(window.telegram.schedule).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain('Укажите дату и время в будущем');
+    expect(document.body.textContent).toContain('Choose a date and time in the future.');
     unmount();
   });
 
@@ -188,6 +189,12 @@ describe('App media publishing', () => {
       expect(preview.classList.contains('is-chat-list-open')).toBe(false);
       expect(preview.querySelector('.chat-preview-chat-list')).toBeNull();
 
+      await act(async () => {
+        (preview.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
+      });
+      await act(async () => {
+        (preview.querySelector('[aria-label="Switch to Web preview"]') as HTMLButtonElement).click();
+      });
       await act(async () => {
         (preview.querySelector('[aria-label="Preview settings"]') as HTMLButtonElement).click();
       });

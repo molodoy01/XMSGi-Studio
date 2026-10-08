@@ -360,6 +360,7 @@ describe('useScheduler native history', () => {
         expect.stringContaining('367'),
         'warning',
         expect.any(String),
+        expect.objectContaining({ operation: 'validate', category: 'validation', retryable: false, code: 'SCHEDULE_TOO_FAR' }),
       );
     }
   });
@@ -603,7 +604,12 @@ describe('useScheduler native history', () => {
 
     expect(schedule).not.toHaveBeenCalled();
     expect(result.current.upcoming).toEqual([existing]);
-    expect(showNotification).toHaveBeenCalledWith(expect.any(String), 'warning', expect.any(String));
+    expect(showNotification).toHaveBeenCalledWith(
+      expect.any(String),
+      'warning',
+      expect.any(String),
+      expect.objectContaining({ operation: 'validate', category: 'validation', retryable: false, code: 'LEGACY_MEDIA_IDENTITY_UNAVAILABLE' }),
+    );
   });
 
   it('keeps a stored identity immutable when its attachment path later changes', async () => {
@@ -1164,6 +1170,7 @@ describe('useScheduler native history', () => {
       expect.stringContaining(String(limit)),
       'warning',
       expect.any(String),
+      expect.objectContaining({ operation: 'validate', category: 'validation', retryable: false, code: 'MESSAGE_TOO_LONG' }),
     );
   });
 
@@ -1305,7 +1312,7 @@ describe('useScheduler native history', () => {
     const showNotification = vi.fn();
     const cancel = vi.fn().mockResolvedValue({ success: true });
     const send = vi.fn()
-      .mockResolvedValueOnce({ success: false, error: 'Telegram rejected the message.' })
+      .mockResolvedValueOnce({ success: false, error: 'Telegram rejected the message.', code: 'HTTP_503', category: 'network', retryable: true })
       .mockResolvedValueOnce({ success: true, messageId: 'retry-sent' });
     const { result } = renderWorkspaceHistory([message], [], { cancel, send }, showNotification);
 
@@ -1318,11 +1325,13 @@ describe('useScheduler native history', () => {
       'Telegram rejected the message.',
       'error',
       expect.any(String),
+      expect.objectContaining({ operation: 'publish', category: 'network', code: 'HTTP_503', retryable: true }),
     ));
     expect(result.current.upcoming[0]).toMatchObject({
       id: message.id,
       status: 'failed',
       lastError: 'Telegram rejected the message.',
+      lastErrorDetails: expect.objectContaining({ operation: 'publish', category: 'network', code: 'HTTP_503', retryable: true }),
       retryAction: 'send',
       telegramMessageId: undefined,
     });
@@ -1386,7 +1395,14 @@ describe('useScheduler native history', () => {
       telegramMessageId: 'telegram-cancel-failed',
     };
     const showNotification = vi.fn();
-    const cancel = vi.fn().mockResolvedValue({ success: false, error: 'Telegram cancellation failed.' });
+    const cancel = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Telegram cancellation failed.',
+      code: 'TELEGRAM_REQUEST_CANCELLED',
+      category: 'cancelled',
+      retryable: false,
+      cancelled: true,
+    });
     const { result } = renderWorkspaceHistory([message], [], { cancel }, showNotification);
 
     await waitFor(() => expect(result.current.upcoming).toEqual([message]));
@@ -1396,12 +1412,14 @@ describe('useScheduler native history', () => {
       'Telegram cancellation failed.',
       'error',
       expect.any(String),
+      expect.objectContaining({ operation: 'cancel', category: 'cancelled', code: 'TELEGRAM_REQUEST_CANCELLED', retryable: false }),
     ));
     expect(result.current.upcoming[0]).toMatchObject({
       id: message.id,
       status: 'failed',
       telegramMessageId: message.telegramMessageId,
       lastError: 'Telegram cancellation failed.',
+      lastErrorDetails: expect.objectContaining({ operation: 'cancel', category: 'cancelled' }),
       retryAction: 'cancel',
     });
     expect(result.current.sent).toHaveLength(0);
@@ -1425,7 +1443,12 @@ describe('useScheduler native history', () => {
 
     await waitFor(() => expect(result.current.upcoming).toEqual([message]));
     await act(async () => { await result.current.handleCancelMessage(message); });
-    await waitFor(() => expect(showNotification).toHaveBeenCalledWith('Network unavailable.', 'error', expect.any(String)));
+    await waitFor(() => expect(showNotification).toHaveBeenCalledWith(
+      'Network unavailable.',
+      'error',
+      expect.any(String),
+      expect.objectContaining({ operation: 'cancel', category: 'unknown', retryable: false }),
+    ));
     expect(result.current.upcoming[0]).toMatchObject({
       id: message.id,
       status: 'failed',

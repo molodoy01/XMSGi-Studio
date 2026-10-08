@@ -100,7 +100,9 @@ export function normalizeSavedDraft(draft: SavedDraft): HistoryItem {
     channelName: draft.selectedChat?.name ?? '',
     channelLabel: draft.selectedChat?.username ? `@${draft.selectedChat.username}` : '',
     updatedAt: draft.updatedAt || draft.createdAt,
-    attachments: draft.attachments?.map((attachment) => attachment.path || attachment.name).filter(Boolean) ?? [],
+    attachments: draft.attachments
+      ?.map((attachment) => attachment.path || attachment.name)
+      .filter((path): path is string => Boolean(path)) ?? [],
     entities: draft.entities ?? [],
     draftColor: draft.color ?? 'gray',
     original: { kind: 'saved-draft', draft },

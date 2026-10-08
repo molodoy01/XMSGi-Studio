@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useAssistant, useChats, useNotifications, useScheduler, useTelegramAuth } from './core';
 import type { Chat } from '@/types';
 import type { SavedDraft, StudioScheduledMessage } from '$studio';
+import { createStudioSchedulerRuntime } from '@shared/bridge';
 import { AppShell, StudioMount } from './workspace';
 import { normalizeScheduledMessages } from './workspace/historyModel';
 import type { HistoryItem, HistorySource } from './workspace/historyModel';
@@ -239,6 +240,12 @@ function App() {
     setAssistantResponse,
     setAssistantIntent,
   });
+
+  const studioBridgeScheduler = createStudioSchedulerRuntime(
+    studioScheduler,
+    studioNotifications.notification,
+    studioNotifications.closeNotification,
+  );
 
   const historyRecords = [
     ...normalizeScheduledMessages(personalUpcoming, 'personal', 'upcoming', chats),
@@ -585,11 +592,7 @@ function App() {
           connected={studioConnected}
           activeAccountId={activeAccountId}
           chats={studioConnected ? chats : []}
-          scheduler={{
-            ...studioScheduler,
-            notification: studioNotifications.notification,
-            closeNotification: studioNotifications.closeNotification,
-          }}
+          scheduler={studioBridgeScheduler}
           onRegisterHistoryDraftOpener={registerHistoryDraftOpener}
           onRegisterHistoryDraftUseHandler={registerHistoryDraftUseHandler}
           onRegisterHistoryDraftClearHandler={registerHistoryDraftClearHandler}
