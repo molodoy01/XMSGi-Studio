@@ -50,6 +50,9 @@ function studioAwareAliasPlugin() {
 
 export default defineConfig({
   plugins: [react(), studioAwareAliasPlugin()],
+  resolve: {
+    dedupe: ['react', 'react-dom', 'lucide-react'],
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

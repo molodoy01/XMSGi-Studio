@@ -4,6 +4,7 @@ dist/
 .env.*
 !.env.example
 release/
+release-working-*/
 *.session
 *session*
 *.log
