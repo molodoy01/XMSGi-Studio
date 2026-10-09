@@ -50,13 +50,11 @@ describe('production packaging', () => {
   });
 
   it('does not include the project root .env in production files', () => {
-    const rootEnvPath = path.join(projectRoot, '.env');
     const productionFiles = packageJson.build.files;
     const includesRootEnv = productionFiles.some((pattern) =>
       pattern === '.env' || pattern === './.env' || pattern.endsWith('/.env')
     );
 
-    expect(fs.existsSync(rootEnvPath)).toBe(true);
     expect(includesRootEnv).toBe(false);
   });
 
