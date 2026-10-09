@@ -1,9 +1,9 @@
 import type { Account, Draft, Post, Repository, Schedule } from './types';
 
-export interface DraftRepository extends Repository<Draft> {}
+export type DraftRepository = Repository<Draft>;
 
-export interface PostRepository extends Repository<Post> {}
+export type PostRepository = Repository<Post>;
 
-export interface ScheduleRepository extends Repository<Schedule> {}
+export type ScheduleRepository = Repository<Schedule>;
 
-export interface AccountRepository extends Repository<Account> {}
+export type AccountRepository = Repository<Account>;

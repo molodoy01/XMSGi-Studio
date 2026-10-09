@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Chat, NotificationState, ScheduledMessage } from '@/types';
+import type { Chat, NotificationState, PersistedDraftStore, ScheduledMessage } from '@/types';
+import type { WorkspaceDraft } from '../lib/draftStore';
 import { LocaleProvider } from '@/lib/i18n';
 import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, remapAttachmentPositions, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
@@ -22,7 +23,15 @@ const baseNotification: NotificationState = {
   visible: false,
 };
 
-let inMemoryDraftStore: any;
+let inMemoryDraftStore: PersistedDraftStore;
+
+function getInMemoryWorkspaceDraft(): WorkspaceDraft {
+  const workspaceDraft = inMemoryDraftStore.workspaceDraft;
+  if (!workspaceDraft || typeof workspaceDraft !== 'object') {
+    throw new Error('Expected an in-memory workspace draft.');
+  }
+  return workspaceDraft as WorkspaceDraft;
+}
 
 async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeof WorkspacePage>> = {}) {
   const container = document.createElement('div');
@@ -1171,7 +1180,7 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(window.draftStorage.exportBackup).toHaveBeenCalledTimes(1);
     expect(window.draftStorage.importBackup).toHaveBeenCalledTimes(1);
-    expect(inMemoryDraftStore.workspaceDraft.body).toBe('Latest unsaved text');
+    expect(getInMemoryWorkspaceDraft().body).toBe('Latest unsaved text');
     expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Drafts imported.');
     unmount();
   });
@@ -2009,7 +2018,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Recovered rich draft');
       expect(savedDraft.entities).toEqual([{ type: 'bold', offset: 0, length: 20 }]);
       expect(savedDraft.selectedChat).toMatchObject({ id: chatA.id, name: chatA.name });
@@ -2058,7 +2067,7 @@ describe('WorkspacePage main-screen flows', () => {
         vi.advanceTimersByTime(200);
       });
 
-      let savedDraft = inMemoryDraftStore.workspaceDraft;
+      let savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Hello world');
 
       await act(async () => {
@@ -2067,7 +2076,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      savedDraft = inMemoryDraftStore.workspaceDraft;
+      savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Autosave draft 1');
 
       unmount();
@@ -2106,7 +2115,7 @@ describe('WorkspacePage main-screen flows', () => {
 
       window.dispatchEvent(new Event('beforeunload'));
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Draft before close');
 
       unmount();
@@ -2138,7 +2147,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toContain('Reloaded draft text');
 
       unmount();

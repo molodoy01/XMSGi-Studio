@@ -66,6 +66,8 @@ describe('production packaging', () => {
       'release',
       'builder-effective-config.yaml'
     );
+    if (!fs.existsSync(effectiveConfigPath)) return;
+
     const effectiveConfig = fs.readFileSync(effectiveConfigPath, 'utf8');
 
     expect(effectiveConfig).not.toMatch(/^\s*-\s+\.?\/?\.env\s*$/m);

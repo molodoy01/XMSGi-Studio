@@ -57,7 +57,7 @@ describe('App media publishing', () => {
       disconnect() {}
     };
     Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.scrollTo = vi.fn((...args: [number, number] | [ScrollToOptions?]) => undefined) as typeof Element.prototype.scrollTo;
+    Element.prototype.scrollTo = vi.fn(() => undefined) as typeof Element.prototype.scrollTo;
     document.body.innerHTML = '';
     localStorage.clear();
     localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({

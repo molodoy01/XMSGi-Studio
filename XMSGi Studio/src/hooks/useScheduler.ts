@@ -116,6 +116,11 @@ export function useScheduler({
   const [sent, setSent] = useState<ScheduledMessage[]>([]);
   const upcomingStateRef = useRef(upcoming);
   const sentStateRef = useRef(sent);
+  const handleCancelMessageRef = useRef<(
+    message: ScheduledMessage,
+    replacementMessages?: ScheduledMessage[],
+    quiet?: boolean,
+  ) => Promise<boolean>>(async () => false);
   const [historyReady, setHistoryReady] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const schedulingLockRef = useRef(false);
@@ -147,13 +152,15 @@ export function useScheduler({
 
   useEffect(() => { upcomingStateRef.current = upcoming; }, [upcoming]);
   useEffect(() => { sentStateRef.current = sent; }, [sent]);
+  useEffect(() => { handleCancelMessageRef.current = handleCancelMessage; });
 
   useEffect(() => {
     mountedRef.current = true;
+    const activeTimeoutIds = timeoutIdsRef.current;
     return () => {
       mountedRef.current = false;
-      timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      timeoutIdsRef.current.clear();
+      activeTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      activeTimeoutIds.clear();
     };
   }, []);
 
@@ -301,11 +308,11 @@ export function useScheduler({
             'Scheduling failed'
           );
         } else if (pendingMessage.replacementOfId) {
-          const originalMessage = upcoming.find((item) => item.id === pendingMessage.replacementOfId);
+          const originalMessage = upcomingStateRef.current.find((item) => item.id === pendingMessage.replacementOfId);
           const replacementMessage = applyScheduleResult([pendingMessage], pendingMessage.operationId!, result)
             .find((item) => item.operationId === pendingMessage.operationId);
           if (originalMessage && replacementMessage) {
-            handleCancelMessage(originalMessage, [replacementMessage], true);
+            handleCancelMessageRef.current(originalMessage, [replacementMessage], true);
           }
         }
       }

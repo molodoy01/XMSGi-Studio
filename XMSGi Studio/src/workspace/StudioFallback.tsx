@@ -25,7 +25,7 @@ const glowStyle = {
   pointerEvents: 'none' as const,
 };
 
-export function StudioFallback({ connected, activeAccountId, chats }: StudioFallbackProps) {
+export function StudioFallback(_props: StudioFallbackProps) {
   const previewLines = [
     { width: '36%', marginBottom: 12 },
     { width: '72%', marginBottom: 12 },

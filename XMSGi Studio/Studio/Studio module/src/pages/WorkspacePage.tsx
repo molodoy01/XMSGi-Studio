@@ -19,7 +19,6 @@ import {
   hasDraftContent,
   readInitialWorkspaceDraft,
   readWorkspaceDraftStoreFallback,
-  WORKSPACE_DRAFT_KEY,
 } from '../lib/draftStore';
 import type { WorkspaceDraft } from '../lib/draftStore';
 import { normalizeRichTextEntities } from '../lib/richText';
@@ -513,7 +512,6 @@ export function WorkspacePage({
   setDate,
   setTime,
   handleSchedule,
-  handleCancelMessage,
   handleSendDraftNow,
   publishingDraft,
   onRegisterHistoryDraftOpener,
@@ -609,7 +607,7 @@ export function WorkspacePage({
   const [previewHistoryErrorRetryable, setPreviewHistoryErrorRetryable] = useState(false);
   const [previewHistoryRetry, setPreviewHistoryRetry] = useState(0);
   const [chatLookupError, setChatLookupError] = useState('');
-  const [chatWallpaper, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
+  const [, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
   const [chatListOpen, setChatListOpen] = useState(false);
   const [publishMenuOpen, setPublishMenuOpen] = useState(false);
   const [sendInFlight, setSendInFlight] = useState(false);
@@ -1016,26 +1014,6 @@ export function WorkspacePage({
     hour: '2-digit',
     minute: '2-digit',
   });
-  const scheduleSummary = (() => {
-    if (!date || !time) return 'Schedule';
-
-    const dateValue = new Date(date);
-    if (Number.isNaN(dateValue.getTime())) return 'Schedule';
-
-    const dateLocale = locale === 'ru' ? 'ru-RU' : 'en-US';
-    const summaryDate = new Intl.DateTimeFormat(dateLocale, {
-      month: 'short',
-      day: 'numeric',
-    }).format(dateValue);
-
-    const summaryTime = new Date(`2000-01-01T${time}`).toLocaleTimeString(dateLocale, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    return `${summaryDate} · ${summaryTime}`;
-  })();
-
   const hasDraftContentState = hasDraftContent(draftBody, attachments);
   const hasSelectedTarget = Boolean(selectedChat);
   const hasValidScheduleDate = Boolean(date && !Number.isNaN(new Date(`${date}T12:00:00`).getTime()));

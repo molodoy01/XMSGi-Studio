@@ -1,5 +1,3 @@
-import type { InlineButtonRow } from './lib/inlineKeyboard';
-import type { DraftAttachment } from './domain/types';
 import type { SavedDraft } from '@shared/types';
 
 export type { DraftAttachment } from './domain/types';

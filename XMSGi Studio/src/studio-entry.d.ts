@@ -1,7 +1,7 @@
 declare module '$studio' {
   import type { ComponentType } from 'react';
-  import type { DraftColor, PersistedDraftStore, SavedDraft, SavedDraftAttachment, ScheduledMessage } from '@shared/types';
-  import type { StudioBridgeProps, StudioSchedulerRuntime } from '@shared/bridge';
+  import type { ScheduledMessage } from '@shared/types';
+  import type { StudioBridgeProps } from '@shared/bridge';
 
   export type { DraftColor, PersistedDraftStore, SavedDraft, SavedDraftAttachment } from '@shared/types';
   export type { StudioBridgeProps, StudioSchedulerRuntime } from '@shared/bridge';

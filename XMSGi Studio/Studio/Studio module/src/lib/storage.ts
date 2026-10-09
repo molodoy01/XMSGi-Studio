@@ -30,10 +30,6 @@ const LEGACY_HIDDEN_CHATS_KEY = 'awaitmsg_hidden_chats';
 const XMSGI_HIDDEN_CHATS_KEY = 'xmsgi_hidden_chats';
 const LEGACY_CHATS_KEY = 'awaitmsg_chats';
 const XMSGI_CHATS_KEY = 'xmsgi_chats';
-const LEGACY_TEMPLATES_KEY = 'awaitmsg_templates';
-const XMSGI_TEMPLATES_KEY = 'xmsgi_templates';
-const LEGACY_SAVED_DRAFTS_KEY = 'awaitmsg_saved_drafts';
-const XMSGI_SAVED_DRAFTS_KEY = 'xmsgi_saved_drafts';
 
 function getStorage(): Storage | null {
   if (typeof globalThis === 'undefined') return null;
@@ -169,20 +165,6 @@ export function saveChats(chats: { id: string; name: string }[]): void {
   save(XMSGI_CHATS_KEY, chats, LEGACY_CHATS_KEY);
 }
 
-function isTemplate(value: unknown): value is Template {
-  if (!value || typeof value !== 'object') return false;
-
-  const template = value as Partial<Template>;
-
-  return (
-    typeof template.id === 'string' &&
-    typeof template.name === 'string' &&
-    typeof template.body === 'string' &&
-    typeof template.createdAt === 'string' &&
-    typeof template.updatedAt === 'string'
-  );
-}
-
 export function loadTemplates(): Template[] {
   const templates = templateRepository.list();
   return templates
@@ -204,20 +186,6 @@ export function saveTemplates(templates: Template[]): void {
       templateRepository.remove(item.id);
     }
   }
-}
-
-function isSavedDraft(value: unknown): value is SavedDraft {
-  if (!value || typeof value !== 'object') return false;
-
-  const draft = value as Partial<SavedDraft>;
-
-  return (
-    typeof draft.id === 'string' &&
-    typeof draft.name === 'string' &&
-    typeof draft.body === 'string' &&
-    typeof draft.createdAt === 'string' &&
-    typeof draft.updatedAt === 'string'
-  );
 }
 
 export function loadSavedDrafts(): SavedDraft[] {

@@ -1,8 +1,6 @@
 import type {
   InlineButton,
-  InlineButtonActionType,
   InlineButtonRow,
-  InlineKeyboardButton,
   InlineKeyboardMarkup,
 } from '@shared/types';
 

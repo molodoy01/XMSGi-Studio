@@ -4,23 +4,39 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { DRAFT_STORE_SCHEMA_VERSION } from './src/lib/draftStoreVersion';
+import type { PersistedDraftStore, SavedDraftAttachment } from './src/types';
+
+type DraftStoreResult = {
+  success: boolean;
+  code?: string;
+  error?: string;
+  store?: PersistedDraftStore;
+  needsMigration?: boolean;
+  schemaMigrated?: boolean;
+  migrated?: boolean;
+  backupIndexes?: number[];
+};
+
+type DraftStoreApi = {
+  load: () => DraftStoreResult;
+  save: (store: PersistedDraftStore) => Promise<DraftStoreResult>;
+  migrate: (legacy: unknown) => DraftStoreResult;
+  restoreBackup: (index: number) => DraftStoreResult;
+  exportTo: (target: string) => { success: boolean; code?: string };
+  exportTextTo: (target: string, text: string) => { success: boolean; code?: string };
+  importTextFrom: (source: string) => DraftStoreResult & { text?: string };
+  importFrom: (source: string, strategy: 'merge' | 'replace') => DraftStoreResult;
+  copyAttachment: (source: string) => DraftStoreResult & {
+    attachment?: SavedDraftAttachment & { path: string };
+  };
+  filePath: string;
+  backupPath: (index: number) => string;
+};
 
 const require = createRequire(import.meta.url);
 const { createDraftStore, SCHEMA_VERSION } = require('./draft-store.cjs') as {
   SCHEMA_VERSION: number;
-  createDraftStore: (options: { directory: string; backupCount?: number }) => {
-    load: () => { success: boolean; store?: any; needsMigration?: boolean; schemaMigrated?: boolean; backupIndexes?: number[] };
-    save: (store: any) => Promise<any>;
-    migrate: (legacy: any) => any;
-    restoreBackup: (index: number) => any;
-    exportTo: (target: string) => any;
-    exportTextTo: (target: string, text: string) => any;
-    importTextFrom: (source: string) => any;
-    importFrom: (source: string, strategy: 'merge' | 'replace') => any;
-    copyAttachment: (source: string) => any;
-    filePath: string;
-    backupPath: (index: number) => string;
-  };
+  createDraftStore: (options: { directory: string; backupCount?: number }) => DraftStoreApi;
 };
 
 const directories: string[] = [];

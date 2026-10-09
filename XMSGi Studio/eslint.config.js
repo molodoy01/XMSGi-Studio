@@ -6,7 +6,15 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'release/**', 'node_modules/**', '**/*.cjs']
+    ignores: [
+      '**/dist/**',
+      '**/release/**',
+      '**/node_modules/**',
+      '**/*.cjs',
+      'Studio/Studio module/debug-check.mjs',
+      'Studio/Studio module/debug-react.mjs',
+      'Studio/Studio module/debug-selection.js',
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -30,6 +38,7 @@ export default tseslint.config(
       'react-refresh': reactRefresh
     },
     rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }]
     }

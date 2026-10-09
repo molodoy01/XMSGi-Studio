@@ -22,13 +22,10 @@ interface Props {
   maxLength: number;
 }
 
-type FormatCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough' | 'insertUnorderedList' | 'insertOrderedList' | 'removeFormat';
-
 export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength }: Props) {
   const { t } = useLocale();
   const editorRef = useRef<HTMLDivElement | null>(null);
   const {
-    savedRangeRef,
     getCaretOffset,
     getTextOffset,
     placeCaretAtStart,
@@ -36,7 +33,6 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     restoreSelection,
     clearSelection,
     restoreTextSelection,
-    restoreSelectionRange,
   } = useEditorSelection(editorRef);
   const { syncToolbarStateFromSelection } = useEditorFormats(editorRef, stageMode);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
@@ -52,20 +48,6 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     glowFinishing: false,
     introReady: false,
   });
-  const runExecCommand = typeof document.execCommand === 'function'
-    ? document.execCommand.bind(document)
-    : () => undefined;
-
-  const getInlineTagNames = (tagName: 'b' | 'i' | 'u' | 's') => {
-    switch (tagName) {
-      case 'b': return ['b', 'strong'];
-      case 'i': return ['i', 'em'];
-      case 'u': return ['u'];
-      case 's': return ['s', 'strike', 'del'];
-      default: return [tagName];
-    }
-  };
-
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || document.activeElement === editor) return;
@@ -208,256 +190,6 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     editor.focus();
     setEditorFocused(true);
     placeCaretAtStart();
-  };
-
-  const unwrapElement = (element: Element) => {
-    const parent = element.parentNode;
-    if (!parent) return false;
-
-    const fragment = document.createDocumentFragment();
-    while (element.firstChild) {
-      fragment.appendChild(element.firstChild);
-    }
-
-    parent.insertBefore(fragment, element);
-    parent.removeChild(element);
-    return true;
-  };
-
-  const findNearestTag = (node: Node | null, tagName: string): Element | null => {
-    let current: Node | null = node;
-    while (current) {
-      if (current.nodeType === Node.ELEMENT_NODE) {
-        const element = current as Element;
-        if (element.tagName.toLowerCase() === tagName) return element;
-      }
-      current = current.parentNode;
-    }
-    return null;
-  };
-
-  const findNearestMatchingTag = (node: Node | null, tagNames: string[]): Element | null => {
-    let current: Node | null = node;
-    while (current) {
-      if (current.nodeType === Node.ELEMENT_NODE) {
-        const element = current as Element;
-        if (tagNames.includes(element.tagName.toLowerCase())) return element;
-      }
-      current = current.parentNode;
-    }
-    return null;
-  };
-
-  const isRangeInsideTag = (tagNames: string[], range: Range) => {
-    const startTag = findNearestMatchingTag(range.startContainer, tagNames);
-    const endTag = findNearestMatchingTag(range.endContainer, tagNames);
-    if (startTag && endTag && startTag === endTag) return true;
-
-    const commonAncestor = range.commonAncestorContainer;
-    const commonTag = findNearestMatchingTag(commonAncestor, tagNames);
-    if (!commonTag) return false;
-
-    const root = commonTag;
-    const startsInside = root.contains(range.startContainer);
-    const endsInside = root.contains(range.endContainer);
-    return startsInside && endsInside;
-  };
-
-  const wrapSelectionInTag = (tagName: 'b' | 'i' | 'u' | 's') => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || !editorRef.current) return false;
-
-    const range = selection.getRangeAt(0);
-    const tagNames = getInlineTagNames(tagName);
-
-    if (range.collapsed) return false;
-    if (isRangeInsideTag(tagNames, range)) {
-      const wrapper = findNearestMatchingTag(range.startContainer, tagNames)
-        ?? findNearestMatchingTag(range.commonAncestorContainer, tagNames);
-      if (wrapper) {
-        unwrapElement(wrapper);
-      }
-      return true;
-    }
-
-    const wrapper = document.createElement(tagName);
-    const fragment = range.extractContents();
-    wrapper.appendChild(fragment);
-    range.insertNode(wrapper);
-
-    const rebuiltRange = document.createRange();
-    rebuiltRange.selectNodeContents(wrapper);
-    selection.removeAllRanges();
-    selection.addRange(rebuiltRange);
-    return true;
-  };
-
-  const toggleCollapsedSelectionFormat = (tagName: 'b' | 'i' | 'u' | 's') => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || !editorRef.current) return false;
-
-    const anchorNode = selection.anchorNode;
-    const parentElement = anchorNode && anchorNode.nodeType === Node.ELEMENT_NODE
-      ? anchorNode as Element
-      : anchorNode?.parentElement;
-    const tagNames = getInlineTagNames(tagName);
-    const existingTag = parentElement?.closest(tagNames.join(','));
-
-    if (existingTag) {
-      unwrapElement(existingTag);
-      return true;
-    }
-
-    const wrapper = document.createElement(tagName);
-    const marker = document.createTextNode('\u200B');
-    wrapper.appendChild(marker);
-    const range = selection.getRangeAt(0);
-    range.insertNode(wrapper);
-
-    const caretRange = document.createRange();
-    caretRange.setStart(marker, 0);
-    caretRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(caretRange);
-    return true;
-  };
-
-  const removeInlineFormattingFromSelection = () => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || !editorRef.current) return false;
-
-    const range = selection.getRangeAt(0);
-    const root = editorRef.current;
-    const tags = ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del'];
-    const elements = Array.from(root.querySelectorAll(tags.join(',')));
-
-    if (!range.collapsed) {
-      const fragment = range.cloneContents();
-      const formatNodes = Array.from(fragment.querySelectorAll(tags.join(',')));
-      formatNodes.forEach((node) => {
-        const parent = node.parentNode;
-        if (!parent) return;
-        while (node.firstChild) parent.insertBefore(node.firstChild, node);
-        parent.removeChild(node);
-      });
-      if (formatNodes.length > 0) {
-        const replacement = document.createDocumentFragment();
-        replacement.appendChild(fragment);
-        range.deleteContents();
-        range.insertNode(replacement);
-        return true;
-      }
-    }
-
-    const ancestorNode = range.commonAncestorContainer;
-    const target = ancestorNode.nodeType === Node.ELEMENT_NODE
-      ? ancestorNode as Element
-      : ancestorNode.parentElement;
-    const closest = target?.closest(tags.join(','));
-    if (closest) {
-      unwrapElement(closest);
-      return true;
-    }
-
-    const selectedText = range.toString();
-    if (!selectedText) {
-      for (const element of elements) {
-        if (element.contains(range.startContainer) || element.contains(range.endContainer)) {
-          unwrapElement(element);
-          return true;
-        }
-      }
-    }
-
-    return false;
-  };
-
-  const runCommand = (command: FormatCommand) => {
-    const editor = editorRef.current;
-    const selection = window.getSelection();
-    const preservedRange = selection && selection.rangeCount > 0
-      ? selection.getRangeAt(0).cloneRange()
-      : savedRangeRef.current?.cloneRange() ?? null;
-
-    if (editor && !editor.contains(document.activeElement)) {
-      editor.focus();
-    }
-
-    const inlineMap = {
-      bold: 'b',
-      italic: 'i',
-      underline: 'u',
-      strikeThrough: 's',
-    } as const;
-
-    if (command === 'removeFormat') {
-      removeInlineFormattingFromSelection();
-      if (typeof document.execCommand === 'function') {
-        runExecCommand(command);
-      }
-      restoreSelectionRange(preservedRange);
-      emitChange();
-      requestAnimationFrame(() => {
-        if (editor) editor.focus();
-        syncToolbarStateFromSelection();
-      });
-      return;
-    }
-
-    if (command in inlineMap) {
-      const tagName = inlineMap[command as keyof typeof inlineMap];
-      const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      if (range && range.collapsed) {
-        toggleCollapsedSelectionFormat(tagName);
-      } else {
-        const tagNames = getInlineTagNames(tagName);
-        if (range && range.collapsed === false && isRangeInsideTag(tagNames, range)) {
-          const wrapper = findNearestMatchingTag(range.startContainer, tagNames)
-            ?? findNearestMatchingTag(range.commonAncestorContainer, tagNames);
-          if (wrapper) unwrapElement(wrapper);
-        } else {
-          wrapSelectionInTag(tagName);
-        }
-      }
-
-      if (typeof document.execCommand === 'function') {
-        runExecCommand(command);
-      }
-
-      restoreSelectionRange(preservedRange);
-      emitChange();
-      requestAnimationFrame(() => {
-        if (editor) editor.focus();
-        syncToolbarStateFromSelection();
-      });
-      return;
-    }
-
-    restoreSelection();
-    if (typeof document.execCommand === 'function') {
-      runExecCommand(command);
-    }
-
-    if (editor && preservedRange) {
-      const nextSelection = window.getSelection();
-      if (nextSelection) {
-        try {
-          const restoredRange = preservedRange.cloneRange();
-          if (editor.contains(restoredRange.startContainer) && editor.contains(restoredRange.endContainer)) {
-            nextSelection.removeAllRanges();
-            nextSelection.addRange(restoredRange);
-          }
-        } catch {
-          // keep the actual browser selection state and resync from the DOM below
-        }
-      }
-    }
-
-    emitChange();
-    requestAnimationFrame(() => {
-      if (editor) editor.focus();
-      syncToolbarStateFromSelection();
-    });
   };
 
   const insertLink = () => {

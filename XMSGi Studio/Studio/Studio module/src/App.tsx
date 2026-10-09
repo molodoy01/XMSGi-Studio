@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { useStudioChats } from './hooks/useStudioChats';
 import type { NotificationState } from './types';

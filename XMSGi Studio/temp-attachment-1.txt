@@ -1,2 +1,0 @@
-﻿Attachment-only studio validation
-temp-attachment-1.txt

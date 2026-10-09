@@ -1,0 +1,53 @@
+name: Release checks
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: 'XMSGi Studio/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: XMSGi Studio
+        run: npm ci
+
+      - name: Lint
+        working-directory: XMSGi Studio
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: XMSGi Studio
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: XMSGi Studio
+        run: npm test -- --reporter=dot
+
+      - name: Build portable release
+        working-directory: XMSGi Studio
+        run: npm run dist
+
+      - name: Upload portable artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: XMSGi-Studio-portable
+          path: 'XMSGi Studio/release/*.exe'
