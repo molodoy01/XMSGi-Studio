@@ -89,6 +89,7 @@
       ]
     },
     "linux": {
+      "maintainer": "XMSGi Studio",
       "icon": "../Studio/Studio module/src/assets/logo.png",
       "category": "Utility",
       "target": [

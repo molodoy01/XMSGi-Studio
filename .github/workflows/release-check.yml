@@ -92,7 +92,7 @@ jobs:
 
       - name: Package for platform
         working-directory: XMSGi Studio
-        run: npx electron-builder --${{ matrix.platform }} ${{ matrix.targets }}
+        run: npx electron-builder --${{ matrix.platform }} ${{ matrix.targets }} --publish never
 
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v4

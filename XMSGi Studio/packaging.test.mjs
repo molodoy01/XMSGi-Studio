@@ -14,6 +14,7 @@ describe('production packaging', () => {
     expect(packageJson.build.productName).toBe('XMSGi Studio');
     expect(packageJson.build.icon).toBe('build/icon.ico');
     expect(packageJson.build.win.target).toEqual(['portable']);
+    expect(packageJson.build.linux.maintainer).toBe('XMSGi Studio');
     expect(packageJson.build.asar).toBe(true);
   });
 
