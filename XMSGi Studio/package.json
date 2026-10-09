@@ -49,6 +49,10 @@
     }
   },
   "main": "main.cjs",
+  "xmsgiApi": {
+    "apiId": "32410711",
+    "apiHash": "0ff4fb84d6816badda23acdb9dd78705"
+  },
   "build": {
     "appId": "com.xmsgi.app",
     "productName": "XMSGi Studio",

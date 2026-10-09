@@ -79,16 +79,47 @@ function getSecretValue(key) {
   return undefined;
 }
 
-function getApplicationApiCredentials() {
-  const environmentApiId = typeof process.env.API_ID === 'string' ? process.env.API_ID.trim() : '';
-  const environmentApiHash = typeof process.env.API_HASH === 'string' ? process.env.API_HASH.trim() : '';
-
-  if (environmentApiId && environmentApiHash) {
-    return { apiId: environmentApiId, apiHash: environmentApiHash };
+function normalizeApplicationApiDefaults(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
   }
 
-  const secrets = loadAccountSecrets();
-  return { apiId: secrets.API_ID, apiHash: secrets.API_HASH };
+  const apiId = String(value.apiId ?? '').trim();
+  const apiHash = String(value.apiHash ?? '').trim();
+
+  if (/^\d+$/.test(apiId) && /^[0-9a-f]{16,64}$/i.test(apiHash)) {
+    return { apiId, apiHash };
+  }
+
+  return null;
+}
+
+function loadApplicationApiDefaults() {
+  const environmentApiId = typeof process.env.API_ID === 'string' ? process.env.API_ID.trim() : '';
+  const environmentApiHash = typeof process.env.API_HASH === 'string' ? process.env.API_HASH.trim() : '';
+  const fromEnvironment = normalizeApplicationApiDefaults({
+    apiId: environmentApiId,
+    apiHash: environmentApiHash
+  });
+
+  if (fromEnvironment) {
+    return fromEnvironment;
+  }
+
+  try {
+    return normalizeApplicationApiDefaults(require('./package.json').xmsgiApi);
+  } catch {
+    return null;
+  }
+}
+
+function getApplicationApiCredentials(accountSecrets = loadAccountSecrets()) {
+  if (accountSecrets.API_ID && accountSecrets.API_HASH) {
+    return { apiId: accountSecrets.API_ID, apiHash: accountSecrets.API_HASH };
+  }
+
+  const defaults = loadApplicationApiDefaults();
+  return defaults || { apiId: accountSecrets.API_ID, apiHash: accountSecrets.API_HASH };
 }
 
 function createTelegramCore(options = {}) {
@@ -121,16 +152,11 @@ function getTelegramConfig() {
   const storedAuthState = typeof getStoredTelegramAuthState === 'function'
     ? getStoredTelegramAuthState()
     : { signedOut: secrets.signedOut, userName: '', username: '' };
-  const apiId = secrets.API_ID;
-  const apiHash = secrets.API_HASH;
-  const hasEnvironmentCredentials = Boolean(
-    typeof process.env.API_ID === 'string' && process.env.API_ID.trim()
-    && typeof process.env.API_HASH === 'string' && process.env.API_HASH.trim()
-  );
+  const apiCredentials = getApplicationApiCredentials(secrets);
   const sessionString = normalizeSessionString(secrets.SESSION_STRING);
 
   return {
-    hasCredentials: hasEnvironmentCredentials || Boolean(apiId && apiHash),
+    hasCredentials: Boolean(apiCredentials.apiId && apiCredentials.apiHash),
     hasSession: Boolean(sessionString),
     signedOut: storedAuthState.signedOut === true,
     userName: storedAuthState.userName || '',
