@@ -75,6 +75,16 @@ When Studio is embedded, the Host `useScheduler` runtime is authoritative for sc
 
 If the scheduler prop is omitted, Studio uses `useStudioScheduler` as a standalone fallback. It is a separate, simpler implementation and is not the source of truth for embedded History/Archive workflows. Keep changes to the two paths aligned and covered independently; do not combine them into one scheduler until standalone support requirements are decided.
 
+## Documentation
+
+Full documentation lives in the [`docs/`](docs/README.md) directory:
+
+- [User guide](docs/ru/user-guide.md) — features, modes, installation, workflows (RU)
+- [Architecture](docs/ru/architecture.md) — process layers, modules, data flows (RU)
+- [Development](docs/ru/development.md) — setup, commands, tests, conventions (RU)
+- [Security and privacy](docs/ru/security.md) — storage, encryption, trust boundaries (RU)
+- [IPC reference](docs/ru/ipc-reference.md) — renderer ⇄ main channels (RU)
+
 ## Security and privacy
 
 XMSGi Studio keeps Telegram data local to the device. Session and account data are stored in the user data directory, and secure storage is used where the platform supports it.
