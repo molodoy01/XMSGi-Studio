@@ -8,6 +8,7 @@ const studioEntry = fileURLToPath(new URL('../Studio/Studio module/src/App.tsx',
 const sharedRoot = fileURLToPath(new URL('./packages/shared', import.meta.url));
 const appSrcRoot = fileURLToPath(new URL('./src', import.meta.url));
 const studioSrcRoot = fileURLToPath(new URL('../Studio/Studio module/src', import.meta.url));
+const lucideReactRoot = fileURLToPath(new URL('./node_modules/lucide-react', import.meta.url));
 
 function resolveProjectFile(baseRoot: string, specifier: string) {
   const trimmed = specifier.replace(/^@shared\/?/, '').replace(/^@\/?/, '');
@@ -51,6 +52,10 @@ function studioAwareAliasPlugin() {
 export default defineConfig({
   base: './',
   plugins: [react(), studioAwareAliasPlugin()],
+  resolve: {
+    alias: [{ find: /^lucide-react$/, replacement: lucideReactRoot }],
+    dedupe: ['react', 'react-dom', 'lucide-react'],
+  },
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 1200,
