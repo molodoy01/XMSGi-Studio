@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { editorHtmlToRichText, markdownToRichText } from './richText';
+import { editorHtmlToRichText, markdownToRichText, richTextToHtml } from './richText';
 
 describe('markdownToRichText', () => {
   it('converts strong and emphasis markers into entities', () => {
@@ -61,5 +61,12 @@ describe('markdownToRichText', () => {
       ],
       markdownChanged: true,
     });
+  });
+});
+
+describe('richTextToHtml message normalization', () => {
+  it('removes invisible characters and keeps formatting aligned in previews', () => {
+    expect(richTextToHtml('A\u200BB', [{ type: 'bold', offset: 2, length: 1 }]))
+      .toBe('A<strong>B</strong>');
   });
 });

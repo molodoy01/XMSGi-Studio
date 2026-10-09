@@ -19,7 +19,6 @@ import {
   hasDraftContent,
   readInitialWorkspaceDraft,
   readWorkspaceDraftStoreFallback,
-  WORKSPACE_DRAFT_KEY,
 } from '../lib/draftStore';
 import type { WorkspaceDraft } from '../lib/draftStore';
 import { normalizeRichTextEntities } from '../lib/richText';
@@ -513,7 +512,6 @@ export function WorkspacePage({
   setDate,
   setTime,
   handleSchedule,
-  handleCancelMessage,
   handleSendDraftNow,
   publishingDraft,
   onRegisterHistoryDraftOpener,
@@ -609,7 +607,7 @@ export function WorkspacePage({
   const [previewHistoryErrorRetryable, setPreviewHistoryErrorRetryable] = useState(false);
   const [previewHistoryRetry, setPreviewHistoryRetry] = useState(0);
   const [chatLookupError, setChatLookupError] = useState('');
-  const [chatWallpaper, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
+  const [, setChatWallpaper] = useState<ChatWallpaper>(() => readChatWallpaper());
   const [chatListOpen, setChatListOpen] = useState(false);
   const [publishMenuOpen, setPublishMenuOpen] = useState(false);
   const [sendInFlight, setSendInFlight] = useState(false);
@@ -1016,26 +1014,6 @@ export function WorkspacePage({
     hour: '2-digit',
     minute: '2-digit',
   });
-  const scheduleSummary = (() => {
-    if (!date || !time) return 'Schedule';
-
-    const dateValue = new Date(date);
-    if (Number.isNaN(dateValue.getTime())) return 'Schedule';
-
-    const dateLocale = locale === 'ru' ? 'ru-RU' : 'en-US';
-    const summaryDate = new Intl.DateTimeFormat(dateLocale, {
-      month: 'short',
-      day: 'numeric',
-    }).format(dateValue);
-
-    const summaryTime = new Date(`2000-01-01T${time}`).toLocaleTimeString(dateLocale, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    return `${summaryDate} · ${summaryTime}`;
-  })();
-
   const hasDraftContentState = hasDraftContent(draftBody, attachments);
   const hasSelectedTarget = Boolean(selectedChat);
   const hasValidScheduleDate = Boolean(date && !Number.isNaN(new Date(`${date}T12:00:00`).getTime()));
@@ -2076,9 +2054,6 @@ export function WorkspacePage({
                         <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                         <circle cx="12" cy="12" r="2.65" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.22" />
-                        <g className="workspace-page-preview-eyelashes">
-                          <path d="M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8" fill="none" stroke="#c2d8e5" strokeWidth="1.4" strokeLinecap="round" />
-                        </g>
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2113,15 +2088,17 @@ export function WorkspacePage({
                   >
                     {t('studio.templates')}
                   </button>
-                  <button
-                    type="button"
-                    className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'draft' ? 'is-active' : ''}`}
-                    onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
-                    aria-pressed={stageMode === 'draft'}
-                    title={t('studio.openDrafts')}
-                  >
-                    {t('studio.draftModeButton')}
-                  </button>
+                  {(publishAction !== 'schedule' && stageMode !== 'schedule') && (
+                    <button
+                      type="button"
+                      className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'draft' ? 'is-active' : ''}`}
+                      onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
+                      aria-pressed={stageMode === 'draft'}
+                      title={t('studio.openDrafts')}
+                    >
+                      {t('studio.draftModeButton')}
+                    </button>
+                  )}
                   {(publishAction === 'schedule' || stageMode === 'schedule') && (
                     <div className="workspace-page-schedule-compact-group" aria-label={t('studio.scheduleTools')}>
                       <button
@@ -2159,8 +2136,8 @@ export function WorkspacePage({
                       {publishAction === 'schedule'
                         ? (scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule'))
                         : publishAction === 'draft'
-                          ? t('studio.saveDraft')
-                          : (publishingDraft ? t('studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendNow'))}
+                          ? t('studio.saveAction')
+                          : (publishingDraft ? t('studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendAction'))}
                     </span>
                   </button>
                   <button

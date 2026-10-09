@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider } from '@/lib/i18n';
-import type { Chat } from '@/types';
+import type { Chat, RichTextEntity } from '@/types';
 import { ChatPreviewStand } from './ChatPreviewStand';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -10,7 +10,11 @@ import { ChatPreviewStand } from './ChatPreviewStand';
 const wallpaperStorageKey = 'awaitmsg-chat-preview-wallpaper';
 const chat: Chat = { id: 'chat-1', name: 'Telegram', username: 'telegram', type: 'channel' };
 
-function renderChatPreviewStand(attachments: { name: string; path: string; previewUrl?: string }[] = []) {
+function renderChatPreviewStand(
+  attachments: { name: string; path: string; previewUrl?: string }[] = [],
+  draftText = '',
+  draftEntities: RichTextEntity[] = [],
+) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
@@ -26,8 +30,8 @@ function renderChatPreviewStand(attachments: { name: string; path: string; previ
           previewHistory={null}
           previewHistoryLoading={false}
           previewFeedRef={previewFeedRef}
-          draftText=""
-          draftEntities={[]}
+          draftText={draftText}
+          draftEntities={draftEntities}
           inlineButtons={[]}
           attachments={attachments}
           previewTime=""
@@ -74,6 +78,29 @@ describe('ChatPreviewStand wallpaper picker', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     window.localStorage.clear();
+  });
+
+  it('renders sanitized text and keeps formatting in the live preview', () => {
+    const { container, unmount } = renderChatPreviewStand([], 'A\u200BB', [
+      { type: 'bold', offset: 2, length: 1 },
+    ]);
+
+    try {
+      expect(container.querySelector('.chat-preview-message')?.innerHTML).toBe('A<strong>B</strong>');
+    } finally {
+      unmount();
+    }
+  });
+
+  it('renders Markdown loaded from a template like Telegram will render it', () => {
+    const { container, unmount } = renderChatPreviewStand([], '**ДЕЙСТВУЙ**\n**[Название]**');
+
+    try {
+      expect(container.querySelector('.chat-preview-message')?.innerHTML)
+        .toBe('<strong>ДЕЙСТВУЙ</strong><br><strong>[Название]</strong>');
+    } finally {
+      unmount();
+    }
   });
 
   it('shows wallpaper presets in the web preview and groups chat controls under settings', () => {

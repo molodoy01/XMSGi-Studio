@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config vite.config.js",
     "preview": "vite preview",
     "electron": "electron .",
     "start": "npm run build && electron ."

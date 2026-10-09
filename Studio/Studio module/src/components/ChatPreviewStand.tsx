@@ -6,6 +6,7 @@ import type { Chat, PreviewChatHistory, RichTextEntity } from '@/types';
 import { toInlineKeyboardMarkup, type InlineButtonRow } from '@/lib/inlineKeyboard';
 import { useLocale } from '@/lib/i18n';
 import { InlineKeyboardPreview } from '@/components/InlineKeyboardPreview';
+import { normalizeTelegramMessage } from '@shared/telegramText.cjs';
 import { richTextToHtml } from '@/lib/richText';
 import './ChatPreviewStand.css';
 
@@ -377,13 +378,14 @@ export function ChatPreviewStand({
   );
   const imageAttachments = attachments.filter(isImageAttachment);
   const documentAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
-  const linkEntities = draftEntities.filter((entity) => entity.type === 'text_url' && entity.url);
+  const normalizedDraft = normalizeTelegramMessage(draftText, draftEntities);
+  const linkEntities = normalizedDraft.entities.filter((entity) => entity.type === 'text_url' && entity.url);
   const normalizedChatSearch = chatSearchQuery.trim().toLocaleLowerCase();
   const visibleChats = chats.filter((chat) => (
     !normalizedChatSearch
     || `${chat.name} ${chat.username ?? ''} ${chat.type ?? ''}`.toLocaleLowerCase().includes(normalizedChatSearch)
   ));
-  const hasDraft = Boolean(draftText.trim() || attachments.length);
+  const hasDraft = Boolean(normalizedDraft.message.trim() || attachments.length);
   const wallpaperImage = customWallpaperImage;
   const wallpaperStyle = {
     ...(wallpaperTheme === 'custom' && wallpaperImage ? { backgroundImage: `url(${wallpaperImage})` } : {}),
@@ -744,14 +746,14 @@ export function ChatPreviewStand({
                       ))}
                     </div>
                   )}
-                  {draftText.trim() && (
-                    <div className="chat-preview-message" dangerouslySetInnerHTML={{ __html: richTextToHtml(draftText, draftEntities) }} />
+                  {normalizedDraft.message.trim() && (
+                    <div className="chat-preview-message" dangerouslySetInnerHTML={{ __html: richTextToHtml(normalizedDraft.message, normalizedDraft.entities) }} />
                   )}
                   <div className="chat-preview-meta"><time>{previewTime}</time><span aria-label="Sent">✓✓</span></div>
                   <InlineKeyboardPreview markup={toInlineKeyboardMarkup(inlineButtons)} />
                   {linkEntities.length > 0 && (
                     <div className="chat-preview-inline-keyboard">
-                      {linkEntities.map((entity, index) => <a href={entity.url} target="_blank" rel="noreferrer" key={`${entity.url}-${index}`}>{getEntityText(draftText, entity)}</a>)}
+                      {linkEntities.map((entity, index) => <a href={entity.url} target="_blank" rel="noreferrer" key={`${entity.url}-${index}`}>{getEntityText(normalizedDraft.message, entity)}</a>)}
                     </div>
                   )}
                 </article>

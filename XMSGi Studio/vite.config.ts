@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const studioEntry = fileURLToPath(new URL('./Studio/Studio module/src/App.tsx', import.meta.url));
+const studioEntry = fileURLToPath(new URL('../Studio/Studio module/src/App.tsx', import.meta.url));
 const sharedRoot = fileURLToPath(new URL('./packages/shared', import.meta.url));
 const appSrcRoot = fileURLToPath(new URL('./src', import.meta.url));
-const studioSrcRoot = fileURLToPath(new URL('./Studio/Studio module/src', import.meta.url));
+const studioSrcRoot = fileURLToPath(new URL('../Studio/Studio module/src', import.meta.url));
 
 function resolveProjectFile(baseRoot: string, specifier: string) {
   const trimmed = specifier.replace(/^@shared\/?/, '').replace(/^@\/?/, '');

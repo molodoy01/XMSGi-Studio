@@ -45,14 +45,14 @@ npm run dist
 
 ## Studio architecture
 
-The Electron host lives in `XMSGi/`. It owns the window, Telegram session and IPC bridge. The React host mounts Studio through `src/workspace/StudioMount.tsx`; the Vite `$studio` alias resolves that import to `Studio/Studio module/src/App.tsx`.
+The Electron host owns the window, Telegram session and IPC bridge. The React host mounts Studio through `src/workspace/StudioMount.tsx`; the Vite `$studio` alias resolves that import to the shared `../Studio/Studio module/src/App.tsx`.
 
 The embedded Studio source is kept as a separate Vite/React module:
 
-- `Studio/Studio module/src/App.tsx` composes the Studio workspace and scheduler.
-- `Studio/Studio module/src/pages/WorkspacePage.tsx` owns the workspace page.
-- `Studio/Studio module/src/components/stages/` contains the chat, schedule, draft, template and inline-button stages.
-- `Studio/Studio module/src/services/` adapts publishing operations to the Telegram bridge.
+- `../Studio/Studio module/src/App.tsx` composes the Studio workspace and scheduler.
+- `../Studio/Studio module/src/pages/WorkspacePage.tsx` owns the workspace page.
+- `../Studio/Studio module/src/components/stages/` contains the chat, schedule, draft, template and inline-button stages.
+- `../Studio/Studio module/src/services/` adapts publishing operations to the Telegram bridge.
 - `packages/shared/` provides types, translations and utilities used by both host and Studio.
 - `XMSGi/telegram-errors.cjs` classifies Telegram errors; the account rate-limit interceptor waits and retries FloodWaits. IPC passes error category and retry metadata to Studio's operation-aware error handler.
 

@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Chat, NotificationState, ScheduledMessage } from '@/types';
+import type { Chat, NotificationState, PersistedDraftStore, ScheduledMessage } from '@/types';
+import type { WorkspaceDraft } from '../lib/draftStore';
 import { LocaleProvider } from '@/lib/i18n';
 import { hasDraftContent, normalizeAttachments, readWorkspaceDraftStoreFallback, remapAttachmentPositions, WorkspacePage, writeWorkspaceDraftStoreFallback } from './WorkspacePage';
 
@@ -22,7 +23,15 @@ const baseNotification: NotificationState = {
   visible: false,
 };
 
-let inMemoryDraftStore: any;
+let inMemoryDraftStore: PersistedDraftStore;
+
+function getInMemoryWorkspaceDraft(): WorkspaceDraft {
+  const workspaceDraft = inMemoryDraftStore.workspaceDraft;
+  if (!workspaceDraft || typeof workspaceDraft !== 'object') {
+    throw new Error('Expected an in-memory workspace draft.');
+  }
+  return workspaceDraft as WorkspaceDraft;
+}
 
 async function renderWorkspacePage(overrides: Partial<React.ComponentProps<typeof WorkspacePage>> = {}) {
   const container = document.createElement('div');
@@ -357,7 +366,19 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('shows prominent eyelashes when the preview is hidden', async () => {
+  it('hides the drafts control while the composer is in schedule mode', async () => {
+    document.body.dataset.livePreview = 'true';
+    try {
+      const { unmount } = await renderWorkspacePage();
+      const draftButton = Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Draft');
+      expect(draftButton).toBeUndefined();
+      unmount();
+    } finally {
+      document.body.removeAttribute('data-live-preview');
+    }
+  });
+
+  it('removes the legacy preview eyelashes and keeps the compact mode row flexible', async () => {
     localStorage.setItem('xmsgi-preview-layout', JSON.stringify({ visible: true }));
     const { unmount } = await renderWorkspacePage();
     const toggle = document.querySelector<HTMLButtonElement>('button[aria-label="Hide preview"]');
@@ -369,9 +390,15 @@ describe('WorkspacePage main-screen flows', () => {
       });
 
       expect(toggle?.getAttribute('aria-label')).toBe('Show preview');
-      const sideLashes = toggle?.querySelector('.workspace-page-preview-eyelashes path');
-      expect(sideLashes?.getAttribute('d')).toBe('M4.8 15.8 3.3 17.8M19.2 15.8 20.7 17.8');
-      expect(sideLashes?.getAttribute('stroke')).toBe('#c2d8e5');
+      expect(toggle?.querySelector('.workspace-page-preview-eyelashes')).toBeNull();
+
+      const modeButtons = [...document.querySelectorAll('.workspace-page-mode-button, .workspace-page-schedule-compact-button')];
+      expect(modeButtons.length).toBeGreaterThan(0);
+      modeButtons.forEach((button) => {
+        const style = getComputedStyle(button);
+        expect(style.minWidth).not.toBe('96px');
+        expect(style.flexBasis).not.toBe('96px');
+      });
     } finally {
       unmount();
     }
@@ -581,12 +608,16 @@ describe('WorkspacePage main-screen flows', () => {
     });
     const menuToggle = document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement;
 
-    for (const label of ['Schedule', 'Save draft', 'Send now']) {
+    for (const { menuLabel, buttonLabel } of [
+      { menuLabel: 'Schedule', buttonLabel: 'Schedule' },
+      { menuLabel: 'Save draft', buttonLabel: 'Save draft' },
+      { menuLabel: 'Send now', buttonLabel: 'Send now' },
+    ]) {
       await act(async () => {
         menuToggle.click();
       });
       const option = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
-        .find((button) => button.textContent?.trim() === label) as HTMLButtonElement;
+        .find((button) => button.textContent?.trim() === menuLabel) as HTMLButtonElement;
 
       expect(option).toBeTruthy();
       expect(option.disabled).toBe(false);
@@ -596,10 +627,10 @@ describe('WorkspacePage main-screen flows', () => {
       });
 
       const primaryLabel = document.querySelector('.workspace-page-publish-trigger-main')?.textContent?.trim();
-      expect(primaryLabel).toBe(label);
+      expect(primaryLabel).toBe(buttonLabel);
       expect((document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).disabled).toBe(false);
 
-      if (label === 'Schedule') {
+      if (menuLabel === 'Schedule') {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).toBeNull();
         const timeButton = Array.from(document.querySelectorAll('.workspace-page-schedule-compact-button'))
           .find((button) => button.textContent?.trim() === 'Time') as HTMLButtonElement;
@@ -610,7 +641,7 @@ describe('WorkspacePage main-screen flows', () => {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).not.toBeNull();
       }
 
-      if (label === 'Save draft') {
+      if (menuLabel === 'Save draft') {
         expect(document.querySelector('.workspace-page-rich-text-schedule-stage.is-active')).toBeNull();
       }
     }
@@ -1119,9 +1150,9 @@ describe('WorkspacePage main-screen flows', () => {
     await openDraftsStage();
     const footer = document.querySelector('.workspace-page-draft-stage-footer');
     const exportButton = Array.from(footer?.querySelectorAll('button') ?? [])
-      .find((button) => button.textContent?.trim() === 'Export all drafts') as HTMLButtonElement;
+      .find((button) => button.getAttribute('aria-label') === 'Export all drafts') as HTMLButtonElement;
     const importButton = Array.from(footer?.querySelectorAll('button') ?? [])
-      .find((button) => button.textContent?.trim() === 'Import drafts') as HTMLButtonElement;
+      .find((button) => button.getAttribute('aria-label') === 'Import drafts') as HTMLButtonElement;
 
     expect(exportButton).toBeTruthy();
     expect(importButton).toBeTruthy();
@@ -1149,7 +1180,7 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(window.draftStorage.exportBackup).toHaveBeenCalledTimes(1);
     expect(window.draftStorage.importBackup).toHaveBeenCalledTimes(1);
-    expect(inMemoryDraftStore.workspaceDraft.body).toBe('Latest unsaved text');
+    expect(getInMemoryWorkspaceDraft().body).toBe('Latest unsaved text');
     expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Drafts imported.');
     unmount();
   });
@@ -1987,7 +2018,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Recovered rich draft');
       expect(savedDraft.entities).toEqual([{ type: 'bold', offset: 0, length: 20 }]);
       expect(savedDraft.selectedChat).toMatchObject({ id: chatA.id, name: chatA.name });
@@ -2036,7 +2067,7 @@ describe('WorkspacePage main-screen flows', () => {
         vi.advanceTimersByTime(200);
       });
 
-      let savedDraft = inMemoryDraftStore.workspaceDraft;
+      let savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Hello world');
 
       await act(async () => {
@@ -2045,7 +2076,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      savedDraft = inMemoryDraftStore.workspaceDraft;
+      savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Autosave draft 1');
 
       unmount();
@@ -2084,7 +2115,7 @@ describe('WorkspacePage main-screen flows', () => {
 
       window.dispatchEvent(new Event('beforeunload'));
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toBe('Draft before close');
 
       unmount();
@@ -2116,7 +2147,7 @@ describe('WorkspacePage main-screen flows', () => {
         await Promise.resolve();
       });
 
-      const savedDraft = inMemoryDraftStore.workspaceDraft;
+      const savedDraft = getInMemoryWorkspaceDraft();
       expect(savedDraft.body).toContain('Reloaded draft text');
 
       unmount();

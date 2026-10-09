@@ -161,7 +161,11 @@ function createLogoHarness() {
   document.body.appendChild(container);
   const root = createRoot(container);
   const animation = { cancel: vi.fn(), onfinish: null } as unknown as Animation;
-  const animate = vi.fn((_frames: Keyframe[], _options?: KeyframeAnimationOptions) => animation);
+  const animate = vi.fn((frames: Keyframe[], options?: KeyframeAnimationOptions) => {
+    void frames;
+    void options;
+    return animation;
+  });
   const previousAnimate = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'animate');
   const previousImageBounds = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'getBoundingClientRect');
   Object.defineProperty(HTMLImageElement.prototype, 'animate', { configurable: true, value: animate });
@@ -1154,7 +1158,7 @@ describe('WorkspaceTextStage editor flows', () => {
   it('pastes clipboard images as attachments without inserting binary data into text', () => {
     const onAddFiles = vi.fn();
     const onChange = vi.fn();
-    const { container, editor, unmount } = renderRichTextEditor({ onAddFiles, onChange });
+    const { editor, unmount } = renderRichTextEditor({ onAddFiles, onChange });
     const image = new File(['clipboard-image'], 'clipboard.png', { type: 'image/png' });
     const paste = new Event('paste', { bubbles: true, cancelable: true });
     Object.defineProperty(paste, 'clipboardData', {
@@ -1327,7 +1331,11 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(container.querySelector('.workspace-page-rich-text-empty-logo')).toBeNull();
 
     const animation = { cancel: vi.fn(), onfinish: null } as unknown as Animation;
-    const animate = vi.fn((_keyframes: Keyframe[], _options?: KeyframeAnimationOptions) => animation);
+    const animate = vi.fn((keyframes: Keyframe[], options?: KeyframeAnimationOptions) => {
+      void keyframes;
+      void options;
+      return animation;
+    });
     Object.defineProperty(HTMLImageElement.prototype, 'animate', { configurable: true, value: animate });
     Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
       configurable: true,

@@ -19,8 +19,6 @@ import { useLocale } from '@/lib/i18n';
 import { loadSavedDrafts } from '@/lib/storage';
 import type { InlineButtonRow } from '@/lib/inlineKeyboard';
 import type { ScheduleRepeatOptions } from '@/lib/scheduling';
-import { normalizeAttachments } from '@/lib/draftAttachments';
-import { normalizeRichTextEntities } from '@/lib/richText';
 
 type WorkspaceDraftState = {
   body: string;
@@ -142,7 +140,11 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
       ...workspace,
       attachments: workspace.attachments
         .filter((attachment) => attachment.path)
-        .map(({ previewUrl: _previewUrl, ...attachment }) => attachment),
+        .map((attachment) => {
+          const persistedAttachment = { ...attachment };
+          delete persistedAttachment.previewUrl;
+          return persistedAttachment;
+        }),
       savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     } satisfies WorkspaceDraft;
   };

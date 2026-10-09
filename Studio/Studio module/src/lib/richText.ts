@@ -1,4 +1,9 @@
 import type { RichTextEntity, RichTextEntityType } from '@/types';
+import {
+  markdownToRichText as parseTelegramMarkdown,
+  normalizeTelegramMessage,
+  normalizeTelegramText,
+} from '@shared/telegramText.cjs';
 
 const ENTITY_TYPES: RichTextEntityType[] = [
   'bold',
@@ -121,9 +126,7 @@ function escapeHtml(value: string): string {
 }
 
 export function normalizeEditorText(value: string): string {
-  return value
-    .replace(/\u00A0/g, ' ')
-    .replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+  return normalizeTelegramText(value);
 }
 
 export function sanitizeEditorDom(root: Node): void {
@@ -150,10 +153,11 @@ function escapeAttribute(value: string): string {
 }
 
 export function richTextToHtml(text: string, entities: RichTextEntity[]): string {
-  const safeText = normalizeEditorText(text);
+  const normalizedMessage = normalizeTelegramMessage(text, entities);
+  const safeText = normalizedMessage.message;
   if (!safeText) return '';
 
-  const normalized = normalizeRichTextEntities(entities, safeText.length);
+  const normalized = normalizeRichTextEntities(normalizedMessage.entities, safeText.length);
   const boundaries = new Set([0, safeText.length]);
   normalized.forEach((entity) => {
     boundaries.add(entity.offset);
@@ -180,132 +184,16 @@ export function richTextToHtml(text: string, entities: RichTextEntity[]): string
   }).join('');
 }
 
-type MarkdownDelimiter = {
-  marker: '*' | '**' | '~~';
-  type: RichTextEntityType;
-  start: number;
-  end: number;
-};
-
-type MarkdownPair = {
-  opener: MarkdownDelimiter;
-  closeStart: number;
-  closeEnd: number;
-};
-
 export function markdownToRichText(source: string): {
   text: string;
   entities: RichTextEntity[];
   sourceOffsetMap: number[];
   changed: boolean;
 } {
-  const removed = new Uint8Array(source.length);
-  const escaped = new Uint8Array(source.length);
-  const stack: MarkdownDelimiter[] = [];
-  const pairs: MarkdownPair[] = [];
-
-  for (let index = 0; index < source.length;) {
-    if (source[index] === '\\') {
-      const start = index;
-      while (source[index] === '\\') index += 1;
-      const slashCount = index - start;
-      if (source[index] === '*' || source[index] === '~') {
-        for (let pair = 0; pair < Math.floor(slashCount / 2); pair += 1) {
-          removed[start + pair * 2 + 1] = 1;
-        }
-        if (slashCount % 2 === 1) {
-          removed[index - 1] = 1;
-          escaped[index] = 1;
-        }
-      }
-      continue;
-    }
-
-    const character = source[index];
-    if (character !== '*' && character !== '~') {
-      index += 1;
-      continue;
-    }
-
-    let runEnd = index + 1;
-    while (source[runEnd] === character) runEnd += 1;
-    const runLength = runEnd - index;
-    if (escaped[index] || (character === '~' && runLength < 2)) {
-      index = runEnd;
-      continue;
-    }
-
-    let remaining = runLength;
-    let consumed = 0;
-    const previousCharacter = source[index - 1];
-    const nextCharacter = source[runEnd];
-    const canClose = previousCharacter !== undefined && !/\s/u.test(previousCharacter);
-    const canOpen = nextCharacter !== undefined && !/\s/u.test(nextCharacter);
-
-    if (canClose) {
-      while (stack.length > 0) {
-        const opener = stack[stack.length - 1];
-        if (opener.marker[0] !== character || opener.marker.length > remaining) break;
-
-        const closeStart = index + consumed;
-        pairs.push({ opener, closeStart, closeEnd: closeStart + opener.marker.length });
-        stack.pop();
-        consumed += opener.marker.length;
-        remaining -= opener.marker.length;
-      }
-    }
-
-    if (canOpen) {
-      while (remaining > 0) {
-        const marker: MarkdownDelimiter['marker'] = character === '~'
-          ? remaining >= 2 ? '~~' : '*'
-          : remaining >= 2 ? '**' : '*';
-        if (character === '~' && remaining < 2) break;
-
-        const type: RichTextEntityType = marker === '**'
-          ? 'bold'
-          : marker === '~~'
-            ? 'strikethrough'
-            : 'italic';
-        const start = index + consumed;
-        stack.push({ marker, type, start, end: start + marker.length });
-        consumed += marker.length;
-        remaining -= marker.length;
-      }
-    }
-
-    index = runEnd;
-  }
-
-  pairs.forEach(({ opener, closeStart, closeEnd }) => {
-    for (let index = opener.start; index < opener.end; index += 1) removed[index] = 1;
-    for (let index = closeStart; index < closeEnd; index += 1) removed[index] = 1;
-  });
-
-  const output: string[] = [];
-  let outputLength = 0;
-  const sourceOffsetMap = new Array<number>(source.length + 1);
-  for (let index = 0; index < source.length; index += 1) {
-    sourceOffsetMap[index] = outputLength;
-    if (!removed[index]) {
-      output.push(source[index]);
-      outputLength += 1;
-    }
-  }
-  sourceOffsetMap[source.length] = outputLength;
-  const text = output.join('');
-
-  const entities = pairs.flatMap(({ opener, closeStart }) => {
-    const offset = sourceOffsetMap[opener.end];
-    const end = sourceOffsetMap[closeStart];
-    return end > offset ? [{ type: opener.type, offset, length: end - offset }] : [];
-  });
-
+  const parsed = parseTelegramMarkdown(source);
   return {
-    text,
-    entities: mergeRichTextEntities(entities),
-    sourceOffsetMap,
-    changed: removed.some((marker) => marker === 1),
+    ...parsed,
+    entities: mergeRichTextEntities(parsed.entities as RichTextEntity[]),
   };
 }
 

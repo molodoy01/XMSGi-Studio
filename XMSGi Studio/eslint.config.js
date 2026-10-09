@@ -11,9 +11,6 @@ export default tseslint.config(
       '**/release/**',
       '**/node_modules/**',
       '**/*.cjs',
-      'Studio/Studio module/debug-check.mjs',
-      'Studio/Studio module/debug-react.mjs',
-      'Studio/Studio module/debug-selection.js',
     ]
   },
   js.configs.recommended,

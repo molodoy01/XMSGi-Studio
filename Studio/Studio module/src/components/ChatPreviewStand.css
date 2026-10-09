@@ -1,3 +1,57 @@
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-cyrillic-400-normal.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-cyrillic-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-cyrillic-700-normal.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/roboto-cyrillic-ext-700-normal.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
 .chat-preview-stand {
   position: relative;
   display: flex;
@@ -840,9 +894,13 @@ img.chat-preview-avatar,
 }
 
 .chat-preview-bubble.is-outgoing.chat-preview-draft-bubble {
-  background: #2b5278;
-  border: 0;
-  backdrop-filter: none;
+  background:
+    linear-gradient(145deg, rgba(226, 255, 255, 0.12), rgba(130, 204, 211, 0.035) 46%, rgba(4, 25, 32, 0.2)),
+    linear-gradient(135deg, #36727c 0%, #28545e 52%, #1a3d46 100%);
+  border: 1px solid rgba(157, 218, 222, 0.4);
+  box-shadow: inset 0 1px 0 rgba(237, 255, 255, 0.14), 0 6px 18px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
 }
 
 .chat-preview-bubble.is-outgoing.chat-preview-draft-bubble::after {
@@ -851,7 +909,7 @@ img.chat-preview-avatar,
   bottom: 0;
   width: 7px;
   height: 9px;
-  background: #2b5278;
+  background: #183741;
   clip-path: polygon(0 0, 100% 100%, 0 100%);
   content: '';
 }
@@ -863,11 +921,13 @@ img.chat-preview-avatar,
   max-width: min(78%, 340px);
   min-width: 0;
   padding: 7px 10px 6px;
-  border: 0;
+  border: 1px solid rgba(164, 190, 210, 0.2);
   border-radius: 12px 12px 12px 3px;
-  background: #182533;
+  background:
+    linear-gradient(145deg, rgba(222, 239, 255, 0.09), rgba(115, 151, 179, 0.025) 50%, rgba(6, 12, 20, 0.18)),
+    linear-gradient(135deg, #202e3c 0%, #162230 100%);
   color: #e7edf3;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 0 rgba(239, 249, 255, 0.07), 0 2px 7px rgba(0, 0, 0, 0.14);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -878,7 +938,7 @@ img.chat-preview-avatar,
   left: -5px;
   width: 7px;
   height: 9px;
-  background: #182533;
+  background: #162230;
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
   content: '';
 }
@@ -886,13 +946,16 @@ img.chat-preview-avatar,
 .chat-preview-history-entry.is-outgoing {
   align-self: flex-end;
   border-radius: 12px 12px 3px 12px;
-  background: #2b5278;
+  border-color: rgba(164, 207, 236, 0.28);
+  background:
+    linear-gradient(145deg, rgba(225, 248, 255, 0.15), rgba(106, 163, 205, 0.035) 48%, rgba(5, 20, 37, 0.18)),
+    linear-gradient(135deg, #376b94 0%, #264c70 100%);
 }
 
 .chat-preview-history-entry.is-outgoing::before {
   right: -5px;
   left: auto;
-  background: #2b5278;
+  background: #264c70;
   clip-path: polygon(0 0, 100% 100%, 0 100%);
 }
 
