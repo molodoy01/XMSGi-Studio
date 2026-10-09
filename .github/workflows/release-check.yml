@@ -12,7 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  windows-release:
+  verify:
+    name: Lint, typecheck, and test
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -21,7 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: 'XMSGi Studio/package-lock.json'
 
@@ -41,13 +42,62 @@ jobs:
         working-directory: XMSGi Studio
         run: npm test -- --reporter=dot
 
-      - name: Build portable release
-        working-directory: XMSGi Studio
-        run: npm run dist
+  package:
+    name: Package ${{ matrix.artifact_name }}
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: win
+            targets: portable --x64
+            artifact_name: windows-x64
+            artifact_path: XMSGi Studio/release/*.exe
+          - runner: ubuntu-latest
+            platform: linux
+            targets: AppImage deb --x64
+            artifact_name: linux-x64
+            artifact_path: |
+              XMSGi Studio/release/*.AppImage
+              XMSGi Studio/release/*.deb
+          - runner: macos-latest
+            platform: mac
+            targets: dmg zip --x64 --arm64
+            artifact_name: macos-x64-arm64
+            artifact_path: |
+              XMSGi Studio/release/*.dmg
+              XMSGi Studio/release/*.zip
 
-      - name: Upload portable artifact
-        if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: 'XMSGi Studio/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: XMSGi Studio
+        run: npm ci
+
+      - name: Build application
+        working-directory: XMSGi Studio
+        run: npm run build
+
+      - name: Package for platform
+        working-directory: XMSGi Studio
+        run: npx electron-builder --${{ matrix.platform }} ${{ matrix.targets }}
+
+      - name: Upload platform artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: XMSGi-Studio-portable
-          path: 'XMSGi Studio/release/*.exe'
+          name: XMSGi-Studio-${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+          retention-days: 30

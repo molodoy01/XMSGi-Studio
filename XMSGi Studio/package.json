@@ -88,6 +88,34 @@
         "portable"
       ]
     },
+    "linux": {
+      "icon": "../Studio/Studio module/src/assets/logo.png",
+      "category": "Utility",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "../Studio/Studio module/src/assets/logo.png",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ]
+    },
     "asar": true
   }
 }
