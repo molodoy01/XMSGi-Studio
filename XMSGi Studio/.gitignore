@@ -8,3 +8,6 @@ release-working-*/
 *.session
 *session*
 *.log
+/t
+desktop.ini
+vitest-*.json

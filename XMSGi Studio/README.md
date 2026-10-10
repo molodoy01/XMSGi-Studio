@@ -1,8 +1,29 @@
 # XMSGi Studio
 
+<p align="center">
+  <a href="https://github.com/molodoy01/XMSGi-Studio/releases"><img alt="Release" src="https://img.shields.io/github/v/release/molodoy01/XMSGi-Studio?style=flat-square"></a>
+  <a href="https://github.com/molodoy01/XMSGi-Studio/actions"><img alt="Build" src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square"></a>
+  <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
+</p>
+
+<p align="center">
+  <img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="860" />
+</p>
+
 Telegram scheduling for Windows, built for your own account.
 
 XMSGi Studio is a desktop app for scheduling and sending Telegram messages without a bot. It runs locally on your Windows machine and keeps the workflow simple: select a chat, write a message, schedule it, and let it send when the time arrives.
+
+## Downloads
+
+| Platform | Format | Notes |
+| --- | --- | --- |
+| Windows | Portable `.exe` | No installation required. Runs from anywhere. |
+| Linux | AppImage | Build target available via `npm run dist` on Linux. |
+| macOS | `.dmg` | Build target available via `npm run dist` on macOS. |
+
+Grab the latest build from [GitHub Releases](https://github.com/molodoy01/XMSGi-Studio/releases), or visit the [project site](https://molodoy01.github.io/XMSGi-Studio/).
 
 ## Why it exists
 

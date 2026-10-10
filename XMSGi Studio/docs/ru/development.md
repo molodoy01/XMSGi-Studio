@@ -88,8 +88,9 @@ npm --prefix "../Studio/Studio module" run build
     миграции истории, packaging;
   - рендерер (`*.test.tsx` в `src/`): хуки, страницы, компоненты;
   - Studio-модуль (в его каталоге).
-- Последние отчёты прогона лежат в корне: `vitest-final.json`,
-  `vitest-history.json`, `vitest-chat-preview.json` и др.
+- Отчёты прогона в репозиторий не коммитятся (см. `.gitignore`).
+  При необходимости сохраните JSON-отчёт вручную:
+  `npx vitest run --reporter=json --outputFile=vitest-report.json`.
 
 Рекомендуемый порядок перед PR:
 

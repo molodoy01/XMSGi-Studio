@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Download XMSGi Studio for Windows.">
+    <title>XMSGi Studio — Download</title>
+    <style>
+        :root{--bg:#08090c;--surface:#101218;--border:rgba(255,255,255,.09);--text:#f5f7fb;--muted:#9299a8;--max:1080px}
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0;background:radial-gradient(circle at 50% -10%,rgba(108,124,255,.16),transparent 38%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}
+        a{color:inherit;text-decoration:none}
+        button{font:inherit}
+        .container{width:min(calc(100% - 40px),var(--max));margin:0 auto}
+        nav{height:76px;display:flex;align-items:center;justify-content:space-between}
+        .brand{font-size:20px;font-weight:800;letter-spacing:-.045em;transform:skewX(-4deg);transform-origin:left center}
+        .nav-links{display:flex;align-items:center;gap:26px;color:var(--muted);font-size:14px}
+        .nav-links a{transition:color .2s ease}
+        .nav-links a:hover{color:var(--text)}
+        .lang-switcher{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:12px;font-weight:700}
+        .lang-button{padding:0;border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:12px}
+        .lang-button:hover,.lang-button.active{color:var(--text)}
+        .hero{padding:110px 0 80px;text-align:center}
+        .eyebrow,.section-kicker{margin:0 0 14px;color:#aeb7ff;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+        h1{max-width:900px;margin:0 auto 22px;font-size:clamp(48px,8vw,82px);line-height:.98;letter-spacing:-.07em}
+        .gradient{display:block;background:linear-gradient(110deg,#fff 20%,#8f9aff 65%,#b38aff);-webkit-background-clip:text;background-clip:text;color:transparent}
+        .hero-description{max-width:600px;margin:0 auto;color:var(--muted);font-size:18px}
+        .downloads-section{padding:0 0 110px}
+        .downloads-grid{display:grid;grid-template-columns:1fr;gap:12px;max-width:520px;margin:0 auto}
+        .download-card{padding:34px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}
+        .download-card h2{margin:0 0 8px;font-size:24px;letter-spacing:-.035em}
+        .download-card p{min-height:48px;margin:0 0 24px;color:var(--muted);font-size:14px}
+        .button{display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:46px;padding:0 20px;border-radius:10px;font-weight:700;font-size:14px;border:1px solid var(--border);transition:transform .2s ease,background .2s ease}
+        .button:hover{transform:translateY(-2px)}
+        .button.primary{background:#f5f7fb;color:#0b0c10}
+        .note{max-width:700px;margin:30px auto 0;color:var(--muted);font-size:13px;text-align:center}
+        footer{padding:30px 0 40px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+        .footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px}
+        @media(max-width:560px){.container{width:min(calc(100% - 28px),var(--max))}.nav-links a{display:none}.hero{padding-top:75px;padding-bottom:65px}h1{font-size:clamp(42px,13vw,66px)}.download-card{padding:28px 22px}.download-card p{min-height:auto}.footer-inner{flex-direction:column;align-items:flex-start}}
+    </style>
+</head>
+
+<body>
+
+<header class="container">
+    <nav>
+        <a class="brand" href="index.html">XMSGi Studio</a>
+        <div class="nav-links">
+            <a href="index.html#screenshots" data-i18n="navScreenshots">Screenshots</a>
+            <a href="index.html#how-it-works" data-i18n="navHow">How it works</a>
+            <a href="index.html#trust" data-i18n="navTrust">Trust</a>
+            <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <div class="lang-switcher" aria-label="Language">
+                <button type="button" class="lang-button active" data-lang="en">EN</button>
+                <span>/</span>
+                <button type="button" class="lang-button" data-lang="ru">RU</button>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <div class="container">
+            <p class="eyebrow" data-i18n="eyebrow">Desktop release · v1.1.0</p>
+            <h1>
+                <span data-i18n="heroTitle">XMSGi Studio</span>
+                <span class="gradient" data-i18n="heroGradient">for your device.</span>
+            </h1>
+            <p class="hero-description" data-i18n="heroDescription">
+                Choose your build and download XMSGi Studio v1.1.0.
+            </p>
+        </div>
+    </section>
+
+    <section class="downloads-section">
+        <div class="container">
+            <div class="downloads-grid">
+                <div class="download-card">
+                    <p class="section-kicker">Windows</p>
+                    <h2>Windows</h2>
+                    <p data-i18n="windowsDescription">Portable version. No installation required.</p>
+                    <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases">
+                        <span data-i18n="download">Download .exe</span>
+                    </a>
+                </div>
+            </div>
+            <p class="note" data-i18n="note">XMSGi Studio v1.1.0 · Windows.</p>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <div class="container footer-inner">
+        <span>© 2026 XMSGi Studio</span>
+        <a href="index.html" data-i18n="backHome">Back to XMSGi Studio</a>
+    </div>
+</footer>
+
+<script>
+    const translations = {
+        en: {
+            title: "XMSGi Studio — Download",
+            description: "Download XMSGi Studio for Windows.",
+            navScreenshots: "Screenshots",
+            navHow: "How it works",
+            navTrust: "Trust",
+            eyebrow: "Desktop release · v1.1.0",
+            heroTitle: "XMSGi Studio",
+            heroGradient: "for your device.",
+            heroDescription: "Choose your build and download XMSGi Studio v1.1.0.",
+            windowsDescription: "Portable version. No installation required.",
+            download: "Download .exe",
+            note: "XMSGi Studio v1.1.0 · Windows.",
+            backHome: "Back to XMSGi Studio"
+        },
+        ru: {
+            title: "XMSGi Studio — Скачать",
+            description: "Скачать XMSGi Studio для Windows.",
+            navScreenshots: "Скриншоты",
+            navHow: "Как это работает",
+            navTrust: "Безопасность",
+            eyebrow: "Версия для компьютера · v1.1.0",
+            heroTitle: "XMSGi Studio",
+            heroGradient: "для вашего устройства.",
+            heroDescription: "Выберите сборку и скачайте XMSGi Studio v1.1.0.",
+            windowsDescription: "Portable-версия. Установка не требуется.",
+            download: "Скачать .exe",
+            note: "XMSGi Studio v1.1.0 · Windows.",
+            backHome: "Вернуться к XMSGi Studio"
+        }
+    };
+
+    function setLanguage(lang) {
+        const t = translations[lang] || translations.en;
+        document.documentElement.lang = lang;
+        document.title = t.title;
+        document.querySelector('meta[name="description"]').setAttribute("content", t.description);
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+            const key = el.dataset.i18n;
+            if (t[key]) el.textContent = t[key];
+        });
+        document.querySelectorAll(".lang-button").forEach((button) => {
+            button.classList.toggle("active", button.dataset.lang === lang);
+        });
+        localStorage.setItem("xmsgi-studio-language", lang);
+    }
+
+    document.querySelectorAll(".lang-button").forEach((button) => {
+        button.addEventListener("click", () => setLanguage(button.dataset.lang));
+    });
+
+    setLanguage(localStorage.getItem("xmsgi-studio-language") || "en");
+</script>
+</body>
+</html>
+

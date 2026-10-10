@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="XMSGi Studio — a desktop app for writing and scheduling Telegram messages from your own account.">
+    <title>XMSGi Studio — Telegram messages, on your time</title>
+    <style>
+        :root{--bg:#08090c;--surface:#101218;--border:rgba(255,255,255,.09);--text:#f5f7fb;--muted:#9299a8;--max:1080px}
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0;background:radial-gradient(circle at 50% -10%,rgba(108,124,255,.16),transparent 38%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}
+        a{color:inherit;text-decoration:none}
+        button{font:inherit}
+        .container{width:min(calc(100% - 40px),var(--max));margin:0 auto}
+        nav{height:76px;display:flex;align-items:center;justify-content:space-between}
+        .brand{font-size:20px;font-weight:800;letter-spacing:-.045em;transform:skewX(-4deg);transform-origin:left center}
+        .nav-links{display:flex;align-items:center;gap:26px;color:var(--muted);font-size:14px}
+        .nav-links a{transition:color .2s ease}
+        .nav-links a:hover{color:var(--text)}
+        .lang-switcher{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:12px;font-weight:700}
+        .lang-button{padding:0;border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:12px}
+        .lang-button:hover,.lang-button.active{color:var(--text)}
+        .hero{padding:95px 0 105px;text-align:center}
+        h1{max-width:900px;margin:0 auto 24px;font-size:clamp(52px,8vw,86px);line-height:.98;letter-spacing:-.07em}
+        .gradient{display:block;background:linear-gradient(110deg,#fff 20%,#8f9aff 65%,#b38aff);-webkit-background-clip:text;background-clip:text;color:transparent}
+        .hero-description{max-width:600px;margin:0 auto;color:var(--muted);font-size:18px}
+        .eyebrow,.section-kicker{margin:0 0 14px;color:#aeb7ff;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+        .actions{display:flex;justify-content:center;gap:12px;margin-top:30px;flex-wrap:wrap}
+        .button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:10px;font-weight:700;font-size:14px;border:1px solid var(--border);transition:transform .2s ease,background .2s ease}
+        .button:hover{transform:translateY(-2px)}
+        .button.primary{background:#f5f7fb;color:#0b0c10}
+        .button.secondary{background:rgba(255,255,255,.04)}
+        .button.platform{background:rgba(108,124,255,.12);border-color:rgba(143,154,255,.24)}
+        .gallery{margin:28px auto 0;max-width:980px}
+        .screenshots-section{padding:0 0 100px}
+        .screenshots-heading{max-width:980px;margin:0 auto}
+        .screenshots-heading h2{margin:0 0 10px;font-size:40px;letter-spacing:-.045em;line-height:1.05}
+        .screenshots-heading p{margin:0;color:var(--muted);font-size:15px}
+        .gallery-frame{position:relative;padding:9px;border:1px solid var(--border);border-radius:18px;background:rgba(255,255,255,.035);box-shadow:0 35px 100px rgba(0,0,0,.45),0 0 80px rgba(108,124,255,.08)}
+        .gallery-image{display:block;width:100%;border-radius:11px;user-select:none}
+        .gallery-arrow{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:70px;display:flex;align-items:center;justify-content:center;font-size:44px;color:var(--muted);background:rgba(10,11,15,.55);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:color .2s ease,background .2s ease}
+        .gallery-arrow:hover{color:var(--text);background:rgba(20,22,30,.85)}
+        .gallery-arrow.prev{left:-16px}
+        .gallery-arrow.next{right:-16px}
+        .gallery-counter{position:absolute;right:18px;bottom:18px;padding:4px 12px;border-radius:999px;background:rgba(10,11,15,.7);border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em}
+        .ai-section{padding:0 0 100px}
+        .ai-panel{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+        .ai-copy,.ai-details{padding:30px;border:1px solid var(--border);border-radius:15px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}
+        .ai-copy h2{margin:0 0 12px;font-size:36px;letter-spacing:-.045em;line-height:1.05}
+        .ai-copy p{color:var(--muted);font-size:15px;margin:0}
+        .ai-details{color:var(--muted);font-size:14px}
+        .ai-details strong{display:block;margin-bottom:12px;color:var(--text);font-size:15px}
+        .ai-details ul{margin:0;padding-left:18px}
+        .ai-details li+li{margin-top:8px}
+        .transparency-section{padding:0 0 100px}
+        .transparency-panel{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+        .transparency-copy,.transparency-details{padding:30px;border:1px solid var(--border);border-radius:15px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}
+        .transparency-copy h2{margin:0 0 12px;font-size:36px;letter-spacing:-.045em;line-height:1.05}
+        .transparency-copy p{color:var(--muted);font-size:15px;margin:0}
+        .transparency-details{color:var(--muted);font-size:14px}
+        .transparency-details strong{display:block;margin-bottom:12px;color:var(--text);font-size:15px}
+        .transparency-details ul{margin:0;padding-left:18px}
+        .transparency-details li+li{margin-top:8px}
+        .download-section{padding:0 0 105px;text-align:center}
+        .download-box{padding:45px 30px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(120deg,rgba(108,124,255,.12),rgba(255,255,255,.025))}
+        .download-box h2{margin:0 0 8px;font-size:clamp(30px,4vw,42px);letter-spacing:-.045em}
+        .download-box p{margin:0 auto 24px;color:var(--muted);font-size:14px}
+        .download-box .github-button{margin-bottom:12px}
+        footer{padding:30px 0 40px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+        .footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px}
+        @media(max-width:800px){.ai-panel,.transparency-panel{grid-template-columns:1fr}}
+        @media(max-width:560px){.container{width:min(calc(100% - 28px),var(--max))}.nav-links{display:none}.hero{padding-top:65px;padding-bottom:80px}h1{font-size:clamp(46px,14vw,68px)}.hero-description{font-size:16px}.gallery{margin-top:22px}.screenshots-section{padding-bottom:80px}.screenshots-heading h2{font-size:34px}.gallery-arrow{width:36px;height:60px;font-size:48px}.gallery-arrow.prev{left:-4px}.gallery-arrow.next{right:-4px}.gallery-counter{right:18px;bottom:18px}.download-section{padding-bottom:80px}.actions{flex-direction:column;align-items:stretch}.actions .button{width:min(100%,360px);align-self:center}.download-box{padding:35px 22px}.footer-inner{flex-direction:column;align-items:flex-start}}
+    </style>
+</head>
+
+<body>
+
+<header class="container">
+    <nav>
+        <a class="brand" href="#">XMSGi Studio</a>
+        <div class="nav-links">
+            <a href="#screenshots" data-i18n="navScreenshots">Screenshots</a>
+            <a href="#how-it-works" data-i18n="navHow">How it works</a>
+            <a href="download.html" data-i18n="navDownloads">Downloads</a>
+            <a href="#trust" data-i18n="navTrust">Trust</a>
+            <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <div class="lang-switcher" aria-label="Language">
+                <button type="button" class="lang-button active" data-lang="en">EN</button>
+                <span>/</span>
+                <button type="button" class="lang-button" data-lang="ru">RU</button>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<main>
+
+    <section class="hero">
+        <div class="container">
+            <p class="eyebrow" data-i18n="eyebrow">Desktop release · v1.1.0</p>
+            <h1>
+                <span data-i18n="heroTitle">Telegram messages,</span>
+                <span class="gradient" data-i18n="heroGradient">when you choose.</span>
+            </h1>
+            <p class="hero-description" data-i18n="heroDescription">
+                Write, schedule, and review Telegram messages from your own account.
+                A desktop workspace built for Windows.
+            </p>
+            <div class="actions">
+                <a class="button primary" href="download.html">
+                    <span data-i18n="downloadMain">Download XMSGi Studio 1.1.0</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="screenshots-section" id="screenshots">
+        <div class="container">
+            <div class="screenshots-heading">
+                <p class="section-kicker" data-i18n="inside">Inside XMSGi Studio</p>
+                <h2 data-i18n="screenshots">Screenshots</h2>
+                <p data-i18n="screenshotsDescription">
+                    Explore the Telegram scheduling workspace in XMSGi Studio v1.1.0.
+                </p>
+            </div>
+
+            <div class="gallery">
+                <div class="gallery-frame">
+                    <img id="gallery-image" class="gallery-image" src="screenshots/01.png" alt="XMSGi Studio workspace with editor, scheduled posts and history">
+                    <button id="gallery-prev" class="gallery-arrow prev" type="button" aria-label="Previous screenshot" data-i18n-attr="aria-label:previous">‹</button>
+                    <button id="gallery-next" class="gallery-arrow next" type="button" aria-label="Next screenshot" data-i18n-attr="aria-label:next">›</button>
+                    <div id="gallery-counter" class="gallery-counter">01 / 03</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <section class="ai-section" id="how-it-works">
+        <div class="container">
+            <div class="ai-panel">
+                <div class="ai-copy">
+                    <p class="section-kicker" data-i18n="telegram">Telegram integration</p>
+                    <h2 data-i18n="schedule">Messages on your schedule.</h2>
+                    <p data-i18n="telegramDescription">
+                        XMSGi Studio connects to your Telegram account so you can prepare
+                        messages and choose exactly when they are sent.
+                    </p>
+                </div>
+                <div class="ai-details">
+                    <strong data-i18n="everyday">Built for everyday scheduling</strong>
+                    <ul>
+                        <li data-i18n="bullet1">Choose chats, groups, and channels through Telegram integration.</li>
+                        <li data-i18n="bullet2">Write a message, add attachments and inline buttons, then send now or schedule it for a chosen date and time.</li>
+                        <li data-i18n="bullet3">Track drafts, scheduled queue and delivery outcomes in the posts history.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="transparency-section" id="trust">
+        <div class="container">
+            <div class="transparency-panel">
+                <div class="transparency-copy">
+                    <p class="section-kicker" data-i18n="security">Security and sessions</p>
+                    <h2 data-i18n="accountTitle">Your account, your session, your timing.</h2>
+                    <p data-i18n="accountDescription">
+                        XMSGi Studio works with a Telegram user account, not a bot.
+                        The session is kept locally on the device so you can sign out
+                        without losing access for later.
+                    </p>
+                </div>
+                <div class="transparency-details">
+                    <strong data-i18n="stays">What stays with you</strong>
+                    <ul>
+                        <li data-i18n="stays1">Sign out while keeping the Telegram session available for a later return.</li>
+                        <li data-i18n="stays2">Sign out to remove the saved Telegram session from the device.</li>
+                        <li data-i18n="stays3">Sensitive local data is protected with Electron safeStorage where the operating system supports it.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="download-section" id="downloads">
+        <div class="container">
+            <div class="download-box">
+                <h2 data-i18n="downloadTitle">Download XMSGi Studio v1.1.0</h2>
+                <p data-i18n="githubHosted">Official release files are hosted on GitHub Releases.</p>
+
+                <div class="actions github-button">
+                    <a class="button secondary" href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener noreferrer">
+                        <span data-i18n="githubRepository">GitHub Repository</span>
+                    </a>
+                </div>
+
+                <div class="actions">
+                    <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases">
+                        <span data-i18n="windows">Windows Portable (.exe)</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+
+<footer>
+    <div class="container footer-inner">
+        <span>© 2026 XMSGi Studio</span>
+        <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener noreferrer">
+            <span data-i18n="githubFooter">Open source on GitHub</span>
+        </a>
+    </div>
+</footer>
+
+
+<script>
+    const translations = {
+        en: {
+            title: "XMSGi Studio — Telegram messages, on your time",
+            description: "XMSGi Studio — a desktop app for writing and scheduling Telegram messages from your own account.",
+            navScreenshots: "Screenshots",
+            navHow: "How it works",
+            navDownloads: "Downloads",
+            navTrust: "Trust",
+            eyebrow: "Desktop release · v1.1.0",
+            heroTitle: "Telegram messages,",
+            heroGradient: "when you choose.",
+            heroDescription: "Write, schedule, and review Telegram messages from your own account. A desktop workspace built for Windows.",
+            downloadMain: "Download XMSGi Studio 1.1.0",
+            inside: "Inside XMSGi Studio",
+            screenshots: "Screenshots",
+            screenshotsDescription: "Explore the Telegram scheduling workspace in XMSGi Studio v1.1.0.",
+            previous: "Previous screenshot",
+            next: "Next screenshot",
+            telegram: "Telegram integration",
+            schedule: "Messages on your schedule.",
+            telegramDescription: "XMSGi Studio connects to your Telegram account so you can prepare messages and choose exactly when they are sent.",
+            everyday: "Built for everyday scheduling",
+            bullet1: "Choose chats, groups, and channels through Telegram integration.",
+            bullet2: "Write a message, add attachments and inline buttons, then send now or schedule it for a chosen date and time.",
+            bullet3: "Track drafts, scheduled queue and delivery outcomes in the posts history.",
+            security: "Security and sessions",
+            accountTitle: "Your account, your session, your timing.",
+            accountDescription: "XMSGi Studio works with a Telegram user account, not a bot. The session is kept locally on the device so you can sign out without losing access for later.",
+            stays: "What stays with you",
+            stays1: "Sign out while keeping the Telegram session available for a later return.",
+            stays2: "Sign out to remove the saved Telegram session from the device.",
+            stays3: "Sensitive local data is protected with Electron safeStorage where the operating system supports it.",
+            downloadTitle: "Download XMSGi Studio v1.1.0",
+            githubHosted: "Official release files are hosted on GitHub Releases.",
+            githubRepository: "GitHub Repository",
+            windows: "Windows Portable (.exe)",
+            githubFooter: "Open source on GitHub"
+        },
+
+        ru: {
+            title: "XMSGi Studio — сообщения в Telegram, в удобное для вас время",
+            description: "XMSGi Studio — приложение для компьютера, позволяющее создавать и планировать сообщения в Telegram от своего аккаунта.",
+            navScreenshots: "Скриншоты",
+            navHow: "Как это работает",
+            navDownloads: "Скачать",
+            navTrust: "Безопасность",
+            eyebrow: "Версия для компьютера · v1.1.0",
+            heroTitle: "Сообщения в Telegram,",
+            heroGradient: "когда вы хотите.",
+            heroDescription: "Создавайте, планируйте и просматривайте сообщения в Telegram от своего аккаунта. Рабочее пространство для Windows.",
+            downloadMain: "Скачать XMSGi Studio 1.1.0",
+            inside: "Внутри XMSGi Studio",
+            screenshots: "Скриншоты",
+            screenshotsDescription: "Рабочее пространство для планирования сообщений в Telegram в XMSGi Studio v1.1.0.",
+            previous: "Предыдущий скриншот",
+            next: "Следующий скриншот",
+            telegram: "Интеграция с Telegram",
+            schedule: "Сообщения по вашему расписанию.",
+            telegramDescription: "XMSGi Studio подключается к вашему аккаунту Telegram, чтобы вы могли подготовить сообщение и точно выбрать время его отправки.",
+            everyday: "Для повседневного планирования",
+            bullet1: "Выбирайте чаты, группы и каналы через интеграцию с Telegram.",
+            bullet2: "Пишите сообщения, добавляйте вложения и инлайн-кнопки, затем отправляйте сразу или планируйте на выбранную дату и время.",
+            bullet3: "Отслеживайте черновики, очередь отложенных и результаты отправки в истории постов.",
+            security: "Безопасность и сессии",
+            accountTitle: "Ваш аккаунт, ваша сессия, ваше время.",
+            accountDescription: "XMSGi Studio работает с пользовательским аккаунтом Telegram, а не с ботом. Сессия хранится локально на устройстве, поэтому можно выйти из аккаунта и вернуться позже.",
+            stays: "Что остаётся у вас",
+            stays1: "Выйдите из аккаунта, сохранив Telegram-сессию для последующего входа.",
+            stays2: "Выйдите из аккаунта, чтобы удалить сохранённую Telegram-сессию с устройства.",
+            stays3: "Чувствительные локальные данные защищаются через Electron safeStorage, если это поддерживается операционной системой.",
+            downloadTitle: "Скачать XMSGi Studio v1.1.0",
+            githubHosted: "Официальные файлы релиза размещены в GitHub Releases.",
+            githubRepository: "Репозиторий GitHub",
+            windows: "Windows Portable (.exe)",
+            githubFooter: "Открытый исходный код на GitHub"
+        }
+    };
+
+    function setLanguage(lang) {
+        const t = translations[lang] || translations.en;
+        document.documentElement.lang = lang;
+        document.title = t.title;
+        document.querySelector('meta[name="description"]').setAttribute("content", t.description);
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+            const key = el.dataset.i18n;
+            if (t[key]) el.textContent = t[key];
+        });
+        document.querySelectorAll("[data-i18n-attr]").forEach((el) => {
+            const [attr, key] = el.dataset.i18nAttr.split(":");
+            if (t[key]) el.setAttribute(attr, t[key]);
+        });
+        document.querySelectorAll(".lang-button").forEach((button) => {
+            button.classList.toggle("active", button.dataset.lang === lang);
+        });
+        localStorage.setItem("xmsgi-studio-language", lang);
+    }
+
+    document.querySelectorAll(".lang-button").forEach((button) => {
+        button.addEventListener("click", () => setLanguage(button.dataset.lang));
+    });
+
+    setLanguage(localStorage.getItem("xmsgi-studio-language") || "en");
+
+    const images = ["screenshots/01.png", "screenshots/02.png", "screenshots/03.png"];
+    const image = document.getElementById("gallery-image");
+    const counter = document.getElementById("gallery-counter");
+    const previous = document.getElementById("gallery-prev");
+    const next = document.getElementById("gallery-next");
+    let current = 0;
+
+    function showImage(index) {
+        current = (index + images.length) % images.length;
+        image.src = images[current];
+        counter.textContent = String(current + 1).padStart(2, "0") + " / " + String(images.length).padStart(2, "0");
+    }
+
+    previous.addEventListener("click", () => showImage(current - 1));
+    next.addEventListener("click", () => showImage(current + 1));
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") showImage(current - 1);
+        if (event.key === "ArrowRight") showImage(current + 1);
+    });
+
+    let touchStartX = 0;
+    image.addEventListener("touchstart", (event) => { touchStartX = event.changedTouches[0].screenX; }, { passive: true });
+    image.addEventListener("touchend", (event) => {
+        const difference = touchStartX - event.changedTouches[0].screenX;
+        if (Math.abs(difference) < 40) return;
+        if (difference > 0) showImage(current + 1);
+        else showImage(current - 1);
+    }, { passive: true });
+</script>
+</body>
+</html>
+
