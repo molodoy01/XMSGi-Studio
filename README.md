@@ -13,7 +13,7 @@
 
 <img src="XMSGi%20Studio/website/screenshots/01.png" alt="XMSGi Studio workspace" width="880" />
 
-A desktop workspace for **writing, scheduling, and reviewing Telegram messages** — straight from your own account, **no bot required**. Built for Windows, kept local, and portable.
+**XMSGi Studio** делает планирование встреч и создание публикаций в Telegram простым, локальным и **надежным**.
 
 <br>
 
@@ -178,4 +178,4 @@ git push -u origin main
 This project is licensed under the MIT License. The canonical license text is in [LICENSE](XMSGi%20Studio/LICENSE); the Studio module also declares `MIT` in its package metadata.
 
 ---
-XMSGi Studio keeps Telegram scheduling simple, local, and reliable.
+XMSGi Studio делает планирование встреч и создание публикаций в Telegram простым, локальным и надежным.
