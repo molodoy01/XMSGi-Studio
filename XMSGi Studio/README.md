@@ -11,7 +11,7 @@
   <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
 </p>
 
-<img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="860" />
+<img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="880" />
 
 A desktop workspace for **writing, scheduling, and reviewing Telegram messages** — straight from your own account, **no bot required**. Built for Windows, kept local, and portable.
 
@@ -27,12 +27,38 @@ A desktop workspace for **writing, scheduling, and reviewing Telegram messages**
 
 ## ✨ Features
 
-- **Telegram, your way** — pick chats, groups and channels straight from your own account
-- **Send now or later** — one-time and future messages scheduled for a chosen date and time
-- **Compose fully** — attachments, message formatting and inline buttons
-- **Stay on top of it** — drafts, the scheduled queue and delivery outcomes in a single history
-- **Private by design** — sessions and sensitive data stay on the device, protected with Electron `safeStorage`
-- **Portable Windows build** — no installation, runs from anywhere
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <b>💬 Telegram, your way</b><br>
+      Pick chats, groups and channels straight from your own account — no bot.
+    </td>
+    <td width="50%" valign="top">
+      <b>⏰ Send now or later</b><br>
+      One-time and future messages scheduled for a chosen date and time.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>✍️ Compose fully</b><br>
+      Attachments, rich text formatting and inline buttons.
+    </td>
+    <td valign="top">
+      <b>🗂️ Stay on top of it</b><br>
+      Drafts, the scheduled queue and delivery outcomes in a single history.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>🔒 Private by design</b><br>
+      Sessions stay on the device, protected with Electron <code>safeStorage</code>.
+    </td>
+    <td valign="top">
+      <b>📦 Portable Windows build</b><br>
+      No installation, no setup — runs from anywhere.
+    </td>
+  </tr>
+</table>
 
 ## 🖼️ Screenshots
 
