@@ -1,21 +1,48 @@
+<div align="center">
+
 # XMSGi Studio
 
-<p align="center">
+### ✈️ Telegram messages, when you choose.
+
+<p>
   <a href="https://github.com/molodoy01/XMSGi-Studio/releases"><img alt="Release" src="https://img.shields.io/github/v/release/molodoy01/XMSGi-Studio?style=flat-square"></a>
   <a href="https://github.com/molodoy01/XMSGi-Studio/actions"><img alt="Build" src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square"></a>
   <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
 </p>
 
+<img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="860" />
+
+A desktop workspace for **writing, scheduling, and reviewing Telegram messages** — straight from your own account, **no bot required**. Built for Windows, kept local, and portable.
+
+<br>
+
+<a href="https://github.com/molodoy01/XMSGi-Studio/releases"><img alt="Download" src="https://img.shields.io/badge/⬇%20Download-v1.1.0-6c7cff?style=for-the-badge"></a>
+&nbsp;
+<a href="https://github.com/molodoy01/XMSGi-Studio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github"></a>
+
+</div>
+
+---
+
+## ✨ Features
+
+- **Telegram, your way** — pick chats, groups and channels straight from your own account
+- **Send now or later** — one-time and future messages scheduled for a chosen date and time
+- **Compose fully** — attachments, message formatting and inline buttons
+- **Stay on top of it** — drafts, the scheduled queue and delivery outcomes in a single history
+- **Private by design** — sessions and sensitive data stay on the device, protected with Electron `safeStorage`
+- **Portable Windows build** — no installation, runs from anywhere
+
+## 🖼️ Screenshots
+
 <p align="center">
-  <img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="860" />
+  <img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="32%" />
+  <img src="website/screenshots/02.png" alt="Telegram chat selection" width="32%" />
+  <img src="website/screenshots/03.png" alt="Message composition and preview" width="32%" />
 </p>
 
-Telegram scheduling for Windows, built for your own account.
-
-XMSGi Studio is a desktop app for scheduling and sending Telegram messages without a bot. It runs locally on your Windows machine and keeps the workflow simple: select a chat, write a message, schedule it, and let it send when the time arrives.
-
-## Downloads
+## 📥 Download
 
 | Platform | Format | Notes |
 | --- | --- | --- |
@@ -23,26 +50,9 @@ XMSGi Studio is a desktop app for scheduling and sending Telegram messages witho
 | Linux | AppImage | Build target available via `npm run dist` on Linux. |
 | macOS | `.dmg` | Build target available via `npm run dist` on macOS. |
 
-Grab the latest build from [GitHub Releases](https://github.com/molodoy01/XMSGi-Studio/releases), or visit the [project site](https://molodoy01.github.io/XMSGi-Studio/).
+Grab the latest build from [GitHub Releases](https://github.com/molodoy01/XMSGi-Studio/releases).
 
-## Why it exists
-
-- schedule one-time and future Telegram messages
-- keep the app local and lightweight
-- work with your personal Telegram session
-- preserve local drafts and scheduling history
-- ship as a portable Windows desktop app
-
-## Features
-
-- Telegram chat selection and quick switching
-- instant send and delayed send
-- local draft and history management
-- message media and keyboard support
-- secure local storage for credentials where supported
-- portable Windows distribution
-
-## Quick start
+## 🚀 Quick start
 
 Requirements:
 
@@ -64,7 +74,8 @@ Build a Windows release package:
 npm run dist
 ```
 
-## Studio architecture
+<details>
+<summary>🏗️ <b>Studio architecture</b> · for developers</summary>
 
 The Electron host owns the window, Telegram session and IPC bridge. The React host mounts Studio through `src/workspace/StudioMount.tsx`; the Vite `$studio` alias resolves that import to the shared `../Studio/Studio module/src/App.tsx`.
 
@@ -96,7 +107,9 @@ When Studio is embedded, the Host `useScheduler` runtime is authoritative for sc
 
 If the scheduler prop is omitted, Studio uses `useStudioScheduler` as a standalone fallback. It is a separate, simpler implementation and is not the source of truth for embedded History/Archive workflows. Keep changes to the two paths aligned and covered independently; do not combine them into one scheduler until standalone support requirements are decided.
 
-## Documentation
+</details>
+
+## 📚 Documentation
 
 Full documentation lives in the [`docs/`](docs/README.md) directory:
 
@@ -106,21 +119,21 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 - [Security and privacy](docs/ru/security.md) — storage, encryption, trust boundaries (RU)
 - [IPC reference](docs/ru/ipc-reference.md) — renderer ⇄ main channels (RU)
 
-## Security and privacy
+## 🔒 Security &amp; privacy
 
 XMSGi Studio keeps Telegram data local to the device. Session and account data are stored in the user data directory, and secure storage is used where the platform supports it.
 
 This app does not depend on a Telegram bot for its core scheduling flow.
 
-## Contribution
+## 🤝 Contributing
 
 We welcome focused pull requests and bug reports. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
 
-## Security reporting
+## 🛡️ Security reporting
 
 Please report vulnerabilities privately through the repository security process. Do not disclose critical issues in public issues or pull requests. See [SECURITY.md](SECURITY.md).
 
-## Repository
+## 📦 Repository
 
 GitHub repository:
 
@@ -134,7 +147,7 @@ git branch -M main
 git push -u origin main
 ```
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License. The canonical license text is in [LICENSE](LICENSE); the Studio module also declares `MIT` in its package metadata.
 
