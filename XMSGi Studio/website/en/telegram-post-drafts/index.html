@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Save Telegram post drafts and finish them later. XMSGi Studio keeps draft text and attachments locally; nothing is sent until you choose to publish or schedule it." />
+  <meta name="theme-color" content="#050506" />
+  <title>Telegram post drafts: save and continue later — XMSGi Studio</title>
+  <link rel="canonical" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  <link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-drafts/" />
+  <link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  <link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Telegram post drafts — XMSGi Studio" />
+  <meta property="og:description" content="Keep post copy and attachments locally, then finish and schedule them when ready." />
+  <meta property="og:url" content="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  <meta property="og:image" content="https://molodoy01.github.io/XMSGi-Studio/screenshots/studio-post-composer.webp" />
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: #050506; color: #eeeef2; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.65; }
+    a { color: #c5b5ff; }
+    .wrap { width: min(100% - 32px, 920px); margin-inline: auto; }
+    header, footer { border-color: rgba(255,255,255,.1); border-style: solid; }
+    header { border-width: 0 0 1px; }
+    nav { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    nav a { text-decoration: none; }
+    .brand { color: #fff; font-weight: 750; letter-spacing: -.03em; }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 20px; font-size: .92rem; }
+    main { padding: 64px 0 72px; }
+    .eyebrow { color: #b8a4ff; font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2 { line-height: 1.15; letter-spacing: -.035em; }
+    h1 { max-width: 820px; margin: 14px 0 18px; font-size: clamp(2.2rem, 7vw, 4.2rem); }
+    h2 { margin-top: 48px; font-size: clamp(1.55rem, 4vw, 2.2rem); }
+    .lead { max-width: 720px; color: #b8b8c2; font-size: 1.15rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 40px; }
+    .button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 10px 18px; border: 1px solid #b8a4ff; border-radius: 8px; color: #fff; font-weight: 700; text-decoration: none; }
+    .button.primary { border-color: #fff; background: #fff; color: #08080b; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; padding: 0; list-style: none; }
+    .steps li, .faq { padding: 18px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: #0a0a0d; }
+    .steps strong { display: block; margin-bottom: 6px; color: #fff; }
+    .faq + .faq { margin-top: 12px; }
+    .faq h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .faq p { margin: 0; color: #b8b8c2; }
+    .note { color: #9999a5; font-size: .9rem; }
+    footer { border-width: 1px 0 0; padding: 22px 0; color: #9999a5; font-size: .9rem; }
+    @media (max-width: 560px) { nav { align-items: flex-start; flex-direction: column; justify-content: center; padding: 14px 0; } main { padding-top: 44px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="wrap" aria-label="Main navigation">
+      <a class="brand" href="../../">XMSGi Studio</a>
+      <div class="nav-links">
+        <a href="../../">Home</a>
+        <a href="../telegram-post-scheduler/">Post scheduler</a>
+        <a href="../telegram-content-plan/">Content plan</a>
+        <a href="../../ru/telegram-post-drafts/">Русский</a>
+      </div>
+    </nav>
+  </header>
+  <main class="wrap">
+    <p class="eyebrow">Preparing posts</p>
+    <h1>Telegram post drafts: save and continue later</h1>
+    <p class="lead">Have an idea or a message that is not ready to send? XMSGi Studio lets you keep a working post with its formatting and attachments, then return to it later without choosing a chat or publishing it.</p>
+    <div class="actions">
+      <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">Download XMSGi Studio</a>
+      <a class="button" href="../telegram-post-scheduler/">About scheduled posts</a>
+    </div>
+
+    <section aria-labelledby="save-title">
+      <h2 id="save-title">Two ways to keep a draft</h2>
+      <ul>
+        <li><strong>Quick Planner:</strong> the current text, formatting, and attachments are saved automatically. Use Draft to add a separate item to the Planner draft collection.</li>
+        <li><strong>Studio:</strong> the current working document is saved automatically. Saved documents can be named, color-labeled, and reopened for editing.</li>
+      </ul>
+      <p>Both collections appear in the shared Posts/History panel. Planner drafts can be selected and moved into Studio, including several at once.</p>
+    </section>
+
+    <section aria-labelledby="workflow-title">
+      <h2 id="workflow-title">Prepare a post without sending it yet</h2>
+      <ol class="steps">
+        <li><strong>1. Write the message</strong>Add formatting and any attachments in Planner or Studio.</li>
+        <li><strong>2. Keep your work</strong>Leave the current text to be autosaved or use Draft to create a separate saved item.</li>
+        <li><strong>3. Continue later</strong>Open the draft in Posts/History, edit it, and choose a chat and send time when it is ready.</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="privacy-title">
+      <h2 id="privacy-title">Where drafts are stored</h2>
+      <p>Drafts and their working data stay on your device: Planner uses local application storage, while Studio uses a local file-based draft store. Drafts are not cloud-synced across devices.</p>
+      <p class="note">A draft is not a scheduled Telegram message. It will not be sent automatically; you must separately choose to send or schedule it.</p>
+    </section>
+
+    <section aria-labelledby="faq-title">
+      <h2 id="faq-title">Frequently asked questions</h2>
+      <div class="faq">
+        <h3>Do I need to choose a Telegram chat to save a draft?</h3>
+        <p>No. You can save a draft without connecting an account or choosing a chat. Those are needed to send or schedule a message.</p>
+      </div>
+      <div class="faq">
+        <h3>Are drafts synced with Telegram or other devices?</h3>
+        <p>No. XMSGi Studio drafts are stored locally in the app and are not cloud-synced.</p>
+      </div>
+      <div class="faq">
+        <h3>Can I move a draft from Planner to Studio?</h3>
+        <p>Yes. Select saved Planner drafts in Posts/History and move them into Studio to continue working on them.</p>
+      </div>
+    </section>
+
+    <div class="actions">
+      <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">Download free from GitHub</a>
+      <a class="button" href="../telegram-content-plan/">How to make a content plan</a>
+    </div>
+  </main>
+  <footer><div class="wrap">© <span data-current-year></span> XMSGi Studio · <a href="../../">Home</a> · <a href="../telegram-post-scheduler/">Post scheduler</a> · <a href="../../ru/telegram-post-drafts/">Русский</a></div></footer>
+  <script>
+    document.querySelectorAll('[data-current-year]').forEach((element) => {
+      element.textContent = new Date().getFullYear();
+    });
+  </script>
+</body>
+</html>

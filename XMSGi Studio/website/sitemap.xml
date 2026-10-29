@@ -40,4 +40,16 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-recurring-messages/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-recurring-messages/" />
   </url>
+  <url>
+    <loc>https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-drafts/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-drafts/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  </url>
+  <url>
+    <loc>https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-drafts/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-drafts/" />
+  </url>
 </urlset>
