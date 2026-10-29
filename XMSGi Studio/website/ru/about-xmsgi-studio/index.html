@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Кто создал XMSGi Studio, зачем появился проект и как он помогает готовить, планировать и публиковать сообщения в Telegram со своего аккаунта." />
+  <meta name="theme-color" content="#f7f8fc" />
+  <title>О XMSGi Studio: создатель, назначение и особенности</title>
+  <link rel="canonical" href="https://molodoy01.github.io/XMSGi-Studio/ru/about-xmsgi-studio/" />
+  <link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/about-xmsgi-studio/" />
+  <link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/about-xmsgi-studio/" />
+  <link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/about-xmsgi-studio/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="О XMSGi Studio — проект для публикаций в Telegram" />
+  <meta property="og:description" content="История проекта, его создатель и особенности рабочего пространства для Telegram." />
+  <meta property="og:url" content="https://molodoy01.github.io/XMSGi-Studio/ru/about-xmsgi-studio/" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "AboutPage",
+      "name": "О XMSGi Studio",
+      "url": "https://molodoy01.github.io/XMSGi-Studio/ru/about-xmsgi-studio/",
+      "mainEntity": {
+        "@type": "SoftwareApplication",
+        "name": "XMSGi Studio",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Windows, Linux, macOS",
+        "url": "https://molodoy01.github.io/XMSGi-Studio/",
+        "author": {
+          "@type": "Person",
+          "name": "Molodoy (@molodoy01)",
+          "url": "https://github.com/molodoy01"
+        },
+        "license": "https://github.com/molodoy01/XMSGi-Studio/blob/main/XMSGi%20Studio/LICENSE"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #202536;
+      background: #f7f8fc;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.7; }
+    a { text-decoration: none; color: #464feb; }
+    a:hover { text-decoration: underline; }
+    tr th, tr td { border: 1px solid #e6e6e6; }
+    tr th { background-color: #f5f5f5; }
+    .wrap { width: min(100% - 36px, 960px); margin-inline: auto; }
+    header { background: rgba(255,255,255,.92); border-bottom: 1px solid #e8eaf1; }
+    nav { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    nav a { color: #42485a; }
+    .brand { color: #202536; font-weight: 750; letter-spacing: -.03em; }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 20px; font-size: .94rem; }
+    main { padding: 68px 0 80px; }
+    .eyebrow { margin: 0; color: #464feb; font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3 { color: #202536; line-height: 1.2; letter-spacing: -.03em; }
+    h1 { max-width: 800px; margin: 14px 0 20px; font-size: clamp(2.4rem, 7vw, 4.4rem); }
+    h2 { margin: 0 0 14px; font-size: clamp(1.55rem, 4vw, 2rem); }
+    h3 { margin: 0 0 8px; font-size: 1.08rem; }
+    p { margin: 0 0 16px; }
+    .lead { max-width: 760px; color: #50586b; font-size: clamp(1.08rem, 2.4vw, 1.25rem); }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 52px; }
+    .button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 10px 18px; border: 1px solid #464feb; border-radius: 9px; color: #3d45d8; font-weight: 700; }
+    .button.primary { background: #464feb; color: #fff; }
+    figure { margin: 0 0 48px; }
+    figure img { display: block; width: 100%; height: auto; border: 1px solid #dfe3ed; border-radius: 14px; box-shadow: 0 12px 32px rgba(32,37,54,.08); }
+    figcaption { margin-top: 10px; color: #697083; font-size: .92rem; }
+    .sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { padding: 24px; border: 1px solid #e4e7ef; border-radius: 14px; background: #fff; box-shadow: 0 8px 26px rgba(32,37,54,.045); }
+    .card p:last-child { margin-bottom: 0; }
+    .wide { grid-column: 1 / -1; }
+    .muted { color: #5b6273; }
+    .facts { margin: 16px 0 0; padding-left: 20px; color: #50586b; }
+    .facts li + li { margin-top: 8px; }
+    .cta { margin-top: 24px; padding: 28px; border-radius: 14px; background: #eef0ff; }
+    .cta p { color: #50586b; }
+    footer { border-top: 1px solid #e3e6ee; padding: 22px 0; color: #697083; font-size: .92rem; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: space-between; }
+    @media (max-width: 640px) {
+      nav { align-items: flex-start; flex-direction: column; justify-content: center; padding: 12px 0; }
+      .nav-links { gap: 10px 16px; }
+      main { padding-top: 48px; }
+      .sections { grid-template-columns: 1fr; }
+      .wide { grid-column: auto; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="wrap" aria-label="Основная навигация">
+      <a class="brand" href="../../">XMSGi Studio</a>
+      <div class="nav-links">
+        <a href="../../">Главная</a>
+        <a href="../../en/about-xmsgi-studio/">English</a>
+        <a href="../telegram-post-scheduler/">Планировщик</a>
+        <a href="https://github.com/molodoy01/XMSGi-Studio">GitHub</a>
+      </div>
+    </nav>
+  </header>
+  <main class="wrap">
+    <p class="eyebrow">О проекте</p>
+    <h1>Публикации в Telegram — в одном понятном рабочем пространстве</h1>
+    <p class="lead">XMSGi Studio — настольное приложение для подготовки, планирования и отправки сообщений через ваш аккаунт Telegram. Проект объединяет редактор Studio и Quick Planner для быстрых публикаций, расписания и черновиков.</p>
+    <div class="actions">
+      <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">Скачать XMSGi Studio</a>
+      <a class="button" href="https://github.com/molodoy01/XMSGi-Studio">Исходный код на GitHub</a>
+    </div>
+    <figure>
+      <img src="../../screenshots/planner-live-preview.webp" alt="Редактор публикации XMSGi Studio и предпросмотр сообщения в Telegram" width="1920" height="996" />
+      <figcaption>Подготовьте публикацию и сразу проверьте, как она будет выглядеть в Telegram.</figcaption>
+    </figure>
+
+    <div class="sections">
+      <section class="card" aria-labelledby="creator-title">
+        <h2 id="creator-title">Кто создал XMSGi Studio</h2>
+        <p>XMSGi Studio создан и развивается разработчиком Molodoy, который публикует проект под аккаунтом <a href="https://github.com/molodoy01">@molodoy01 на GitHub</a>. Исходный код, документация и история изменений доступны в публичном репозитории.</p>
+      </section>
+
+      <section class="card" aria-labelledby="why-title">
+        <h2 id="why-title">Зачем появился проект</h2>
+        <p>Проект вырос из желания сделать планирование публикаций менее громоздким и ближе к обычной работе в Telegram. Вместо разрозненных действий можно подготовить текст и медиа, проверить сообщение и решить, когда его отправить.</p>
+        <p class="muted">Цель — дать автору больше контроля над публикациями, а не заменить Telegram или навязать отдельный сервис для черновиков.</p>
+      </section>
+
+      <section class="card wide" aria-labelledby="tasks-title">
+        <h2 id="tasks-title">Какие задачи решает</h2>
+        <ul class="facts">
+          <li>Создание и форматирование публикаций с медиа и другими вложениями.</li>
+          <li>Предпросмотр сообщения и отправка в выбранные чаты, группы и каналы через ваш Telegram-аккаунт.</li>
+          <li>Планирование публикаций на конкретное время и настройка повторов.</li>
+          <li>Сохранение черновиков, шаблонов и истории, просмотр очереди, редактирование или отмена запланированной отправки.</li>
+        </ul>
+      </section>
+
+      <section class="card wide" aria-labelledby="difference-title">
+        <h2 id="difference-title">Чем отличается от других инструментов</h2>
+        <p>XMSGi Studio строится вокруг личного Telegram-аккаунта: для отправки не нужно создавать отдельного бота. Это настольное приложение, в котором подготовка публикаций, Quick Planner, очередь и черновики собраны вместе.</p>
+        <p class="muted">Черновики и рабочая сессия хранятся локально на устройстве; синхронизации черновиков через облако XMSGi Studio нет. Код проекта открыт под лицензией MIT, поэтому реализацию можно изучить и проверить.</p>
+      </section>
+    </div>
+
+    <section class="cta" aria-labelledby="next-title">
+      <h2 id="next-title">Посмотрите, как устроена публикация</h2>
+      <p>Узнайте о планировании постов или откройте репозиторий проекта с исходным кодом и документацией.</p>
+      <div class="actions">
+        <a class="button primary" href="../telegram-post-scheduler/">Как планировать посты</a>
+        <a class="button" href="https://github.com/molodoy01/XMSGi-Studio">Репозиторий и документация</a>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="wrap">
+      <span>© <span data-current-year>2026</span> XMSGi Studio</span>
+      <span><a href="../../">Главная</a> · <a href="../../en/about-xmsgi-studio/">English</a></span>
+    </div>
+  </footer>
+  <script>
+    document.querySelectorAll("[data-current-year]").forEach((el) => {
+      el.textContent = new Date().getFullYear();
+    });
+  </script>
+</body>
+</html>
