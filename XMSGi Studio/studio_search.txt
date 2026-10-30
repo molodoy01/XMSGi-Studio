@@ -1,9 +1,0 @@
-Found 1 match for "Studio":
-
-- generic [ref=e3]:
-  - banner [ref=e4]:
-    - generic "XMSGi" [ref=e5]
-    - button "Studio" [pressed] [ref=e7] [cursor=pointer]
-    - generic [ref=e9]:
-      - button "Posts" [ref=e10] [cursor=pointer]
-      - button "Settings" [ref=e12] [cursor=pointer]
