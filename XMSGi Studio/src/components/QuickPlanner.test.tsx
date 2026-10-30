@@ -45,6 +45,26 @@ function createScheduledMessage(overrides: Partial<ScheduledMessage> = {}): Sche
   };
 }
 
+describe('QuickPlanner layout', () => {
+  it('keeps 10px horizontal spacing around the message field at every viewport size', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-composer\s*\{[^}]*padding:\s*24px 10px 18px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-composer\s*\{[^}]*padding:\s*20px 10px 16px;/,
+    );
+  });
+
+  it('removes borders from inactive Planner mode switches while preserving the active one', () => {
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme\] \.quick-planner \.quick-planner-mode-switch button:not\(\.is-active\)\s*\{\s*border:\s*0 !important;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme\] \.quick-planner \.quick-planner-mode-switch button\.is-active\s*\{[^}]*border:\s*1px solid/,
+    );
+  });
+});
+
 describe('QuickPlanner feedback', () => {
   beforeEach(() => {
     flushPlannerDraftWrite();

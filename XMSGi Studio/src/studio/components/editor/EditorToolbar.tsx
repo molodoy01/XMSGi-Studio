@@ -136,15 +136,10 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
       const pickerRect = picker.getBoundingClientRect();
       const viewportInset = 12;
       const maxLeft = Math.max(viewportInset, window.innerWidth - pickerRect.width - viewportInset);
-      const rightSideLeft = anchorRect.right + 12;
-      const left = rightSideLeft <= maxLeft
-        ? rightSideLeft
-        : Math.max(viewportInset, anchorRect.left - pickerRect.width - 12);
-      const maxTop = Math.max(viewportInset, window.innerHeight - pickerRect.height - viewportInset);
-      const centeredTop = anchorRect.top + (anchorRect.height - pickerRect.height) / 2 + 7;
-      const top = Math.min(maxTop, Math.max(viewportInset, centeredTop));
+      const left = Math.min(maxLeft, Math.max(viewportInset, anchorRect.left));
+      const top = anchorRect.bottom + 8;
 
-      picker.style.left = `${Math.min(maxLeft, left)}px`;
+      picker.style.left = `${left}px`;
       picker.style.top = `${top}px`;
     };
 
@@ -219,6 +214,29 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
   return (
     <div className="workspace-page-rich-text-toolbar is-airy" role="toolbar" aria-label={t('studio.formattingTools')} aria-orientation="horizontal">
       <div className="workspace-page-rich-text-leading-tools" role="group" aria-label={t('studio.messageTools')}>
+        {onInsertEmoji && (
+          <div className="workspace-page-rich-text-tool-anchor" ref={emojiPickerRef}>
+            <button type="button" className={`workspace-page-rich-text-link-trigger workspace-page-rich-text-tool-icon-trigger${emojiPickerOpen ? ' is-open' : ''}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { const nextOpen = !emojiPickerOpen; setEmojiPickerOpen(nextOpen); setEffectPickerOpen(false); if (!nextOpen) { setEmojiSearchQuery(''); setEmojiActiveIndex(0); } }} aria-label={t('studio.chooseEmoji')} aria-haspopup="dialog" aria-expanded={emojiPickerOpen} title={t('studio.chooseEmoji')}>
+              <Smile size={17} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+            {emojiPickerOpen && createPortal(
+              <EmojiPickerPanel
+                categoryId={emojiCategoryId}
+                searchQuery={emojiSearchQuery}
+                activeIndex={emojiActiveIndex}
+                recentEmojis={recentEmojis}
+                modifierHeld={emojiModifierHeld}
+                className="workspace-page-rich-text-emoji-picker workspace-page-rich-text-emoji-picker--floating"
+                pickerRef={emojiPickerPanelRef}
+                onCategoryChange={setEmojiCategoryId}
+                onSearchQueryChange={setEmojiSearchQuery}
+                onActiveIndexChange={setEmojiActiveIndex}
+                onSelectEmoji={selectEmoji}
+              />,
+              document.body,
+            )}
+          </div>
+        )}
         {onSelectEffect && (
           <div className="workspace-page-rich-text-tool-anchor" ref={effectsPickerRef}>
             <button
@@ -254,30 +272,8 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
             )}
           </div>
         )}
-        {onInsertEmoji && (
-          <div className="workspace-page-rich-text-tool-anchor" ref={emojiPickerRef}>
-            <button type="button" className={`workspace-page-rich-text-link-trigger workspace-page-rich-text-tool-icon-trigger${emojiPickerOpen ? ' is-open' : ''}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { const nextOpen = !emojiPickerOpen; setEmojiPickerOpen(nextOpen); setEffectPickerOpen(false); if (!nextOpen) { setEmojiSearchQuery(''); setEmojiActiveIndex(0); } }} aria-label={t('studio.chooseEmoji')} aria-haspopup="dialog" aria-expanded={emojiPickerOpen} title={t('studio.chooseEmoji')}>
-              <Smile size={17} strokeWidth={1.8} aria-hidden="true" />
-            </button>
-            {emojiPickerOpen && createPortal(
-              <EmojiPickerPanel
-                categoryId={emojiCategoryId}
-                searchQuery={emojiSearchQuery}
-                activeIndex={emojiActiveIndex}
-                recentEmojis={recentEmojis}
-                modifierHeld={emojiModifierHeld}
-                className="workspace-page-rich-text-emoji-picker workspace-page-rich-text-emoji-picker--floating"
-                pickerRef={emojiPickerPanelRef}
-                onCategoryChange={setEmojiCategoryId}
-                onSearchQueryChange={setEmojiSearchQuery}
-                onActiveIndexChange={setEmojiActiveIndex}
-                onSelectEmoji={selectEmoji}
-              />,
-              document.body,
-            )}
-          </div>
-        )}
       </div>
+      <span className="workspace-page-rich-text-toolbar-divider" aria-hidden="true" />
       <div className="workspace-page-rich-text-toolbar-actions" role="group" aria-label={t('studio.formattingTools')}>
         {formatOptions.map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" className="workspace-page-rich-text-format-option" onMouseDown={(event) => event.preventDefault()} onClick={() => onFormat(id)} aria-label={label} aria-pressed={activeFormats[id]} title={label}>
@@ -314,16 +310,20 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
         {onOpenAlbum && (
           <div
             className={`workspace-page-rich-text-album-controls${albumInfoVisible ? ' is-info-visible' : ''}`}
-            onMouseEnter={scheduleAlbumInfo}
-            onMouseLeave={hideAlbumInfo}
-            onFocusCapture={scheduleAlbumInfo}
-            onBlurCapture={(event) => {
-              const nextTarget = event.relatedTarget;
-              if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
-              hideAlbumInfo();
-            }}
           >
-            <button type="button" className="workspace-page-rich-text-link-trigger workspace-page-rich-text-album-trigger" onMouseDown={(event) => event.preventDefault()} onClick={onOpenAlbum} disabled={albumDisabled} aria-label={t('studio.addPhotoAlbum')} aria-describedby="workspace-page-photo-album-limits">
+            <button
+              type="button"
+              className="workspace-page-rich-text-link-trigger workspace-page-rich-text-album-trigger"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onOpenAlbum}
+              onMouseEnter={scheduleAlbumInfo}
+              onMouseLeave={hideAlbumInfo}
+              onFocus={scheduleAlbumInfo}
+              onBlur={hideAlbumInfo}
+              disabled={albumDisabled}
+              aria-label={t('studio.addPhotoAlbum')}
+              aria-describedby="workspace-page-photo-album-limits"
+            >
               <ImagePlus size={17} strokeWidth={1.8} aria-hidden="true" />
             </button>
             <div className="workspace-page-rich-text-album-info" id="workspace-page-photo-album-limits" role="tooltip">

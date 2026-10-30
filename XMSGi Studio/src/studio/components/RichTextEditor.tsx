@@ -87,7 +87,15 @@ function getNormalizedEditorTextOffset(root: HTMLElement, targetNode: Node, targ
 export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength, onOpenAlbum, albumDisabled, onExportText, onBeforeClear, onOpenVersionHistory, selectedEffectId, onEffectChange }: Props) {
   const { t } = useLocale();
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const editorScrollbarRef = useRef<HTMLDivElement | null>(null);
+  const editorScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const logicalTextLengthRef = useRef(text.length);
+  const [editorScrollMetrics, setEditorScrollMetrics] = useState({
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+  });
+  const [editorScrollbarDragging, setEditorScrollbarDragging] = useState(false);
   const {
     getCaretOffset,
     placeCaretAtStart,
@@ -119,6 +127,102 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     const nextHtml = richTextToHtml(text, entities);
     if (editor.innerHTML !== nextHtml) editor.innerHTML = nextHtml;
   }, [text, entities]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return undefined;
+
+    const syncScrollMetrics = () => {
+      const next = {
+        scrollTop: editor.scrollTop,
+        scrollHeight: editor.scrollHeight,
+        clientHeight: editor.clientHeight,
+      };
+      setEditorScrollMetrics((current) => (
+        current.scrollTop === next.scrollTop
+        && current.scrollHeight === next.scrollHeight
+        && current.clientHeight === next.clientHeight
+          ? current
+          : next
+      ));
+    };
+
+    editor.addEventListener('scroll', syncScrollMetrics, { passive: true });
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncScrollMetrics);
+    resizeObserver?.observe(editor);
+    const mutationObserver = typeof MutationObserver === 'undefined' ? null : new MutationObserver(syncScrollMetrics);
+    mutationObserver?.observe(editor, { childList: true, characterData: true, subtree: true });
+    syncScrollMetrics();
+
+    return () => {
+      editor.removeEventListener('scroll', syncScrollMetrics);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, []);
+
+  const editorScrollbarCanScroll = editorScrollMetrics.scrollHeight > editorScrollMetrics.clientHeight + 1;
+  const editorScrollbarThumbHeight = editorScrollbarCanScroll
+    ? Math.min(100, Math.max(10, editorScrollMetrics.clientHeight / editorScrollMetrics.scrollHeight * 100))
+    : 100;
+  const editorScrollbarThumbTop = editorScrollbarCanScroll
+    ? editorScrollMetrics.scrollTop / (editorScrollMetrics.scrollHeight - editorScrollMetrics.clientHeight)
+      * (100 - editorScrollbarThumbHeight)
+    : 0;
+
+  const handleEditorScrollbarPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const editor = editorRef.current;
+    const track = editorScrollbarRef.current;
+    if (!editor || !track) return;
+
+    const maxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
+    const trackHeight = track.clientHeight;
+    const thumbHeight = Math.min(trackHeight, Math.max(16, editor.clientHeight / Math.max(1, editor.scrollHeight) * trackHeight));
+    const target = event.target as HTMLElement;
+
+    if (target.closest('.workspace-page-rich-text-scrollbar-thumb')) {
+      editorScrollDragRef.current = { pointerY: event.clientY, scrollTop: editor.scrollTop };
+      setEditorScrollbarDragging(true);
+      track.setPointerCapture(event.pointerId);
+    } else {
+      const trackBounds = track.getBoundingClientRect();
+      const travel = Math.max(1, trackHeight - thumbHeight);
+      const position = (event.clientY - trackBounds.top - thumbHeight / 2) / travel;
+      editor.scrollTop = Math.max(0, Math.min(maxScroll, position * maxScroll));
+    }
+    event.preventDefault();
+  };
+
+  const handleEditorScrollbarPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = editorScrollDragRef.current;
+    const editor = editorRef.current;
+    const track = editorScrollbarRef.current;
+    if (!drag || !editor || !track) return;
+
+    const maxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
+    const trackHeight = track.clientHeight;
+    const thumbHeight = Math.min(trackHeight, Math.max(16, editor.clientHeight / Math.max(1, editor.scrollHeight) * trackHeight));
+    const travel = Math.max(1, trackHeight - thumbHeight);
+    editor.scrollTop = Math.max(0, Math.min(maxScroll, drag.scrollTop + (event.clientY - drag.pointerY) / travel * maxScroll));
+  };
+
+  const handleEditorScrollbarKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const pageStep = Math.max(40, editor.clientHeight * 0.75);
+    const nextScrollTop = event.key === 'ArrowDown' ? editor.scrollTop + 40
+      : event.key === 'ArrowUp' ? editor.scrollTop - 40
+        : event.key === 'PageDown' ? editor.scrollTop + pageStep
+          : event.key === 'PageUp' ? editor.scrollTop - pageStep
+            : event.key === 'Home' ? 0
+              : event.key === 'End' ? editor.scrollHeight - editor.clientHeight
+                : null;
+    if (nextScrollTop === null) return;
+
+    event.preventDefault();
+    editor.scrollTop = nextScrollTop;
+  };
 
   const emitChange = () => {
     if (!editorRef.current) return;
@@ -528,6 +632,21 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
   const isLogoIntroActive = stageMode === 'editor'
     && editorFocused
     && ((!text.trim() && (!logoState.hasPlayed || logoState.introReady)) || logoState.glowActive || logoState.flying || logoState.glowFinishing);
+  const editorClearButton = stageMode === 'editor' ? (
+    <button
+      type="button"
+      className={`workspace-page-rich-text-clear${hasEditorText ? '' : ' is-hidden'}`}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={clearEditorText}
+      aria-label={t('studio.clearEditorText')}
+      aria-hidden={!hasEditorText}
+      disabled={!hasEditorText}
+      tabIndex={hasEditorText ? 0 : -1}
+      title={t('studio.clearText')}
+    >
+      <Eraser size={16} strokeWidth={1.8} aria-hidden="true" />
+    </button>
+  ) : null;
   return (
     <div
       className={`workspace-page-rich-text-editor ${toolbarActive ? 'is-toolbar-active' : ''} ${dragOver ? 'is-drag-over' : ''}`}
@@ -544,113 +663,135 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
           >
             {remainingCharacters}
           </span>
-          <button
-            type="button"
-            className={`workspace-page-rich-text-clear${hasEditorText ? '' : ' is-hidden'}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={clearEditorText}
-            aria-label={t('studio.clearEditorText')}
-            aria-hidden={!hasEditorText}
-            disabled={!hasEditorText}
-            tabIndex={hasEditorText ? 0 : -1}
-            title={t('studio.clearText')}
-          >
-            <Eraser size={16} strokeWidth={1.8} aria-hidden="true" />
-          </button>
+          {editorClearButton}
         </div>
       )}
-      <div className="workspace-page-rich-text-stage">
-        <div
-          ref={(element) => {
-            editorRef.current = element;
-            if (inputRef) inputRef.current = element;
-          }}
-          className={`workspace-page-textarea workspace-page-rich-text-input workspace-page-rich-text-stage-view ${stageMode === 'editor' ? 'is-active' : ''} ${text.trim() ? 'has-content' : 'is-empty'} ${isLogoIntroActive ? 'is-logo-intro' : ''} ${logoState.glowFinishing ? 'is-logo-intro-finishing' : ''}`}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-label={t('studio.postContent')}
-          data-placeholder={t('studio.postPlaceholder')}
-          spellCheck={false}
-          aria-hidden={stageMode !== 'editor'}
-          onFocus={() => {
-            if (!suppressToolbarActivationRef.current) setToolbarActive(true);
-            setEditorFocused(true);
-            if (!text.trim()) placeCaretAtStart();
-          }}
-          onBeforeInput={handleBeforeInput}
-          onKeyDown={(event) => {
-            if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== 'h') return;
-            event.preventDefault();
-            onOpenVersionHistory?.();
-          }}
-          onPaste={handlePaste}
-          onClick={(event) => {
-            const editor = editorRef.current;
-            const selection = window.getSelection();
-            if (!editor || !selection || event.detail < 3) return;
-            if (event.detail >= 4) {
-              const range = document.createRange();
-              range.selectNodeContents(editor);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            } else {
-              const currentRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-              if (!currentRange) return;
-              const start = getNormalizedEditorTextOffset(editor, currentRange.startContainer, currentRange.startOffset);
-              const end = getNormalizedEditorTextOffset(editor, currentRange.endContainer, currentRange.endOffset);
-              if (start === null || end === null) return;
+      <div className="workspace-page-rich-text-stage-shell">
+        <div className="workspace-page-rich-text-stage">
+          <div
+            ref={(element) => {
+              editorRef.current = element;
+              if (inputRef) inputRef.current = element;
+            }}
+            className={`workspace-page-textarea workspace-page-rich-text-input workspace-page-rich-text-stage-view ${stageMode === 'editor' ? 'is-active' : ''} ${text.trim() ? 'has-content' : 'is-empty'} ${isLogoIntroActive ? 'is-logo-intro' : ''} ${logoState.glowFinishing ? 'is-logo-intro-finishing' : ''}`}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            id="workspace-page-rich-text-input"
+            aria-label={t('studio.postContent')}
+            data-placeholder={t('studio.postPlaceholder')}
+            spellCheck={false}
+            aria-hidden={stageMode !== 'editor'}
+            onFocus={() => {
+              if (!suppressToolbarActivationRef.current) setToolbarActive(true);
+              setEditorFocused(true);
+              if (!text.trim()) placeCaretAtStart();
+            }}
+            onBeforeInput={handleBeforeInput}
+            onKeyDown={(event) => {
+              if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== 'h') return;
+              event.preventDefault();
+              onOpenVersionHistory?.();
+            }}
+            onPaste={handlePaste}
+            onClick={(event) => {
+              const editor = editorRef.current;
+              const selection = window.getSelection();
+              if (!editor || !selection || event.detail < 3) return;
+              if (event.detail >= 4) {
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } else {
+                const currentRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+                if (!currentRange) return;
+                const start = getNormalizedEditorTextOffset(editor, currentRange.startContainer, currentRange.startOffset);
+                const end = getNormalizedEditorTextOffset(editor, currentRange.endContainer, currentRange.endOffset);
+                if (start === null || end === null) return;
 
-              const editorText = editorHtmlToRichText(editor).text;
-              const position = Math.floor((start + end) / 2);
-              const lineStart = editorText.lastIndexOf('\n', Math.max(0, position - 1)) + 1;
-              const nextLineBreak = editorText.indexOf('\n', position);
-              const lineEnd = nextLineBreak === -1 ? editorText.length : nextLineBreak;
-              restoreTextSelection(lineStart, lineEnd);
-            }
-            saveSelection();
-            syncToolbarStateFromSelection();
-          }}
-          onInput={() => {
-            if (!isApplyingFormatRef.current) emitChange();
-            scheduleToolbarStateSync();
-          }}
-          onMouseUp={() => {
-            if (editorRef.current?.textContent) saveSelection();
-            else placeCaretAtStart();
-            syncToolbarStateFromSelection();
-          }}
-          onKeyUp={() => {
-            if (editorRef.current?.textContent) saveSelection();
-            else placeCaretAtStart();
-            syncToolbarStateFromSelection();
-          }}
-          onSelect={() => {
-            saveSelection();
-            scheduleToolbarStateSync();
-          }}
-          onBlur={() => {
-            setEditorFocused(false);
-            setLogoState((current) => ({ ...current, glowActive: false, glowFinishing: false }));
-            if (editorRef.current?.parentElement?.contains(document.activeElement)) return;
-            const selection = window.getSelection();
-            if (!selection || !editorRef.current?.contains(selection.anchorNode)) {
-              clearSelection();
-              return;
-            }
-            saveSelection();
-          }}
-        />
-        <LogoIntroAnimation
-          stageMode={stageMode}
-          editorFocused={editorFocused}
-          hasContent={Boolean(text.trim())}
-          editorRef={editorRef}
-          state={logoState}
-          setState={setLogoState}
-        />
-        <div className="workspace-page-rich-text-stage-content">
-          {stageContent}
+                const editorText = editorHtmlToRichText(editor).text;
+                const position = Math.floor((start + end) / 2);
+                const lineStart = editorText.lastIndexOf('\n', Math.max(0, position - 1)) + 1;
+                const nextLineBreak = editorText.indexOf('\n', position);
+                const lineEnd = nextLineBreak === -1 ? editorText.length : nextLineBreak;
+                restoreTextSelection(lineStart, lineEnd);
+              }
+              saveSelection();
+              syncToolbarStateFromSelection();
+            }}
+            onInput={() => {
+              if (!isApplyingFormatRef.current) emitChange();
+              scheduleToolbarStateSync();
+            }}
+            onMouseUp={() => {
+              if (editorRef.current?.textContent) saveSelection();
+              else placeCaretAtStart();
+              syncToolbarStateFromSelection();
+            }}
+            onKeyUp={() => {
+              if (editorRef.current?.textContent) saveSelection();
+              else placeCaretAtStart();
+              syncToolbarStateFromSelection();
+            }}
+            onSelect={() => {
+              saveSelection();
+              scheduleToolbarStateSync();
+            }}
+            onBlur={() => {
+              setEditorFocused(false);
+              setLogoState((current) => ({ ...current, glowActive: false, glowFinishing: false }));
+              if (editorRef.current?.closest('.workspace-page-rich-text-editor')?.contains(document.activeElement)) return;
+              const selection = window.getSelection();
+              if (!selection || !editorRef.current?.contains(selection.anchorNode)) {
+                clearSelection();
+                return;
+              }
+              saveSelection();
+            }}
+          />
+          <LogoIntroAnimation
+            stageMode={stageMode}
+            editorFocused={editorFocused}
+            hasContent={Boolean(text.trim())}
+            editorRef={editorRef}
+            state={logoState}
+            setState={setLogoState}
+          />
+          <div className="workspace-page-rich-text-stage-content">
+            {stageContent}
+          </div>
+        </div>
+        <div
+          className={`workspace-page-rich-text-scrollbar-track${editorScrollbarCanScroll && stageMode === 'editor' ? '' : ' is-hidden'}${editorScrollbarDragging ? ' is-dragging' : ''}`}
+          ref={editorScrollbarRef}
+          role="scrollbar"
+          tabIndex={editorScrollbarCanScroll && stageMode === 'editor' ? 0 : -1}
+          aria-label={t('studio.postContent')}
+          aria-controls="workspace-page-rich-text-input"
+          aria-orientation="vertical"
+          aria-hidden={!editorScrollbarCanScroll || stageMode !== 'editor'}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={editorScrollbarCanScroll
+            ? Math.round(editorScrollMetrics.scrollTop / (editorScrollMetrics.scrollHeight - editorScrollMetrics.clientHeight) * 100)
+            : 0}
+          onPointerDown={handleEditorScrollbarPointerDown}
+          onPointerMove={handleEditorScrollbarPointerMove}
+          onPointerUp={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
+          onPointerCancel={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
+          onLostPointerCapture={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
+          onKeyDown={handleEditorScrollbarKeyDown}
+        >
+          {editorScrollbarCanScroll && stageMode === 'editor' && (
+            <div
+              className="workspace-page-rich-text-scrollbar-thumb"
+              style={{
+                height: `${editorScrollbarThumbHeight}%`,
+                top: `${editorScrollbarThumbTop}%`,
+              }}
+            />
+          )}
         </div>
       </div>
       <EditorToolbar

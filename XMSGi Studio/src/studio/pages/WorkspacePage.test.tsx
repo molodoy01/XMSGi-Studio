@@ -32,6 +32,126 @@ const colorThemeStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(im
 const themeTokenStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/tokens.css'), 'utf8');
 
 describe('WorkspacePage publish action colors', () => {
+  it('fills the editor card with the input and toolbar whether preview is shown or hidden', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-editor-shell\s*\{[^}]*width:\s*min\(100%, 815px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row\s*\{[^}]*position:\s*static;[^}]*flex:\s*0 0 28px;[^}]*justify-content:\s*flex-end;[^}]*gap:\s*6px;[^}]*padding-right:\s*54px;[^}]*padding-left:\s*0;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:not\(\.is-toolbar-active\) \.workspace-page-rich-text-meta-row,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:has\(\.workspace-page-rich-text-input\.is-empty\) \.workspace-page-rich-text-meta-row\s*\{\s*opacity:\s*0\.45;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*24px;[^}]*bottom:\s*-22px;[^}]*display:\s*inline-flex;[^}]*width:\s*68px;[^}]*min-width:\s*68px;[^}]*border:\s*0;[^}]*border-radius:\s*7px;[^}]*background:\s*transparent;[^}]*font-variant-numeric:\s*tabular-nums;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*min-height:\s*34px;\s*margin:\s*4px 0 0 auto;\s*transform:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*10px;[^}]*bottom:\s*-22px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear svg\s*\{\s*width:\s*20px;\s*height:\s*20px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear:hover:not\(:disabled\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear:focus-visible:not\(:disabled\)\s*\{\s*background:\s*rgba\(var\(--editor-outline\), 0\.06\);\s*color:\s*var\(--editor-outline-bright\);\s*box-shadow:\s*none;\s*transform:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear:not\(\.is-hidden\)\s*\{[^}]*visibility:\s*visible;[^}]*pointer-events:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\.is-hidden\s*\{[^}]*visibility:\s*visible;[^}]*pointer-events:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*left:\s*auto;[^}]*width:\s*max-content;[^}]*justify-content:\s*flex-start;[^}]*padding:\s*3px 6px 1px;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*transform:\s*translateY\(-4px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*6px;\s*transform:\s*translateY\(-9px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button svg\s*\{\s*transform:\s*translateY\(-1px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:hover:not\(:disabled\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:focus-visible:not\(:disabled\)\s*\{\s*border-color:\s*transparent !important;\s*border-radius:\s*7px !important;\s*background:\s*rgba\(154, 168, 184, 0\.14\) !important;\s*color:\s*var\(--text\) !important;\s*transform:\s*none !important;\s*box-shadow:\s*none !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:hover:not\(:disabled\),\s*html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:focus-visible:not\(:disabled\)\s*\{\s*background:\s*rgba\(154, 168, 184, 0\.11\) !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage\s*\{\s*margin-bottom:\s*0;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='false'\]\) \.workspace-page-editor-shell\s*\{[^}]*width:\s*min\(100%, 815px\);[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).not.toMatch(
+      /workspace-page-rich-text-editor:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)::before/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)\s*\{[^}]*max-height:\s*none;[^}]*margin-bottom:\s*0;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\) \.workspace-page-rich-text-editor\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(92% \+ 24px\), 720px\);[^}]*max-width:\s*720px;[^}]*margin-bottom:\s*8px;[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)::after\s*\{\s*bottom:\s*0;\s*z-index:\s*10;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-form-row-body\s*\{[^}]*padding-right:\s*4px;[^}]*padding-left:\s*4px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-action-row\s*\{[^}]*padding-right:\s*8px;[^}]*padding-left:\s*8px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell \.workspace-page-action-row\.workspace-page-schedule-row\s*\{\s*padding-top:\s*5px;\s*padding-bottom:\s*5px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-stage-view\.is-active\s*\{[^}]*width:\s*min\(calc\(100% \+ 20px\), 720px\);[^}]*max-width:\s*720px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(100% \+ 20px\), 720px\);[^}]*max-width:\s*720px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-scrollbar-track\s*\{\s*flex-basis:\s*12px;\s*width:\s*12px;\s*margin-left:\s*-7px;\s*background:\s*linear-gradient\(to right, transparent 7px, rgba\(255, 255, 255, 0\.035\) 7px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-scrollbar-thumb::before\s*\{\s*left:\s*7px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*width:\s*max-content;[^}]*max-width:\s*100%;[^}]*transform:\s*translateY\(-4px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*24px;[^}]*bottom:\s*-22px;[^}]*width:\s*68px;[^}]*min-width:\s*68px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*10px;[^}]*bottom:\s*-22px;[^}]*width:\s*24px;[^}]*height:\s*24px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*6px;\s*transform:\s*translateY\(-9px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*5px;\s*transform:\s*translate\(-3px, -9px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-tool-icon-trigger\s*\{\s*width:\s*32px;\s*min-width:\s*32px;\s*height:\s*32px;\s*min-height:\s*32px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-action-row\.workspace-page-schedule-row\s*\{[^}]*display:\s*flex;[^}]*width:\s*100%;[^}]*flex-wrap:\s*nowrap;[^}]*justify-content:\s*space-between;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-schedule-row > \.workspace-page-submit-actions\s*\{[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;/,
+    );
+  });
+
   it('keeps the scheduled publish label on one line in compact layouts', () => {
     expect(workspacePageStyles).toMatch(
       /\.workspace-page-publish-main\.is-scheduled \.workspace-page-publish-trigger-main\s*\{[^}]*font-size:\s*10px;[^}]*letter-spacing:\s*0;[^}]*overflow-wrap:\s*normal;[^}]*white-space:\s*nowrap;/,
@@ -39,6 +159,45 @@ describe('WorkspacePage publish action colors', () => {
     expect(workspacePageStyles).toMatch(
       /\.workspace-page-publish-main\.is-scheduled \.workspace-page-publish-trigger-main\.is-english\s*\{\s*font-size:\s*12px;/,
     );
+  });
+
+  it('keeps current-action value typography close to its unchanged label', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-mode-summary-label\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*0\.14em;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-mode-summary strong\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*500;[^}]*letter-spacing:\s*0\.04em;/,
+    );
+  });
+
+  it('keeps the editor field fixed and scrolls long text inside it', () => {
+    const activeEditorRule = workspacePageStyles.match(
+      /\.workspace-page-rich-text-input\.is-active\s*\{([^}]*)\}/,
+    )?.[1] ?? '';
+
+    expect(activeEditorRule).toMatch(/box-sizing:\s*border-box;/);
+    expect(activeEditorRule).toMatch(/width:\s*100%;/);
+    expect(activeEditorRule).toMatch(/max-width:\s*100%;/);
+    expect(activeEditorRule).toMatch(/min-height:\s*0;/);
+    expect(activeEditorRule).toMatch(/max-height:\s*100%;/);
+    expect(activeEditorRule).toMatch(/overflow-x:\s*hidden;/);
+    expect(activeEditorRule).toMatch(/overflow-y:\s*auto;/);
+    expect(activeEditorRule).toMatch(/overscroll-behavior-y:\s*contain;/);
+    expect(activeEditorRule).toMatch(/overflow-anchor:\s*none;/);
+
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-stage\s*\{[^}]*grid-template-rows:\s*minmax\(0, 1fr\);[^}]*overflow:\s*hidden;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-stage-shell\s*\{[^}]*display:\s*flex;[^}]*gap:\s*7px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)\s*\{[^}]*box-sizing:\s*border-box;[^}]*padding-left:\s*10px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-scrollbar-track\s*\{[^}]*position:\s*relative;[^}]*flex:\s*0 0 5px;/,
+    );
+    expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-input\.is-expanded/);
   });
 
   it('uses dark message notification surfaces for the dark chat wallpaper in light theme', () => {
@@ -1148,16 +1307,23 @@ describe('WorkspacePage main-screen flows', () => {
     expect(lightEditorInputRule).toMatch(/background:\s*#f7f8fa !important/);
     expect(lightEditorInputRule).toMatch(/border:\s*1px solid #e5e9ec/);
     expect(workspacePageStyles).toMatch(/workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-input\s*\{[^}]*margin-bottom:\s*8px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage-view\s*\{[^}]*transform:\s*none;[^}]*transition:\s*opacity 180ms ease;/);
+    expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\)/);
+    expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active\)\s*\{/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active\s*\{\s*padding-bottom:\s*12px;/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-input\s*\{\s*flex:\s*1 1 auto;\s*margin-bottom:\s*8px;/);
-    expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*min-height:\s*34px;\s*margin:\s*12px 0 0 auto;\s*transform:\s*translateY\(11px\);/);
+    expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*min-height:\s*34px;\s*margin:\s*4px 0 0 auto;\s*transform:\s*none;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-height: 720px\)\s*\{\s*html\.electron-runtime \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active\s*\{\s*padding-bottom:\s*6px;/);
     expect(workspacePageStyles).toMatch(/@media \(max-height: 720px\)[\s\S]*?html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*transform:\s*translateY\(11px\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 480px\)\s*\{\s*\.workspace-page-rich-text-editor\s*\{\s*padding-bottom:\s*6px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage::after\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 840px\)[\s\S]*?html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*transform:\s*translateY\(15px\);/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)\s*\{\s*\.workspace-page-rich-text-editor\s*\{\s*height:\s*100%;\s*padding-bottom:\s*6px;\s*\}\s*\.workspace-page-rich-text-editor \.workspace-page-rich-text-input\s*\{\s*flex:\s*1 1 0;\s*min-height:\s*0;\s*margin-bottom:\s*8px;\s*\}/);
     expect(workspacePageStyles).not.toMatch(/\.workspace-page-attachment-tray\.is-empty\s*\{[^}]*display:\s*none/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*transform:\s*scaleY\(-1\);[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items > \*\s*\{\s*transform:\s*scaleY\(-1\);/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page \.workspace-page-preview-panel\s*\{[^}]*width:\s*278px;[^}]*min-width:\s*278px;[^}]*max-width:\s*278px;[^}]*flex:\s*0 0 278px;/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page \.workspace-page-editor-shell\s*\{\s*max-height:\s*none;\s*margin-bottom:\s*0;/);
-    expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active\)\s*\{\s*height:\s*100%;\s*min-height:\s*0;\s*max-height:\s*calc\(100% - 25px\);\s*margin-bottom:\s*-20px;/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-chat-stage\.is-active \.workspace-page-chat-stage-main\s*\{\s*flex:\s*1 1 0%;\s*min-height:\s*0;\s*overflow-y:\s*auto;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-editor-canvas:has\(\.workspace-page-rich-text-schedule-stage\.is-active:is\(\.is-time-focus, \.is-repeat-focus\)\) \.workspace-page-form-row-body\s*\{/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-editor-shell:has\(\.workspace-page-rich-text-schedule-stage\.is-active\)\s*\{\s*width:\s*min\(100%, 815px\);/);
@@ -1170,7 +1336,7 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('keeps the Electron post input inset and centered inside the editor stage', () => {
-    expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-stage-view\.is-active\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(92% \+ 24px\), 720px\);[^}]*max-width:\s*720px/);
+    expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-stage-view\.is-active\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(92% \+ 24px\), 720px, 100%\);[^}]*max-width:\s*720px/);
   });
 
   it('keeps the Time picker and quick actions usable at the minimum Electron height', () => {
@@ -1231,6 +1397,7 @@ describe('WorkspacePage main-screen flows', () => {
     const shellRule = workspacePageStyles.match(/\.workspace-page-editor-shell\s*\{([^}]*)\}/)?.[1] ?? '';
     const stageRule = workspacePageStyles.match(/\.workspace-page-rich-text-stage\s*\{([^}]*)\}/)?.[1] ?? '';
     const dividerRule = workspacePageStyles.match(/\.workspace-page-rich-text-stage::after\s*\{([^}]*)\}/)?.[1] ?? '';
+    const lightDividerRule = workspacePageStyles.match(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage::after\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(pageRule).toMatch(/radial-gradient\(ellipse 72% 62% at 45% 42%/);
     expect(pageRule).toMatch(/var\(--void\)/);
@@ -1238,13 +1405,35 @@ describe('WorkspacePage main-screen flows', () => {
     expect(shellRule).toMatch(/0 0 0 1px rgba\(var\(--editor-outline\), 0\.04\)/);
     expect(stageRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.48\)/);
     expect(dividerRule).toMatch(/filter:\s*none/);
+    expect(lightDividerRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.78\)/);
+    expect(lightDividerRule).toMatch(/drop-shadow\(0 0 4px rgba\(var\(--editor-outline\), 0\.3\)\)/);
   });
 
-  it('strengthens the toolbar divider and editor outline in the light theme', () => {
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage\s*\{[^}]*editor-outline-bright\), 0\.72/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage::after\s*\{\s*height:\s*3px;/);
+  it('keeps the editor counter and eraser visible in the light theme', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-meta-row\s*\{\s*opacity:\s*1 !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{\s*color:\s*#344b5a !important;\s*font-weight:\s*500;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{\s*color:\s*#3f6277 !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-clear\.is-hidden\s*\{\s*visibility:\s*visible !important;\s*pointer-events:\s*none;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-clear:hover,\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-clear:focus-visible\s*\{\s*background:\s*#e4eef3;/,
+    );
+  });
+
+  it('matches dark-theme toolbar chip and divider geometry in the light theme', () => {
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage\s*\{[^}]*editor-outline-bright\), 0\.48/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage::after\s*\{[^}]*bottom:\s*0;[^}]*height:\s*2px;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.48\) !important;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell::after\s*\{[^}]*opacity:\s*1 !important;[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.64\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button\[aria-pressed='true'\]:not\(:hover\):not\(:focus-visible\),\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button\.is-open:not\(:hover\):not\(:focus-visible\)\s*\{[^}]*border-color:\s*#9dc9e5 !important;[^}]*background:\s*#e3f3fc !important;[^}]*color:\s*#176c9c !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-leading-tools > \.workspace-page-rich-text-tool-anchor > button,[\s\S]*? \.workspace-page-rich-text-toolbar-actions > \.workspace-page-rich-text-format-option,[\s\S]*?\{\s*width:\s*32px !important;\s*min-width:\s*32px !important;\s*height:\s*32px !important;\s*min-height:\s*32px !important;/);
   });
 
   it('updates publish actions without changing the blue editor outline', async () => {
@@ -1457,7 +1646,7 @@ describe('WorkspacePage main-screen flows', () => {
       expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='false'\]\) \.workspace-page-editor-panel\s*\{\s*align-items:\s*center;/);
       expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='false'\]\) \.workspace-page-editor-panel\s*\{\s*width:\s*100%;\s*flex:\s*1 1 100%;/);
       expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='false'\]\) \.workspace-page-preview-panel\[data-visible='false'\]\s*\{\s*display:\s*none;/);
-      expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='false'\]\) \.workspace-page-editor-panel \.workspace-page-textarea\s*\{\s*width:\s*min\(100%, 720px\);\s*max-width:\s*720px;/);
+      expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{\s*width:\s*100%;\s*max-width:\s*none;/);
 
       const modeButtons = [...document.querySelectorAll('.workspace-page-mode-button, .workspace-page-schedule-compact-button')];
       expect(modeButtons.length).toBeGreaterThan(0);
@@ -2700,9 +2889,9 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):active:not\(:disabled\)\s*\{[^}]*background:\s*#239dfb !important;[^}]*filter:\s*brightness\(0\.98\);/);
   });
 
-  it('uses a consistent light Studio button tone and slightly larger controls', () => {
+  it('uses consistent light Studio control tones and toolbar chip sizing', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page\s*\{[^}]*--studio-control-background:\s*#f1f6f8;[^}]*--studio-control-border:\s*#cfdee5;[^}]*--studio-control-foreground:\s*#456477;/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button\s*\{[^}]*width:\s*34px !important;[^}]*height:\s*34px !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-leading-tools > \.workspace-page-rich-text-tool-anchor > button,[\s\S]*? \.workspace-page-rich-text-toolbar-actions > \.workspace-page-rich-text-format-option,[\s\S]*?\{\s*width:\s*32px !important;[^}]*height:\s*32px !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-action-row \.workspace-page-attachment-toggle,[\s\S]*?height:\s*40px !important;[^}]*min-height:\s*40px !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button:hover:not\(:disabled\)\s*\{\s*background:\s*#e4eef3 !important;/);
   });
@@ -2796,6 +2985,12 @@ describe('WorkspacePage main-screen flows', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-input,[\s\S]*?\.workspace-page-rich-text-input:focus-visible\s*\{[^}]*background:\s*#151b20 !important;[^}]*color:\s*#e2e7eb !important;[^}]*color-scheme:\s*dark;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-version-history-close,[\s\S]*?\.workspace-page-version-history-copy\s*\{[^}]*background:\s*#1a2228 !important;[^}]*color:\s*#d4dde3 !important;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-version-history-document-menu\s*\{[^}]*background:\s*#10161a !important;/);
+  });
+
+  it('reduces the floating emoji picker shadow by half in the light theme', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page-rich-text-emoji-picker--floating\s*\{\s*box-shadow:\s*0 8px 20px rgba\(34, 47, 58, 0\.16\);/,
+    );
   });
 
   it('aligns the empty editor prompt with the first typed line', () => {
@@ -3073,8 +3268,8 @@ describe('WorkspacePage main-screen flows', () => {
     expect(toolbar).not.toBeNull();
     const leadingTools = toolbar!.querySelector('.workspace-page-rich-text-leading-tools');
     expect(Array.from(leadingTools!.querySelectorAll('button')).map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Message effects',
       'Choose emoji',
+      'Message effects',
     ]);
     const editorFormattingControls = Array.from(toolbar!.querySelectorAll<HTMLButtonElement>(
       '.workspace-page-rich-text-toolbar-actions .workspace-page-rich-text-format-option, .workspace-page-rich-text-toolbar-actions .workspace-page-rich-text-album-trigger, .workspace-page-rich-text-toolbar-actions .workspace-page-rich-text-link-trigger:not(.workspace-page-version-history-trigger):not(.workspace-page-rich-text-album-trigger)',
@@ -3933,8 +4128,12 @@ describe('WorkspacePage main-screen flows', () => {
 
     expect(toolbar).not.toBeNull();
     expect(editorMeta?.querySelector('.workspace-page-character-count')).not.toBeNull();
-    expect(editorMeta?.querySelector('.workspace-page-rich-text-clear')).not.toBeNull();
     expect(toolbar!.querySelector('.workspace-page-character-count')).toBeNull();
+    const characterCount = editorMeta?.querySelector('.workspace-page-character-count');
+    const eraser = editorMeta?.querySelector('.workspace-page-rich-text-clear');
+    expect(eraser).not.toBeNull();
+    expect(characterCount?.nextElementSibling).toBe(eraser);
+    expect(toolbar!.querySelector('.workspace-page-rich-text-clear')).toBeNull();
     expect(editingControls).toHaveLength(6);
     expect(toolbar!.querySelector('.workspace-page-rich-text-format-clear')).toBeNull();
     expect(editingControls.every((button) => !button.disabled)).toBe(true);
@@ -3942,15 +4141,19 @@ describe('WorkspacePage main-screen flows', () => {
     expect(historyTrigger?.disabled).toBe(false);
     expect(exportTrigger).not.toBeNull();
     expect(exportTrigger?.disabled).toBe(false);
-    expect(document.querySelector('.workspace-page-rich-text-input')?.getAttribute('contenteditable')).toBe('true');
+    const activeEditorInput = document.querySelector('.workspace-page-rich-text-input.is-active');
+    expect(activeEditorInput?.getAttribute('contenteditable')).toBe('true');
+    expect(activeEditorInput?.parentElement?.classList.contains('workspace-page-rich-text-stage')).toBe(true);
     unmount();
   });
 
   it('keeps the link toolbar button in place and closes its popover on a second click', async () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-controls\.is-open\s*\{\s*display:\s*block;\s*flex:\s*0 0 32px;\s*width:\s*32px;\s*height:\s*32px;/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-controls \.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*calc\(100% \+ 8px\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-controls \.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ 8px\);/);
     expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-link-controls \.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*static;/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*absolute !important;[^}]*bottom:\s*calc\(100% \+ 8px\) !important;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*absolute !important;[^}]*top:\s*calc\(100% \+ 8px\) !important;[^}]*bottom:\s*auto !important;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-tool-popover\s*\{[^}]*top:\s*calc\(100% \+ 8px\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-editor-export-menu\s*\{[^}]*top:\s*calc\(100% \+ 8px\);/);
     const { unmount } = await renderWorkspacePage();
     const editor = document.querySelector('.workspace-page-rich-text-editor')!;
     const linkButton = document.querySelector<HTMLButtonElement>('.workspace-page-rich-text-link-controls > button')!;
@@ -4008,7 +4211,15 @@ describe('WorkspacePage main-screen flows', () => {
     vi.useFakeTimers();
     try {
       await act(async () => {
-        albumControls.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        const eraser = document.querySelector<HTMLButtonElement>('.workspace-page-rich-text-clear')!;
+        eraser.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      });
+      expect(albumControls).not.toHaveClass('is-info-visible');
+      await act(async () => { await vi.advanceTimersByTimeAsync(450); });
+      expect(albumControls).not.toHaveClass('is-info-visible');
+
+      await act(async () => {
+        albumButton.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       });
       expect(albumControls).not.toHaveClass('is-info-visible');
       await act(async () => { await vi.advanceTimersByTimeAsync(449); });
@@ -4016,7 +4227,7 @@ describe('WorkspacePage main-screen flows', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(1); });
       expect(albumControls).toHaveClass('is-info-visible');
       await act(async () => {
-        albumControls.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+        albumButton.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
       });
       expect(albumControls).not.toHaveClass('is-info-visible');
     } finally {

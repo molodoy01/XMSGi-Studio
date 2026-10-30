@@ -9,3 +9,8 @@ XMSGi Studio/release-working-*/
 Studio/Studio module/node_modules/
 Studio/Studio module/dist/
 /Stands/
+node_modules
+/.playwright-mcp/
+/dist/
+/release/
+/release-working-*/

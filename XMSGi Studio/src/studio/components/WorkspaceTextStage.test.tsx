@@ -207,6 +207,42 @@ describe('WorkspaceTextStage editor flows', () => {
     window.localStorage.clear();
   });
 
+  it('keeps the editable field directly in the text stage', () => {
+    const { editor, unmount } = renderRichTextEditor();
+
+    expect(editor.parentElement?.classList.contains('workspace-page-rich-text-stage')).toBe(true);
+
+    unmount();
+  });
+
+  it('uses an external scrollbar to control long editor text', () => {
+    const { editor, container, unmount } = renderRichTextEditor();
+    Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 400 });
+    const scrollbar = container.querySelector<HTMLElement>('[role="scrollbar"]');
+
+    expect(scrollbar).not.toBeNull();
+    expect(scrollbar?.parentElement?.classList.contains('workspace-page-rich-text-stage-shell')).toBe(true);
+    expect(scrollbar?.parentElement).not.toBe(editor.parentElement);
+    expect(scrollbar).toHaveAttribute('aria-controls', 'workspace-page-rich-text-input');
+
+    act(() => {
+      editor.scrollTop = 150;
+      editor.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(scrollbar).toHaveAttribute('aria-valuenow', '50');
+    expect(scrollbar?.querySelector('.workspace-page-rich-text-scrollbar-thumb')).toHaveStyle({ top: '37.5%', height: '25%' });
+
+    act(() => {
+      scrollbar?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    });
+
+    expect(editor.scrollTop).toBe(300);
+
+    unmount();
+  });
+
   it('inserts the selected template and returns to editor mode', () => {
     const onModeChange = vi.fn();
     const onInsertTemplate = vi.fn();
@@ -2066,7 +2102,7 @@ describe('WorkspaceTextStage editor flows', () => {
     const root = createRoot(container);
     const onChange = vi.fn();
     const renderEditor = (text: string) => root.render(
-      <LocaleProvider><RichTextEditor text={text} entities={[]} onChange={onChange} maxLength={4096} /></LocaleProvider>,
+      <LocaleProvider><RichTextEditor text={text} entities={[]} onChange={onChange} onOpenAlbum={() => undefined} maxLength={4096} /></LocaleProvider>,
     );
 
     act(() => renderEditor(''));
@@ -2102,7 +2138,7 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(window.getSelection()?.anchorNode).toBe(editor);
     expect(window.getSelection()?.anchorOffset).toBe(0);
     expect(editor.classList.contains('is-empty')).toBe(true);
-    expect(editor.getAttribute('data-placeholder')).toBe('Start writing your post…');
+    expect(editor.getAttribute('data-placeholder')).toBe('What shall we share?');
     expect(logo?.querySelector('img')?.getAttribute('src')).toContain('logo.png');
     expect(editor.contains(logo)).toBe(false);
     expect(animate).toHaveBeenCalledTimes(1);

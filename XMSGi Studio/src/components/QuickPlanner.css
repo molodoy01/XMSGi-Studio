@@ -472,7 +472,7 @@ html[data-theme='light'] .quick-planner-workbench::before {
   min-height: 260px;
   flex: 1 1 auto;
   flex-direction: column;
-  padding: 24px 28px 18px;
+  padding: 24px 10px 18px;
 }
 
 .quick-planner-clear-message {
@@ -2080,7 +2080,7 @@ html[data-theme='light'] .quick-planner .quick-planner-mode-switch button.is-act
 
   .quick-planner-composer {
     min-height: 220px;
-    padding: 20px 17px 16px;
+    padding: 20px 10px 16px;
   }
 
   .quick-planner-message {
@@ -2781,6 +2781,10 @@ html[data-theme='dark'] .quick-planner .quick-planner-mode-switch button.is-acti
   border-color: #74828b;
   background: #354047;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+html[data-theme] .quick-planner .quick-planner-mode-switch button:not(.is-active) {
+  border: 0 !important;
 }
 
 html[data-theme] .quick-planner .quick-planner-schedule-row .quick-planner-submit,
