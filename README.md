@@ -11,7 +11,7 @@
   <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
 </p>
 
-**XMSGi Studio** делает планирование встреч и создание публикаций в Telegram простым, локальным и **надежным**.
+**XMSGi Studio** makes planning and publishing Telegram posts simple, local, and reliable.
 
 <p align="center">
   <a href="https://github.com/molodoy01/XMSGi-Studio/releases/latest"><img alt="Download latest release" src="https://img.shields.io/badge/⬇%20Download-latest-6c7cff?style=for-the-badge"></a>
