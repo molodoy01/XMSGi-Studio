@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Download, Upload } from 'lucide-react';
 import type { Template } from '@studio/types';
 import { useLocale } from '@studio/lib/i18n';
 import type { StageMode } from './types';
@@ -17,6 +18,8 @@ interface Props {
   onDeleteTemplate: (template: Template) => void;
   closeTemplateEditor: () => void;
   saveTemplateStage: () => void;
+  onExportTemplates?: () => void;
+  onImportTemplates?: (file: File) => void;
 }
 
 export function TemplatesStage({
@@ -33,9 +36,12 @@ export function TemplatesStage({
   onDeleteTemplate,
   closeTemplateEditor,
   saveTemplateStage,
+  onExportTemplates,
+  onImportTemplates,
 }: Props) {
   const { t } = useLocale();
   const [templateSearch, setTemplateSearch] = useState('');
+  const templateImportInputRef = useRef<HTMLInputElement>(null);
   const templateNameInputRef = useRef<HTMLInputElement>(null);
   const templateBodyInputRef = useRef<HTMLTextAreaElement>(null);
   const normalizedTemplateSearch = templateSearch.trim().toLocaleLowerCase();
@@ -109,7 +115,7 @@ export function TemplatesStage({
               <div className="workspace-page-template-stage-item" key={template.id}>
                 <button type="button" onClick={() => { onInsertTemplate(template.body); onModeChange('editor'); }}>
                   <strong>{template.name}</strong>
-                  <span>{t('studio.characterCount', { count: template.body.length })}</span>
+                  <span className="workspace-page-template-row-summary">{t('studio.characterCount', { count: template.body.length })}</span>
                 </button>
                 <div>
                   <button type="button" onClick={() => openTemplateEditor(template)}>{t('studio.edit')}</button>
@@ -132,7 +138,33 @@ export function TemplatesStage({
               {t('studio.save')}
             </button>
           ) : (
-            <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
+            <>
+              {onImportTemplates && (
+                <>
+                  <input
+                    ref={templateImportInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    hidden
+                    aria-label={t('studio.importTemplates')}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      const file = event.target.files?.[0];
+                      if (file) onImportTemplates(file);
+                      event.target.value = '';
+                    }}
+                  />
+                  <button type="button" className="workspace-page-stage-secondary" onClick={() => templateImportInputRef.current?.click()} title={t('studio.importTemplates')}>
+                    <Upload size={14} strokeWidth={1.8} aria-hidden="true" /> {t('studio.importTemplatesCompact')}
+                  </button>
+                </>
+              )}
+              {onExportTemplates && (
+                <button type="button" className="workspace-page-stage-secondary" onClick={onExportTemplates} disabled={templates.length === 0} title={t('studio.exportTemplates')}>
+                  <Download size={14} strokeWidth={1.8} aria-hidden="true" /> {t('studio.exportTemplatesCompact')}
+                </button>
+              )}
+              <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
+            </>
           )}
         </div>
       </footer>

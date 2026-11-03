@@ -174,7 +174,8 @@ export function useTelegramAuth({
 
         if (
           authStep === 'code' &&
-          /password|2fa|session_password_needed/i.test(error)
+          !/\bPHONE_CODE_(?:INVALID|EXPIRED)\b/i.test(error) &&
+          /\bSESSION_PASSWORD_NEEDED\b/i.test(error)
         ) {
           setAuthStep('password');
           setLocalizedAuthError('auth.enterTwoFactor');

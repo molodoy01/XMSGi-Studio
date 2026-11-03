@@ -31,6 +31,7 @@ describe('i18n', () => {
     const { result } = renderHook(() => useLocale(), { wrapper });
     act(() => result.current.setLocale('ru'));
     expect(result.current.locale).toBe('ru');
+    expect(result.current.t('studio.postPlaceholder')).toBe('О чём расскажем сегодня?');
     expect(result.current.t('settings.title')).toBe('Настройки');
     expect(result.current.t('schedule.massWarningTitle')).toBe('Массовое планирование');
     expect(result.current.t('schedule.massWarningMessage', { count: 10 })).toBe('10 сообщений · риск FloodWait');

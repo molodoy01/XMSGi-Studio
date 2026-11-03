@@ -187,3 +187,18 @@ contextBridge.exposeInMainWorld('draftStorage', {
   copyAttachmentPath: (sourcePath) => ipcRenderer.invoke('draft-store:copy-attachment', sourcePath),
   readImageDataUrl: (filePath) => ipcRenderer.invoke('draft-store:read-image', filePath),
 });
+
+contextBridge.exposeInMainWorld('desktop', {
+  hasCustomWindowControls: process.platform === 'win32',
+  minimizeWindow: () => ipcRenderer.invoke('app:window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('app:window-toggle-maximize'),
+  closeWindow: () => ipcRenderer.invoke('app:window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('app:window-is-maximized'),
+  onWindowMaximizedChange: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, isMaximized) => callback(isMaximized);
+    ipcRenderer.on('app:window-maximized-changed', listener);
+    return () => ipcRenderer.removeListener('app:window-maximized-changed', listener);
+  },
+  setColorTheme: (theme) => ipcRenderer.invoke('app:set-color-theme', theme),
+});

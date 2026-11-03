@@ -1,27 +1,40 @@
 import { memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { AlertTriangle, ImagePlus } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { ChatAvatar } from '../components/ChatAvatar';
 import { useConfirm } from '@/components/useConfirm';
 import { ChatRemoveModal } from '../components/ChatRemoveModal';
 import { ChatPreviewStand, type ChatWallpaper } from '../components/ChatPreviewStand';
-import { DraftColorPicker } from '../components/DraftColorPicker';
 import { DocumentHistoryDialog } from '../components/editor/DocumentHistoryDialog';
+import { WorkspacePageActionRows, type PublishAction, type PublishFooterStatus } from '../components/WorkspacePageActionRows';
+import {
+  FOOTER_STATUS_DURATION_MS,
+  getPreviewHistoryErrorPresentation,
+  getPreviewHistoryMediaDataUrlChars,
+  loadTemplatesWithDefault,
+  savedDraftToWorkspaceSnapshot,
+  useTimedStatus,
+} from './WorkspacePageHelpers';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { WorkspaceTextStage } from '../components/WorkspaceTextStage';
+import { WorkspaceAttachmentTray } from '../components/WorkspaceAttachmentTray';
 import { useStudioDrafts } from '../hooks/useStudioDrafts';
-import { createTemplate, deleteTemplate, insertTextAtSelection, updateTemplate } from '../lib/templates';
-import { BUILT_IN_TEMPLATES } from '../lib/builtInTemplates';
-import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '../lib/drafts';
-import { convertWebpToTelegramPhoto, inferAttachmentMimeType, isSupportedPhotoAlbumSource, isTelegramPhotoAlbumImage, normalizeAttachments } from '../lib/draftAttachments';
+import { useWorkspaceAttachmentSelection } from '../hooks/useWorkspaceAttachmentSelection';
+import type { WorkspacePageProps } from './workspacePageTypes';
+import { ChatPickerChevron } from '../components/ChatPickerChevron';
 import {
-  DEFAULT_DRAFT_BODY,
-  DEFAULT_DRAFT_NAME,
-  getDraftStorageApi,
-  hasDraftContent,
-  readInitialWorkspaceDraft,
-  readWorkspaceDraftStoreFallback,
-} from '../lib/draftStore';
+  createTemplate,
+  deleteTemplate,
+  insertTextAtSelection,
+  mergeTemplateBackup,
+  parseTemplateBackup,
+  serializeTemplateBackup,
+  TEMPLATE_IMPORT_MAX_BYTES,
+  updateTemplate,
+} from '../lib/templates';
+import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '../lib/drafts';
+import { isTelegramPhotoAlbumImage, normalizeAttachments } from '../lib/draftAttachments';
+import { getDraftStorageApi, hasDraftContent, readInitialWorkspaceDraft } from '../lib/draftStore';
+import { getLocalAttachmentPath } from '@/lib/localAttachmentPath';
 import type { WorkspaceDraft } from '../lib/draftStore';
 import { normalizeRichTextEntities, richTextToHtml } from '../lib/richText';
 import { sliceRichText } from '../lib/richText';
@@ -29,7 +42,24 @@ import { getMessageMaxLength } from '../lib/messageLimits';
 import { appendPreviewMessage } from '../lib/preview';
 import { useLocale } from '@studio/lib/i18n';
 import { hasChatHistoryBridge, telegramGetChatHistory } from '@/services/chatAppService';
-import { loadTemplates, saveTemplates } from '../lib/storage';
+import { saveTemplates } from '../lib/storage';
+import { createWorkspaceTextTransferHandlers } from '../lib/workspaceTextTransfer';
+import {
+  getAttachmentTransportGroups,
+  getAttachmentTransportItems,
+  isImageAttachment,
+  MAX_ALBUMS,
+  remapAttachmentPositions,
+  type WorkspaceAttachment,
+} from '../lib/workspaceAttachments';
+import {
+  DEFAULT_PREVIEW_LAYOUT,
+  isLivePreviewSurface,
+  readChatWallpaper,
+  readPreviewLayout,
+  writePreviewLayout,
+  type PreviewLayout,
+} from '../lib/workspacePreferences';
 import { uid } from '@shared/utils';
 import {
   EDITOR_APPEARANCE_UPDATED_EVENT,
@@ -37,629 +67,36 @@ import {
   readEditorAppearancePreferences,
 } from '@shared/editorAppearance';
 import type { PersistedWorkspaceDocumentVersion } from '@shared/types';
+import type { StudioPlannerTextPayload } from '@shared/bridge';
 import { areWorkspaceSnapshotsEqual, hasWorkspaceDocumentContent } from '../lib/documentHistory';
 import { formatScheduleSummary, isFutureSchedule, MAX_SCHEDULE_OCCURRENCES, refreshScheduleDateTime, type ScheduleRepeatOptions } from '../lib/scheduling';
 import type {
   Chat,
-  DraftAttachment,
   DraftColor,
   PreviewChatHistory,
   RichTextEntity,
   ScheduledMessage,
   SavedDraft,
   Template,
-  NotificationType,
 } from '../types';
-import type { BridgeErrorDetails, StudioPlannerTextPayload } from '@shared/bridge';
 import './WorkspacePage.css';
 
 const MemoizedChatPreviewStand = memo(ChatPreviewStand);
 
-function ChatPickerChevron() {
-  return (
-    <svg className="workspace-page-chat-trigger-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="workspace-chat-chevron-metal" x1="6" y1="8" x2="18" y2="16" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#f5fbff" />
-          <stop offset="0.4" stopColor="#c2d8e5" />
-          <stop offset="0.72" stopColor="#819aaa" />
-          <stop offset="1" stopColor="#e0edf4" />
-        </linearGradient>
-      </defs>
-      <path d="M6 8.8 12 15l6-6.2" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 8.8 12 15l6-6.2" fill="none" stroke="url(#workspace-chat-chevron-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6.4 8.4 12 14.2l5.6-5.8" fill="none" stroke="rgba(250, 253, 255, 0.5)" strokeWidth="0.65" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export { normalizeAttachments } from '../lib/draftAttachments';
 export { hasDraftContent, readWorkspaceDraftStoreFallback, writeWorkspaceDraftStoreFallback } from '../lib/draftStore';
+export type { StudioInlineNotification } from './workspacePageTypes';
 
-type WorkspacePageProps = {
-  connected: boolean;
-  connectionRecoveryStatus?: 'reconnecting' | 'offline' | null;
-  chats: Chat[];
-  selectedChat: Chat | null;
-  setSelectedChat: React.Dispatch<React.SetStateAction<Chat | null>>;
-  selectedChatControlled?: boolean;
-  onAddChat: (chat: Chat) => void;
-  onRemoveChat: (chat: Chat) => void;
-  removeModal: { show: boolean; chat: Chat | null };
-  setRemoveModal: React.Dispatch<React.SetStateAction<{ show: boolean; chat: Chat | null }>>;
-  confirmRemoveChat: () => void;
-  upcoming: ScheduledMessage[];
-  date: string;
-  time: string;
-  scheduling: boolean;
-  successPulse: boolean;
-  lastAction: 'sent' | 'scheduled' | null;
-  setDate: React.Dispatch<React.SetStateAction<string>>;
-  setTime: React.Dispatch<React.SetStateAction<string>>;
-  handleSchedule: (payload?: {
-    chatId: string;
-    message: string;
-    date: string;
-    time: string;
-    attachments?: string[];
-    attachmentGroups?: string[][];
-    entities?: RichTextEntity[];
-    effect?: string;
-    replaceMessage?: ScheduledMessage;
-  }, repeat?: ScheduleRepeatOptions) => void | Promise<void | boolean | 'sent-history-failed'>;
-  handleCancelMessage: (message: ScheduledMessage) => void;
-  handleCancelMessages?: (messages: ScheduledMessage[]) => Promise<boolean>;
-  handleSendDraftNow: (chat: Chat, text: string, attachments?: string[], entities?: RichTextEntity[], attachmentGroups?: string[][], onAttachmentGroupResult?: (groupIndex: number, sent: boolean) => void, effect?: string, suppressNotifications?: boolean) => Promise<boolean | 'sent-history-failed'>;
-  publishingDraft: boolean;
-  showNotification?: (
-    message: string,
-    type: NotificationType,
-    title: string,
-    errorDetails?: BridgeErrorDetails,
-    durationMs?: number,
-  ) => void;
-  inlineNotification?: StudioInlineNotification | null;
-  onRegisterPlannerTextOpener?: (opener: ((payload: StudioPlannerTextPayload) => Promise<boolean>) | null) => void;
-  onRegisterBeforeLeaveStudio?: (flush: (() => Promise<boolean>) | null) => void;
-  onRegisterHistoryDraftOpener?: (opener: ((draft: SavedDraft) => void) | null) => void;
-  onRegisterHistoryDraftUseHandler?: (handler: ((draft: SavedDraft) => Promise<boolean>) | null) => void;
-  onRegisterHistoryDraftClearHandler?: (handler: (() => Promise<boolean>) | null) => void;
-  onRegisterHistoryDraftDeleteHandler?: (handler: ((draftId: string) => Promise<boolean>) | null) => void;
-  onRegisterHistoryRescheduleHandler?: (handler: ((message: ScheduledMessage) => void) | null) => void;
-};
-
-type PublishAction = 'send' | 'schedule' | 'draft';
 type TelegramConnectionState = 'connected' | 'connecting' | 'reconnecting' | 'disconnected';
-type PublishFooterStatus = {
-  message: string;
-  detail?: string;
-  kind: 'error' | 'progress' | 'warning' | 'success' | 'notice';
-  transient: boolean;
-  duration: number | null;
-};
-export type StudioInlineNotification = {
-  message: string;
-  title: string;
-  type: NotificationType;
-  durationMs: number;
-  revision: number;
-};
 type PendingDraftReplacement = {
   previousSnapshot: WorkspaceDraft;
 };
-type IconRimMotion = {
-  currentAngle: number;
-  targetAngle: number;
-  lastFrameTime: number | null;
-  frameId: number | null;
-  fadeFrameId: number | null;
-  currentGlowStrength: number;
-  currentBeamSpread: number;
-};
+export { remapAttachmentPositions } from '../lib/workspaceAttachments';
 
-const iconRimMotions = new WeakMap<HTMLButtonElement, IconRimMotion>();
-const ICON_RIM_MAX_SPEED = 420;
-const ICON_RIM_CENTER_DEAD_ZONE = 3;
-const ICON_GLOW_ACTIVATION_DISTANCE = 8;
-
-function savedDraftToWorkspaceSnapshot(draft: SavedDraft): WorkspaceDraft {
-  return {
-    documentId: draft.documentId ?? draft.id,
-    body: draft.body,
-    entities: draft.entities ?? [],
-    attachments: normalizeAttachments(draft.attachments),
-    selectedChat: draft.selectedChat ?? null,
-    date: draft.date ?? '',
-    time: draft.time ?? '',
-    repeatMode: draft.repeatMode ?? 'none',
-    repeatDays: draft.repeatDays ?? [],
-    repeatOccurrences: draft.repeatOccurrences ?? 1,
-    savedAt: draft.updatedAt,
-  };
-}
-
-function updateGlassPointer(event: React.PointerEvent<HTMLButtonElement>) {
-  if (event.pointerType === 'touch') return;
-  const bounds = event.currentTarget.getBoundingClientRect();
-  event.currentTarget.style.setProperty('--pointer-x', `${event.clientX - bounds.left}px`);
-  event.currentTarget.style.setProperty('--pointer-y', `${event.clientY - bounds.top}px`);
-}
-
-function clearGlassPointer(event: React.PointerEvent<HTMLButtonElement>) {
-  event.currentTarget.style.removeProperty('--pointer-x');
-  event.currentTarget.style.removeProperty('--pointer-y');
-  event.currentTarget.style.removeProperty('--beam-x');
-  event.currentTarget.style.removeProperty('--beam-y');
-  event.currentTarget.style.removeProperty('--beam-shift-x');
-  event.currentTarget.style.removeProperty('--beam-shift-y');
-  event.currentTarget.style.setProperty('--glow-strength', '0');
-  event.currentTarget.style.setProperty('--beam-spread', '0.35');
-  event.currentTarget.style.setProperty('--rim-angle', '0deg');
-}
-
-function clearIconRimPointer(event: React.PointerEvent<HTMLButtonElement>) {
-  if (event.pointerType === 'touch') return;
-
-  const button = event.currentTarget;
-  let motion = iconRimMotions.get(button);
-
-  if (!motion) {
-    motion = {
-      currentAngle: 0,
-      targetAngle: 0,
-      lastFrameTime: null,
-      frameId: null,
-      fadeFrameId: null,
-      currentGlowStrength: 0,
-      currentBeamSpread: 0.35,
-    };
-    iconRimMotions.set(button, motion);
-  }
-
-  if (motion.frameId !== null) {
-    window.cancelAnimationFrame(motion.frameId);
-    motion.frameId = null;
-    motion.lastFrameTime = null;
-  }
-
-  if (motion.fadeFrameId !== null) {
-    window.cancelAnimationFrame(motion.fadeFrameId);
-    motion.fadeFrameId = null;
-  }
-
-  motion.currentGlowStrength = Number(button.style.getPropertyValue('--glow-strength') || motion.currentGlowStrength || 0);
-  motion.currentBeamSpread = Number(button.style.getPropertyValue('--beam-spread') || motion.currentBeamSpread || 0.35);
-
-  const fadeDurationMs = 520;
-  let fadeStartTime: number | null = null;
-
-  const animateFadeOut = (timestamp: number) => {
-    if (fadeStartTime === null) {
-      fadeStartTime = timestamp;
-    }
-
-    const elapsed = timestamp - fadeStartTime;
-    const progress = Math.min(elapsed / fadeDurationMs, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const glowStrength = motion!.currentGlowStrength * (1 - eased);
-    const beamSpread = motion!.currentBeamSpread + (0.35 - motion!.currentBeamSpread) * (1 - eased);
-
-    button.style.setProperty('--glow-strength', glowStrength.toFixed(3));
-    button.style.setProperty('--beam-spread', beamSpread.toFixed(3));
-    button.style.setProperty('--rim-opacity', (Math.max(glowStrength, 0) * 0.9).toFixed(3));
-
-    if (progress < 1) {
-      motion!.fadeFrameId = window.requestAnimationFrame(animateFadeOut);
-      return;
-    }
-
-    button.style.setProperty('--glow-strength', '0');
-    button.style.setProperty('--beam-spread', '0.35');
-    button.style.setProperty('--rim-angle', '0deg');
-    button.style.setProperty('--rim-opacity', '0');
-    motion!.fadeFrameId = null;
-  };
-
-  motion.fadeFrameId = window.requestAnimationFrame(animateFadeOut);
-}
-
-function updateIconRimPointer(event: React.PointerEvent<HTMLButtonElement>) {
-  if (event.pointerType === 'touch') return;
-
-  const button = event.currentTarget;
-  const bounds = button.getBoundingClientRect();
-  const x = event.clientX - bounds.left;
-  const y = event.clientY - bounds.top;
-  const pointerX = clamp(x, 0, bounds.width);
-  const pointerY = clamp(y, 0, bounds.height);
-  const offsetX = pointerX - bounds.width / 2;
-  const offsetY = pointerY - bounds.height / 2;
-
-  const distanceToEdge = Math.min(
-    pointerX,
-    bounds.width - pointerX,
-    pointerY,
-    bounds.height - pointerY,
-  );
-  const glowStrength = clamp(
-    (ICON_GLOW_ACTIVATION_DISTANCE - Math.max(distanceToEdge, 0)) / ICON_GLOW_ACTIVATION_DISTANCE,
-    0,
-    1,
-  );
-  const beamSpread = 0.7 + glowStrength * 1.8;
-  event.currentTarget.style.setProperty('--pointer-x', `${pointerX}px`);
-  event.currentTarget.style.setProperty('--pointer-y', `${pointerY}px`);
-  event.currentTarget.style.setProperty('--glow-strength', glowStrength.toFixed(3));
-  event.currentTarget.style.setProperty('--beam-spread', beamSpread.toFixed(3));
-  event.currentTarget.style.setProperty('--rim-opacity', (glowStrength * 0.9).toFixed(3));
-
-  if (Math.hypot(offsetX, offsetY) < ICON_RIM_CENTER_DEAD_ZONE) return;
-
-  const rimAngle = Math.atan2(offsetY, offsetX) * 180 / Math.PI + 90;
-  let motion = iconRimMotions.get(button);
-
-  if (!motion) {
-    motion = {
-      currentAngle: rimAngle,
-      targetAngle: rimAngle,
-      lastFrameTime: null,
-      frameId: null,
-      fadeFrameId: null,
-      currentGlowStrength: glowStrength,
-      currentBeamSpread: beamSpread,
-    };
-    iconRimMotions.set(button, motion);
-    button.style.setProperty('--rim-angle', `${rimAngle}deg`);
-    return;
-  }
-
-  motion.targetAngle = rimAngle;
-  motion.currentGlowStrength = glowStrength;
-  motion.currentBeamSpread = beamSpread;
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    if (motion.frameId !== null) window.cancelAnimationFrame(motion.frameId);
-    motion.currentAngle = motion.targetAngle;
-    motion.lastFrameTime = null;
-    motion.frameId = null;
-    button.style.setProperty('--rim-angle', `${motion.currentAngle}deg`);
-    return;
-  }
-
-  if (motion.frameId !== null) return;
-
-  const animateRim = (timestamp: number) => {
-    const elapsed = motion?.lastFrameTime === null
-      ? 16
-      : Math.min(timestamp - motion.lastFrameTime, 18);
-    motion!.lastFrameTime = timestamp;
-
-    const rawDifference = motion!.targetAngle - motion!.currentAngle;
-    const difference = ((rawDifference + 540) % 360) - 180;
-    const easedStep = difference * (1 - Math.exp(-elapsed / 26));
-    const maxStep = ICON_RIM_MAX_SPEED * elapsed / 1000;
-    const step = Math.sign(difference || 1) * Math.min(Math.abs(easedStep), maxStep);
-    motion!.currentAngle += step;
-
-    if (Math.abs(difference) < 0.45) {
-      motion!.currentAngle = motion!.targetAngle;
-      motion!.frameId = null;
-      motion!.lastFrameTime = null;
-    } else {
-      motion!.frameId = window.requestAnimationFrame(animateRim);
-    }
-
-    button.style.setProperty('--rim-angle', `${motion!.currentAngle}deg`);
-  };
-
-  motion.frameId = window.requestAnimationFrame(animateRim);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-const FOOTER_STATUS_DURATION_MS = {
-  attachmentError: 3360,
-  publishWarning: 5000,
-  publishSuccess: 3360,
-  sendError: 8000,
-  draftStoreError: 12000,
-  textFileError: 7000,
-  chatLookupError: 7000,
-  previewHistoryError: 10000,
-} as const;
-
-function getPreviewHistoryErrorPresentation(
-  error: unknown,
-  messages: { noAccess: string; unavailable: string },
-) {
-  const errorRecord = error !== null && typeof error === 'object'
-    ? error as Record<string, unknown>
-    : null;
-  const errorText = typeof error === 'string'
-    ? error
-    : [errorRecord?.code, errorRecord?.error, errorRecord?.message]
-      .filter((value): value is string => typeof value === 'string')
-      .join(' ');
-
-  if (/CHAT_(?:WRITE_)?FORBIDDEN|CHAT_ADMIN_REQUIRED|CHAT_RESTRICTED|CHANNEL_(?:PRIVATE|FORBIDDEN)|USER_(?:IS_)?BLOCKED|USER_BANNED|RIGHTS_FORBIDDEN|PERMISSION/i.test(errorText)) {
-    return {
-      message: messages.noAccess,
-      retryable: false,
-    };
-  }
-
-  return {
-    message: messages.unavailable,
-    retryable: true,
-  };
-}
-
-function getPreviewHistoryMediaDataUrlChars(history: PreviewChatHistory) {
-  return history.messages.reduce((total, message) => (
-    total
-    + (message.media?.dataUrl?.length ?? 0)
-    + (message.media?.thumbnailDataUrl?.length ?? 0)
-  ), 0);
-}
-
-function useTimedStatus(
-  message: string,
-  clearMessage: React.Dispatch<React.SetStateAction<string>>,
-  duration: number,
-  persistent = false,
-) {
-  useEffect(() => {
-    if (!message || persistent) return;
-    const timer = window.setTimeout(() => clearMessage(''), duration);
-    return () => window.clearTimeout(timer);
-  }, [clearMessage, duration, message, persistent]);
-}
-
-type WorkspaceAttachment = DraftAttachment;
-
-export function remapAttachmentPositions(
-  attachments: WorkspaceAttachment[],
-  previousText: string,
-  nextText: string,
-): WorkspaceAttachment[] {
-  if (previousText === nextText || attachments.length === 0) return attachments;
-
-  let prefixLength = 0;
-  while (
-    prefixLength < previousText.length
-    && prefixLength < nextText.length
-    && previousText[prefixLength] === nextText[prefixLength]
-  ) prefixLength += 1;
-
-  let suffixLength = 0;
-  while (
-    suffixLength < previousText.length - prefixLength
-    && suffixLength < nextText.length - prefixLength
-    && previousText[previousText.length - suffixLength - 1] === nextText[nextText.length - suffixLength - 1]
-  ) suffixLength += 1;
-
-  const previousEditEnd = previousText.length - suffixLength;
-  const nextEditEnd = nextText.length - suffixLength;
-  const lengthDelta = nextText.length - previousText.length;
-
-  let positionsChanged = false;
-  const remappedAttachments = attachments.map((attachment) => {
-    const position = attachment.position < prefixLength
-      ? attachment.position
-      : attachment.position >= previousEditEnd
-        ? attachment.position + lengthDelta
-        : nextEditEnd;
-    if (position === attachment.position) return attachment;
-    positionsChanged = true;
-    return { ...attachment, position: Math.max(0, position) };
-  });
-  return positionsChanged ? remappedAttachments : attachments;
-}
-
-const PREVIEW_LAYOUT_KEY = 'xmsgi-preview-layout';
-const LEGACY_PREVIEW_LAYOUT_KEY = 'awaitmsg-preview-layout';
-const CHAT_WALLPAPER_STORAGE_KEY = 'xmsgi-chat-preview-wallpaper';
-const LEGACY_CHAT_WALLPAPER_STORAGE_KEY = 'awaitmsg-chat-preview-wallpaper';
-const DEFAULT_TEMPLATE_SEEDED_KEY = 'xmsgi-default-template-seeded-v1';
-const BUILT_IN_TEMPLATES_SEEDED_KEY = 'xmsgi-built-in-templates-seeded-v1';
-const MAX_ALBUMS = 3;
-const MAX_PHOTOS_PER_ALBUM = 10;
-const MAX_ATTACHMENTS = MAX_ALBUMS * MAX_PHOTOS_PER_ALBUM;
-const MAX_STANDALONE_ATTACHMENTS = 10;
-const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024;
-const MAX_ATTACHMENTS_TOTAL_SIZE = 200 * 1024 * 1024;
 const PREVIEW_HISTORY_LIMIT = 50;
 const PREVIEW_HISTORY_CACHE_TTL_MS = 20_000;
 const PREVIEW_HISTORY_CACHE_SIZE = 2;
 const PREVIEW_HISTORY_CACHE_MAX_MEDIA_DATA_URL_CHARS = 4 * 1024 * 1024;
-
-type PreviewLayout = {
-  collapsed?: boolean;
-  visible?: boolean;
-};
-
-const DEFAULT_PREVIEW_LAYOUT: PreviewLayout = { visible: true };
-
-function loadTemplatesWithDefault(): { templates: Template[]; storageError: boolean } {
-  let templates: Template[];
-  try {
-    templates = loadTemplates();
-  } catch {
-    return { templates: [], storageError: true };
-  }
-
-  try {
-    let templatesChanged = false;
-    if (window.localStorage.getItem(DEFAULT_TEMPLATE_SEEDED_KEY) !== '1') {
-      if (!templates.some((template) => template.name === DEFAULT_DRAFT_NAME && template.body === DEFAULT_DRAFT_BODY)) {
-        templates.push(createTemplate({ name: DEFAULT_DRAFT_NAME, body: DEFAULT_DRAFT_BODY }));
-        templatesChanged = true;
-      }
-      window.localStorage.setItem(DEFAULT_TEMPLATE_SEEDED_KEY, '1');
-    }
-
-    if (window.localStorage.getItem(BUILT_IN_TEMPLATES_SEEDED_KEY) !== '1') {
-      const missingTemplates = BUILT_IN_TEMPLATES
-        .filter((builtIn) => !templates.some((template) => template.name === builtIn.name && template.body === builtIn.body))
-        .map((template) => createTemplate(template));
-      if (missingTemplates.length > 0) {
-        templates = [...missingTemplates, ...templates];
-        templatesChanged = true;
-      }
-      if (templatesChanged) saveTemplates(templates);
-      window.localStorage.setItem(BUILT_IN_TEMPLATES_SEEDED_KEY, '1');
-    } else if (templatesChanged) {
-      saveTemplates(templates);
-    }
-  } catch {
-    return { templates, storageError: true };
-  }
-
-  return { templates, storageError: false };
-}
-
-function isLivePreviewSurface() {
-  const portMatches = ['4175', '4176'].includes(window.location.port);
-  return portMatches || document.body?.dataset?.livePreview === 'true';
-}
-
-function readPreviewLayout(): PreviewLayout | null {
-  try {
-    const primaryRaw = window.localStorage.getItem(PREVIEW_LAYOUT_KEY);
-    const raw = primaryRaw ?? window.localStorage.getItem(LEGACY_PREVIEW_LAYOUT_KEY);
-    if (!raw) return null;
-    if (!primaryRaw) {
-      window.localStorage.setItem(PREVIEW_LAYOUT_KEY, raw);
-    }
-
-    const parsed = JSON.parse(raw) as Partial<PreviewLayout>;
-    return {
-      collapsed: parsed.collapsed === true,
-      visible: typeof parsed.visible === 'boolean' ? parsed.visible : true,
-    };
-  } catch {
-    // ignore invalid preview layout
-  }
-
-  return null;
-}
-
-function readChatWallpaper(): ChatWallpaper {
-  try {
-    const primaryRaw = window.localStorage.getItem(CHAT_WALLPAPER_STORAGE_KEY);
-    const raw = primaryRaw ?? window.localStorage.getItem(LEGACY_CHAT_WALLPAPER_STORAGE_KEY);
-    if (!raw) return { theme: 'telegram', image: '', accent: '' };
-    if (!primaryRaw) {
-      window.localStorage.setItem(CHAT_WALLPAPER_STORAGE_KEY, raw);
-    }
-
-    const parsed = JSON.parse(raw) as Partial<ChatWallpaper>;
-    return {
-      theme: parsed.theme === 'custom' ? 'custom' : parsed.theme === 'graphite' ? 'graphite' : 'telegram',
-      image: typeof parsed.image === 'string' ? parsed.image : '',
-      accent: typeof parsed.accent === 'string' ? parsed.accent : '',
-    };
-  } catch {
-    return { theme: 'telegram', image: '', accent: '' };
-  }
-}
-
-function createAttachmentId() {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `attachment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function isImageAttachment(attachment: WorkspaceAttachment) {
-  return attachment.type === 'image' || attachment.mimeType.startsWith('image/');
-}
-
-type PhotoAlbumDisplayItem = {
-  kind: 'album';
-  albumId: string;
-  position: number;
-  attachments: WorkspaceAttachment[];
-};
-
-type AttachmentDisplayItem = PhotoAlbumDisplayItem | { kind: 'file'; attachment: WorkspaceAttachment };
-
-function getAttachmentDisplayItems(attachments: WorkspaceAttachment[]): AttachmentDisplayItem[] {
-  const items: AttachmentDisplayItem[] = [];
-  const albums = new Map<string, PhotoAlbumDisplayItem>();
-
-  attachments.slice().sort((left, right) => left.position - right.position).forEach((attachment) => {
-    if (!attachment.albumId) {
-      items.push({ kind: 'file', attachment });
-      return;
-    }
-
-    let album = albums.get(attachment.albumId);
-    if (!album) {
-      album = {
-        kind: 'album',
-        albumId: attachment.albumId,
-        position: attachment.position,
-        attachments: [],
-      };
-      albums.set(attachment.albumId, album);
-      items.push(album);
-    }
-    album.attachments.push(attachment);
-  });
-
-  return items;
-}
-
-function getAttachmentTransportItems(attachments: WorkspaceAttachment[]) {
-  return getAttachmentDisplayItems(attachments)
-    .map((item) => {
-      const itemAttachments = item.kind === 'album' ? item.attachments : [item.attachment];
-      return {
-        attachments: itemAttachments,
-        paths: itemAttachments.map((attachment) => attachment.path || attachment.previewUrl || attachment.name).filter(Boolean),
-      };
-    })
-    .filter((group) => group.paths.length > 0);
-}
-
-function getAttachmentTransportGroups(attachments: WorkspaceAttachment[]): string[][] {
-  return getAttachmentTransportItems(attachments).map((group) => group.paths);
-}
-
-function formatAttachmentSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error(`The selected file could not be converted to a data URL: ${file.name}`));
-    };
-    reader.onerror = () => reject(new Error(`The selected file could not be read: ${file.name}`));
-    reader.readAsDataURL(file);
-  });
-}
-
-function toFileUrl(filePath: string) {
-  if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
-
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  const encodedPath = normalizedPath
-    .split('/')
-    .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
-    .join('/');
-
-  return `file:///${encodedPath}`;
-}
 
 export function WorkspacePage({
   connected,
@@ -761,9 +198,6 @@ export function WorkspacePage({
     size: attachments.reduce((total, attachment) => total + (attachment.size ?? 0), 0),
     albumIds: new Set(attachments.flatMap((attachment) => attachment.albumId ? [attachment.albumId] : [])),
   });
-  const pendingAttachmentUsageRef = useRef(new Map<number, { count: number; standaloneCount: number; size: number }>());
-  const pendingAlbumIdsRef = useRef(new Set<string>());
-  const pendingAlbumPhotoCountsRef = useRef(new Map<string, number>());
   const attachmentSelectionGenerationRef = useRef(0);
   const replaceAttachments = (nextAttachments: WorkspaceAttachment[]) => {
     attachmentUsageRef.current = {
@@ -785,8 +219,19 @@ export function WorkspacePage({
   const attachmentPreviewTimerRef = useRef<number | null>(null);
   const [attachmentError, setAttachmentError] = useState('');
   const [textFileError, setTextFileError] = useState('');
+  const { handleAddFiles, handleFileSelection, handleAlbumFileSelection } = useWorkspaceAttachmentSelection({
+    attachments,
+    setAttachments,
+    attachmentUsageRef,
+    attachmentSelectionGenerationRef,
+    albumAttachmentPositionRef,
+    albumAttachmentTargetIdRef,
+    draftBody,
+    setAttachmentError,
+  });
   const [initialTemplateState] = useState(loadTemplatesWithDefault);
   const [templates, setTemplates] = useState<Template[]>(initialTemplateState.templates);
+  const importedTemplatesRef = useRef<Template[] | null>(null);
   const [templateStorageError, setTemplateStorageError] = useState(initialTemplateState.storageError);
   const [stageMode, setStageMode] = useState<'editor' | 'schedule' | 'template' | 'draft' | 'chat'>(() => {
     return isLivePreviewSurface() ? 'schedule' : 'editor';
@@ -917,26 +362,6 @@ export function WorkspacePage({
   });
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
-
-  useLayoutEffect(() => {
-    const attachmentItems = attachmentItemsRef.current;
-    if (!attachmentItems) return undefined;
-
-    const updateOverflow = () => {
-      attachmentItems.classList.toggle(
-        'has-overflow',
-        attachmentItems.scrollWidth > attachmentItems.clientWidth + 1,
-      );
-    };
-
-    updateOverflow();
-    const resizeObserver = typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(updateOverflow);
-    resizeObserver?.observe(attachmentItems);
-
-    return () => resizeObserver?.disconnect();
-  }, [attachments]);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -1077,6 +502,7 @@ export function WorkspacePage({
     prepareWorkspaceVersionSnapshot,
     recordWorkspaceVersion,
     handleRestoreDraftBackup: restoreDraftBackup,
+    handleExportDrafts: exportDrafts,
     handleImportDrafts: importDrafts,
   } = draftLifecycle;
   const recordWorkspaceVersionRef = useRef(recordWorkspaceVersion);
@@ -1219,10 +645,10 @@ export function WorkspacePage({
     let cancelled = false;
     const missingPreviews = attachments.filter((attachment) => (
       isImageAttachment(attachment)
-      && !attachment.previewUrl
+      && (!attachment.previewUrl || /^file:/i.test(attachment.previewUrl))
       && !attachment.unavailable
-      && attachment.path
-      && !/^(?:blob:|data:|https?:|file:)/i.test(attachment.path)
+      && (attachment.path || attachment.previewUrl)
+      && !/^(?:blob:|data:|https?:)/i.test(attachment.path)
     ));
     const pending = missingPreviews.filter((attachment) => {
       const key = `${attachment.id}:${attachment.path}`;
@@ -1234,7 +660,7 @@ export function WorkspacePage({
 
     void Promise.all(pending.map(async (attachment) => {
       try {
-        const result = await readImageDataUrl(attachment.path);
+        const result = await readImageDataUrl(getLocalAttachmentPath(attachment.path || attachment.previewUrl || ''));
         return { attachment, result };
       } catch (error) {
         return {
@@ -1247,10 +673,14 @@ export function WorkspacePage({
       }
     })).then((results) => {
       if (cancelled) return;
-      const loadedPreviews = new Map<string, { path: string; dataUrl: string }>();
+      const loadedPreviews = new Map<string, { path: string; previewUrl?: string; dataUrl: string }>();
       results.forEach(({ attachment, result }) => {
         if (result.success && result.dataUrl) {
-          loadedPreviews.set(attachment.id, { path: attachment.path, dataUrl: result.dataUrl });
+          loadedPreviews.set(attachment.id, {
+            path: attachment.path,
+            previewUrl: attachment.previewUrl,
+            dataUrl: result.dataUrl,
+          });
         } else {
           showPublishFeedback(t('studio.attachmentPreviewFailed', { name: attachment.name }));
         }
@@ -1258,7 +688,10 @@ export function WorkspacePage({
       if (loadedPreviews.size > 0) {
         setAttachments((current) => current.map((attachment) => {
           const loaded = loadedPreviews.get(attachment.id);
-          return loaded && loaded.path === attachment.path && !attachment.previewUrl
+          return loaded
+            && loaded.path === attachment.path
+            && loaded.previewUrl === attachment.previewUrl
+            && (!attachment.previewUrl || /^file:/i.test(attachment.previewUrl))
             ? { ...attachment, previewUrl: loaded.dataUrl }
             : attachment;
         }));
@@ -1299,9 +732,7 @@ export function WorkspacePage({
   }, [attachments.length, draftBody, draftEntities, maxDraftLength]);
 
   useEffect(() => {
-    const serialized = JSON.stringify(previewLayout);
-    window.localStorage.setItem(PREVIEW_LAYOUT_KEY, serialized);
-    window.localStorage.setItem(LEGACY_PREVIEW_LAYOUT_KEY, serialized);
+    writePreviewLayout(previewLayout);
   }, [previewLayout]);
 
   useEffect(() => {
@@ -1444,12 +875,64 @@ export function WorkspacePage({
       return;
     }
 
+    if (importedTemplatesRef.current === templates) {
+      importedTemplatesRef.current = null;
+      return;
+    }
+
     try {
       saveTemplates(templates);
     } catch {
       setTemplateStorageError(true);
     }
   }, [showPublishFeedback, t, templateStorageError, templates]);
+
+  const handleExportTemplates = () => {
+    try {
+      const backup = serializeTemplateBackup(templates);
+      const url = URL.createObjectURL(new Blob([backup], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `xmsgi-templates-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      showPublishFeedback(t('studio.templatesExported'), 'success');
+    } catch (error) {
+      showPublishFeedback(
+        error instanceof Error && error.message.includes('5 MB')
+          ? t('studio.templateBackupTooLarge')
+          : t('studio.templatesExportFailed'),
+        'warning',
+      );
+    }
+  };
+
+  const handleImportTemplates = async (file: File) => {
+    if (file.size > TEMPLATE_IMPORT_MAX_BYTES) {
+      showPublishFeedback(t('studio.templateBackupTooLarge'), 'warning');
+      return;
+    }
+
+    try {
+      const importedTemplates = parseTemplateBackup(await file.text());
+      const mergedTemplates = mergeTemplateBackup(templates, importedTemplates);
+      serializeTemplateBackup(mergedTemplates);
+      saveTemplates(mergedTemplates);
+      importedTemplatesRef.current = mergedTemplates;
+      setTemplates(mergedTemplates);
+      setTemplateStorageError(false);
+      showPublishFeedback(t('studio.templatesImported', { count: importedTemplates.length }), 'success');
+    } catch (error) {
+      showPublishFeedback(
+        error instanceof Error && error.message.includes('5 MB')
+          ? t('studio.templateBackupTooLarge')
+          : t('studio.templatesImportFailed'),
+        'warning',
+      );
+    }
+  };
 
   const selectedChatId = selectedChat?.id;
 
@@ -2848,187 +2331,6 @@ export function WorkspacePage({
     closeTemplateEditor();
   };
 
-  const handleAddFiles = async (files: File[], position = draftBody.length, albumId?: string) => {
-    if (!files.length) return 0;
-
-    const selectionGeneration = attachmentSelectionGenerationRef.current;
-    setAttachmentError('');
-
-    const currentPendingUsage = pendingAttachmentUsageRef.current.get(selectionGeneration)
-      ?? { count: 0, standaloneCount: 0, size: 0 };
-    const currentCount = attachmentUsageRef.current.count + currentPendingUsage.count;
-    const currentStandaloneCount = attachmentUsageRef.current.standaloneCount + currentPendingUsage.standaloneCount;
-    const currentSize = attachmentUsageRef.current.size + currentPendingUsage.size;
-    const acceptedFiles: File[] = [];
-    let acceptedStandaloneCount = 0;
-    let nextSize = currentSize;
-    let nextError = '';
-
-    for (const file of files) {
-      if (currentCount + acceptedFiles.length >= MAX_ATTACHMENTS) {
-        nextError = t('studio.fileCountLimit', { count: MAX_ATTACHMENTS });
-        break;
-      }
-
-      if (!albumId && currentStandaloneCount + acceptedStandaloneCount >= MAX_STANDALONE_ATTACHMENTS) {
-        nextError = t('studio.fileCountLimit', { count: MAX_STANDALONE_ATTACHMENTS });
-        break;
-      }
-
-      if (file.size > MAX_ATTACHMENT_SIZE) {
-        nextError = t('studio.fileSizeLimit', { name: file.name });
-        continue;
-      }
-
-      if (nextSize + file.size > MAX_ATTACHMENTS_TOTAL_SIZE) {
-        nextError = t('studio.totalFileSizeLimit');
-        break;
-      }
-
-      acceptedFiles.push(file);
-      if (!albumId) acceptedStandaloneCount += 1;
-      nextSize += file.size;
-    }
-
-    const reservedSize = acceptedFiles.reduce((total, file) => total + file.size, 0);
-    currentPendingUsage.count += acceptedFiles.length;
-    currentPendingUsage.standaloneCount += acceptedStandaloneCount;
-    currentPendingUsage.size += reservedSize;
-    pendingAttachmentUsageRef.current.set(selectionGeneration, currentPendingUsage);
-
-    const safePosition = Math.max(0, Math.min(position, draftBody.length));
-    const copiedAttachments = await Promise.all(acceptedFiles.map(async (file) => {
-      const mimeType = file.type || inferAttachmentMimeType(file.name);
-      const type = mimeType.startsWith('image/') ? 'image' : 'file';
-      try {
-        const draftStorage = getDraftStorageApi();
-        if (!draftStorage) {
-          const dataUrl = await readFileAsDataUrl(file);
-          return {
-            id: createAttachmentId(), type, name: file.name, mimeType, path: dataUrl,
-            size: file.size, previewUrl: type === 'image' ? dataUrl : undefined, position: safePosition,
-            ...(albumId ? { albumId } : {}),
-          };
-        }
-
-        const result = await draftStorage.copyAttachment(file);
-        return result.success && result.attachment
-          ? {
-              id: createAttachmentId(), type, name: file.name, mimeType,
-              path: result.attachment.path, size: result.attachment.size, position: safePosition,
-              ...(albumId ? { albumId } : {}),
-            }
-          : { error: result.error || t('studio.fileStoreFailed', { name: file.name }) };
-      } catch (error) {
-        return { error: error instanceof Error ? error.message : `${file.name} could not be stored.` };
-      }
-    }));
-    const storedAttachments = copiedAttachments.filter((item): item is WorkspaceAttachment => 'path' in item);
-    const copyErrors = copiedAttachments.filter((item): item is { error: string } => 'error' in item);
-    const pendingUsage = pendingAttachmentUsageRef.current.get(selectionGeneration);
-    if (pendingUsage) {
-      pendingUsage.count -= acceptedFiles.length;
-      pendingUsage.standaloneCount -= acceptedStandaloneCount;
-      pendingUsage.size -= reservedSize;
-      if (pendingUsage.count === 0 && pendingUsage.standaloneCount === 0 && pendingUsage.size === 0) {
-        pendingAttachmentUsageRef.current.delete(selectionGeneration);
-      }
-    }
-    if (selectionGeneration !== attachmentSelectionGenerationRef.current) return;
-    attachmentUsageRef.current.count += storedAttachments.length;
-    attachmentUsageRef.current.standaloneCount += storedAttachments
-      .filter((attachment) => !attachment.albumId)
-      .length;
-    attachmentUsageRef.current.size += storedAttachments.reduce((total, attachment) => total + attachment.size, 0);
-    storedAttachments.forEach((attachment) => {
-      if (attachment.albumId) attachmentUsageRef.current.albumIds.add(attachment.albumId);
-    });
-    if (storedAttachments.length) setAttachments((current) => [...current, ...storedAttachments]);
-
-    const errors = [nextError, ...copyErrors.map((item) => item.error)].filter(Boolean);
-    if (errors.length) setAttachmentError(errors.join(' '));
-    return storedAttachments.length;
-  };
-
-  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const files = Array.from(input.files ?? []);
-    await handleAddFiles(files);
-    input.value = '';
-  };
-
-  const handleAlbumFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const files = Array.from(input.files ?? []);
-    const targetAlbumId = albumAttachmentTargetIdRef.current;
-    albumAttachmentTargetIdRef.current = null;
-    input.value = '';
-    const selectedImages = files.filter((file) => (
-      file.type.startsWith('image/') || inferAttachmentMimeType(file.name).startsWith('image/')
-    ));
-    if (selectedImages.length === 0) {
-      setAttachmentError(t('studio.photoAlbumImagesOnly'));
-      return;
-    }
-    if (selectedImages.some((file) => !isSupportedPhotoAlbumSource(file))) {
-      setAttachmentError(t('studio.photoAlbumSupportedFormats'));
-      return;
-    }
-
-    const existingAlbumIds = new Set([
-      ...attachmentUsageRef.current.albumIds,
-      ...pendingAlbumIdsRef.current,
-    ]);
-    if (!targetAlbumId && existingAlbumIds.size >= MAX_ALBUMS) {
-      setAttachmentError(t('studio.photoAlbumCountLimit', { count: MAX_ALBUMS }));
-      return;
-    }
-
-    const existingPhotoCount = targetAlbumId
-      ? attachments.filter((attachment) => attachment.albumId === targetAlbumId).length
-      : 0;
-    const pendingPhotoCount = targetAlbumId
-      ? pendingAlbumPhotoCountsRef.current.get(targetAlbumId) ?? 0
-      : 0;
-    const availablePhotoSlots = Math.max(0, MAX_PHOTOS_PER_ALBUM - existingPhotoCount - pendingPhotoCount);
-    if (availablePhotoSlots === 0) {
-      setAttachmentError(t('studio.photoAlbumPhotoLimit', { count: MAX_PHOTOS_PER_ALBUM }));
-      return;
-    }
-
-    const albumId = targetAlbumId ?? createAttachmentId();
-    const selectedAlbumImages = selectedImages.slice(0, availablePhotoSlots);
-    const exceededAlbumLimit = selectedImages.length > availablePhotoSlots;
-    if (targetAlbumId) {
-      pendingAlbumPhotoCountsRef.current.set(albumId, pendingPhotoCount + selectedAlbumImages.length);
-    } else {
-      pendingAlbumIdsRef.current.add(albumId);
-    }
-    try {
-      const telegramPhotos = await Promise.all(
-        selectedAlbumImages.map(convertWebpToTelegramPhoto),
-      );
-      await handleAddFiles(
-        telegramPhotos,
-        albumAttachmentPositionRef.current,
-        albumId,
-      );
-    } catch {
-      setAttachmentError(t('studio.photoAlbumConversionFailed'));
-    } finally {
-      if (targetAlbumId) {
-        const remainingPending = (pendingAlbumPhotoCountsRef.current.get(albumId) ?? 0) - selectedAlbumImages.length;
-        if (remainingPending > 0) pendingAlbumPhotoCountsRef.current.set(albumId, remainingPending);
-        else pendingAlbumPhotoCountsRef.current.delete(albumId);
-      } else {
-        pendingAlbumIdsRef.current.delete(albumId);
-      }
-    }
-    if (exceededAlbumLimit) {
-      setAttachmentError(t('studio.photoAlbumPhotoLimit', { count: MAX_PHOTOS_PER_ALBUM }));
-    }
-  };
-
   const handleBeforeClearEditorText = async () => {
     if (pendingDraftReplacementRef.current) {
       await restorePreviousDraftAfterReplacement();
@@ -3109,98 +2411,19 @@ export function WorkspacePage({
     setAttachmentPreview(null);
   };
 
-  const handleExportEditorText = async (editorText: string, format: 'txt' | 'json') => {
-    if (!editorText.trim()) {
-      showPublishFeedback(t('studio.textExportEmpty'));
-      return;
-    }
-
-    const draftStorage = getDraftStorageApi();
-    if (!draftStorage || typeof draftStorage.exportText !== 'function') {
-      setTextFileError(t('studio.textExportFailed'));
-      return;
-    }
-
-    const payload = format === 'json'
-      ? JSON.stringify({ exportedAt: new Date().toISOString(), text: editorText }, null, 2)
-      : editorText;
-
-    try {
-      const result = await draftStorage.exportText(payload, format);
-      if (result.cancelled) return;
-      if (!result.success) {
-        setTextFileError(result.error || t('studio.textExportFailed'));
-        return;
-      }
-      setTextFileError('');
-      showPublishFeedback(t('studio.textExported'), 'success');
-    } catch (error) {
-      setTextFileError(error instanceof Error ? error.message : t('studio.textExportFailed'));
-    }
-  };
-
-  const handleImportEditorText = async () => {
-    setTextFileError('');
-    try {
-      const draftStorage = getDraftStorageApi();
-      if (!draftStorage) {
-        const fallback = readWorkspaceDraftStoreFallback();
-        const body = fallback?.workspaceDraft && typeof fallback.workspaceDraft === 'object' && typeof (fallback.workspaceDraft as { body?: unknown }).body === 'string'
-          ? (fallback.workspaceDraft as { body: string }).body
-          : '';
-        if (!body) {
-          setTextFileError(t('studio.textImportUnavailable'));
-          return;
-        }
-        const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-replacement');
-        if (!checkpoint.success) {
-          showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
-          return;
-        }
-        setDraftBody(body);
-        setDraftEntities([]);
-        setTextFileError('');
-        changeStageMode('editor');
-        showPublishFeedback(t('studio.textImported'), 'success');
-        return;
-      }
-
-      const result = await draftStorage.importText();
-      if (!result.success) {
-        if (!result.cancelled) setTextFileError(result.error || t('studio.textFileReadFailed'));
-        return;
-      }
-      if (typeof result.text !== 'string') {
-        setTextFileError(t('studio.textFileEmpty'));
-        return;
-      }
-      if (result.text.length > maxDraftLength) {
-        setTextFileError(t('studio.textImportLimit', { limit: maxDraftLength }));
-        return;
-      }
-      if (draftBody.length > 0 && result.text !== draftBody && !await confirm({
-        message: t('studio.confirmReplaceText'),
-        confirmLabel: t('common.apply'),
-        cancelLabel: t('common.cancel'),
-        destructive: true,
-      })) return;
-      if (result.text !== draftBody) {
-        const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-replacement');
-        if (!checkpoint.success) {
-          showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
-          return;
-        }
-      }
-
-      setDraftBody(result.text);
-      setDraftEntities([]);
-      setTextFileError('');
-      changeStageMode('editor');
-      showPublishFeedback(t('studio.textImported'), 'success');
-    } catch (error) {
-      setTextFileError(error instanceof Error ? error.message : t('studio.textFileReadFailed'));
-    }
-  };
+  const { handleExportEditorText, handleImportEditorText } = createWorkspaceTextTransferHandlers({
+    draftBody,
+    maxDraftLength,
+    setDraftBody,
+    setDraftEntities,
+    setTextFileError,
+    confirm,
+    t,
+    createWorkspaceDraftSnapshot,
+    recordWorkspaceVersion,
+    showPublishFeedback,
+    changeStageMode,
+  });
 
   return (
     <div
@@ -3368,6 +2591,7 @@ export function WorkspacePage({
                         saveDraftStage={saveDraftStage}
                         draftStoreReady={draftStoreReady}
                         draftStoreSaving={draftStoreSaving}
+                        onExportDrafts={() => { void exportDrafts(showPublishFeedback); }}
                         onImportDrafts={() => { void importDrafts(showPublishFeedback); }}
                         onImportEditorText={() => void handleImportEditorText()}
                         onInsertTemplate={insertTextAtCursor}
@@ -3380,6 +2604,8 @@ export function WorkspacePage({
                         onDeleteTemplate={handleDeleteTemplate}
                         closeTemplateEditor={closeTemplateEditor}
                         saveTemplateStage={saveTemplateStage}
+                        onExportTemplates={handleExportTemplates}
+                        onImportTemplates={(file) => { void handleImportTemplates(file); }}
                       />
                     )}
                   />
@@ -3387,428 +2613,66 @@ export function WorkspacePage({
 
               </div>
 
-                <div
-                  className={`workspace-page-attachment-tray ${attachments.length === 0 ? 'is-empty' : ''}`}
-                  aria-label={t('studio.attachedFiles')}
-                  aria-hidden={attachments.length === 0}
-                >
-                  <div className="workspace-page-media-items" ref={attachmentItemsRef}>
-                    {getAttachmentDisplayItems(attachments).map((item) => {
-                      if (item.kind === 'album') {
-                        return (
-                          <div
-                            key={`album-${item.albumId}`}
-                            className="workspace-page-attachment-card workspace-page-photo-album-card"
-                            data-album-id={item.albumId}
-                            data-position={item.position}
-                            role="group"
-                            aria-label={`${t('studio.photoAlbum')} · ${t('studio.photoAlbumCount', { count: item.attachments.length })}`}
-                          >
-                            <div className="workspace-page-photo-album-preview">
-                              {item.attachments.slice(0, 4).map((file) => (
-                                file.unavailable ? (
-                                  <span key={file.id}><AlertTriangle size={10} aria-hidden="true" /></span>
-                                ) : (
-                                  <img
-                                    key={file.id}
-                                    src={file.previewUrl || toFileUrl(file.path)}
-                                    alt=""
-                                    tabIndex={0}
-                                    aria-label={t('studio.previewFile', { name: file.name })}
-                                    onMouseEnter={(event) => scheduleAttachmentPreview(
-                                      event.currentTarget,
-                                      file.name,
-                                      file.previewUrl || toFileUrl(file.path),
-                                    )}
-                                    onMouseLeave={hideAttachmentPreview}
-                                    onFocus={(event) => showAttachmentPreview(
-                                      event.currentTarget,
-                                      file.name,
-                                      file.previewUrl || toFileUrl(file.path),
-                                    )}
-                                    onBlur={hideAttachmentPreview}
-                                  />
-                                )
-                              ))}
-                              {item.attachments.length > 4 && (
-                                <span className="workspace-page-photo-album-preview-more">+{item.attachments.length - 4}</span>
-                              )}
-                            </div>
-                            <span className="workspace-page-attachment-copy">
-                              <span className="workspace-page-attachment-name">{t('studio.photoAlbum')}</span>
-                              <span className="workspace-page-attachment-metadata">
-                                {t('studio.photoAlbumCount', { count: item.attachments.length })}
-                              </span>
-                            </span>
-                            <button
-                              type="button"
-                              className="workspace-page-photo-album-add"
-                              disabled={item.attachments.length >= MAX_PHOTOS_PER_ALBUM}
-                              onClick={() => {
-                                albumAttachmentTargetIdRef.current = item.albumId;
-                                albumAttachmentPositionRef.current = item.position;
-                                albumFileInputRef.current?.click();
-                              }}
-                              aria-label={t('studio.addPhotosToAlbum')}
-                              title={t('studio.addPhotosToAlbum')}
-                            >
-                              <ImagePlus size={13} strokeWidth={1.8} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className="workspace-page-attachment-remove"
-                              onClick={() => handleRemoveAlbum(item.albumId)}
-                              aria-label={t('studio.removePhotoAlbum')}
-                              title={t('studio.removePhotoAlbum')}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        );
-                      }
+                <WorkspaceAttachmentTray
+                  attachments={attachments}
+                  attachmentItemsRef={attachmentItemsRef}
+                  onAddPhotosToAlbum={(albumId, position) => {
+                    albumAttachmentTargetIdRef.current = albumId;
+                    albumAttachmentPositionRef.current = position;
+                    albumFileInputRef.current?.click();
+                  }}
+                  onRemoveAttachment={handleRemoveAttachment}
+                  onRemoveAlbum={handleRemoveAlbum}
+                  onSchedulePreview={scheduleAttachmentPreview}
+                  onShowPreview={showAttachmentPreview}
+                  onHidePreview={hideAttachmentPreview}
+                />
 
-                      const file = item.attachment;
-                      return (
-                        <div
-                          key={file.id}
-                          className={`workspace-page-attachment-card ${file.unavailable ? 'is-unavailable' : ''}`}
-                          data-position={file.position}
-                          title={file.unavailable || !isImageAttachment(file)
-                            ? `${file.name} · ${file.mimeType} · ${formatAttachmentSize(file.size)}${file.unavailable ? ` · ${t('studio.historyAttachmentUnavailable', { name: file.name })}` : ''}`
-                            : undefined}
-                          aria-label={file.unavailable ? t('studio.historyAttachmentUnavailable', { name: file.name }) : undefined}
-                        >
-                          {file.unavailable ? (
-                            <div className="workspace-page-attachment-file-mark is-unavailable">
-                              <AlertTriangle size={15} aria-hidden="true" />
-                            </div>
-                          ) : isImageAttachment(file) ? (
-                            <img
-                              src={file.previewUrl || toFileUrl(file.path)}
-                              alt=""
-                              className="workspace-page-attachment-thumbnail"
-                              tabIndex={0}
-                              aria-label={t('studio.previewFile', { name: file.name })}
-                              onMouseEnter={(event) => scheduleAttachmentPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
-                              onMouseLeave={hideAttachmentPreview}
-                              onFocus={(event) => showAttachmentPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
-                              onBlur={hideAttachmentPreview}
-                            />
-                          ) : (
-                            <div className="workspace-page-attachment-file-mark">
-                              {file.name.split('.').pop()?.slice(0, 4).toUpperCase() || 'FILE'}
-                            </div>
-                          )}
-                          <span className="workspace-page-attachment-copy">
-                            <span className="workspace-page-attachment-name">{file.name}</span>
-                            <span className="workspace-page-attachment-metadata">
-                              {file.mimeType} · {formatAttachmentSize(file.size)}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            className="workspace-page-attachment-remove"
-                            onClick={() => handleRemoveAttachment(file.id)}
-                            aria-label={t('composer.removeAttachment', { name: file.name })}
-                            title={t('composer.removeAttachment', { name: file.name })}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              <div className={`workspace-page-action-row workspace-page-schedule-row ${publishMenuOpen ? 'is-publish-menu-open' : ''}`}>
-                <div className="workspace-page-media-row">
-                  <button
-                    type="button"
-                    className="workspace-page-preview-toggle workspace-page-attachment-toggle"
-                    onClick={() => fileInputRef.current?.click()}
-                    onPointerMove={updateIconRimPointer}
-                    onPointerLeave={clearIconRimPointer}
-                    aria-label={t('studio.addFile')}
-                    title={t('studio.addAttachment')}
-                  >
-                    <svg className="workspace-page-attachment-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <defs>
-                        <linearGradient id="workspace-attachment-metal" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                          <stop stopColor="#f5fbff" />
-                          <stop offset="0.38" stopColor="#c2d8e5" />
-                          <stop offset="0.72" stopColor="#819aaa" />
-                          <stop offset="1" stopColor="#e0edf4" />
-                        </linearGradient>
-                      </defs>
-                      <path d="M9.6 12.4 16.7 5.3a3.7 3.7 0 1 1 5.2 5.2l-9.4 9.4a5.9 5.9 0 1 1-8.4-8.4l9.9-9.9" transform="translate(0 0.65)" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M9.6 12.4 16.7 5.3a3.7 3.7 0 1 1 5.2 5.2l-9.4 9.4a5.9 5.9 0 1 1-8.4-8.4l9.9-9.9" fill="none" stroke="url(#workspace-attachment-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M9.6 12.4 16.7 5.3a3.7 3.7 0 1 1 5.2 5.2l-9.4 9.4a5.9 5.9 0 1 1-8.4-8.4l9.9-9.9" transform="translate(-0.12 -0.18)" fill="none" stroke="rgba(250, 253, 255, 0.48)" strokeWidth="0.65" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={handleFileSelection}
-                    className="workspace-page-hidden-file-input"
-                  />
-                  <input
-                    ref={albumFileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                    multiple
-                    onChange={handleAlbumFileSelection}
-                    className="workspace-page-hidden-file-input"
-                  />
-                </div>
-                <div className="workspace-page-action-left-group">
-                  <button
-                    type="button"
-                    className="workspace-page-preview-toggle"
-                    onClick={togglePreviewVisibility}
-                    onPointerMove={updateIconRimPointer}
-                    onPointerLeave={clearIconRimPointer}
-                    aria-label={t(previewLayout.visible === false ? 'studio.showPreview' : 'studio.hidePreview')}
-                    title={t(previewLayout.visible === false ? 'studio.showPreview' : 'studio.hidePreview')}
-                    aria-pressed={previewLayout.visible !== false}
-                  >
-                    {previewLayout.visible === false ? (
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <defs>
-                          <linearGradient id="workspace-preview-metal" x1="4" y1="6" x2="20" y2="18" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#f5fbff" />
-                            <stop offset="0.4" stopColor="#c2d8e5" />
-                            <stop offset="0.72" stopColor="#819aaa" />
-                            <stop offset="1" stopColor="#e0edf4" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <circle cx="12" cy="12" r="2.65" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.22" />
-                        <path className="workspace-page-preview-pupil" d="M12 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4Z" fill="#275d78" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <defs>
-                          <linearGradient id="workspace-preview-metal" x1="4" y1="6" x2="20" y2="18" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#f5fbff" />
-                            <stop offset="0.4" stopColor="#c2d8e5" />
-                            <stop offset="0.72" stopColor="#819aaa" />
-                            <stop offset="1" stopColor="#e0edf4" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2.2 12c2.6-3.5 6.2-5.8 9.8-5.8s7.2 2.3 9.8 5.8c-2.6 3.5-6.2 5.8-9.8 5.8S4.8 15.5 2.2 12Z" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                        <circle cx="12" cy="12" r="2.8" fill="none" stroke="url(#workspace-preview-metal)" strokeWidth="1.2" />
-                        <path className="workspace-page-preview-pupil" d="M12 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4Z" fill="#275d78" />
-                      </svg>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-page-mode-button workspace-page-mode-button-template ${stageMode === 'template' ? 'is-active' : ''}`}
-                    onClick={() => {
-                      if (stageMode === 'template') {
-                        closeTemplateEditor();
-                        setStageMode('editor');
-                      } else {
-                        changeStageMode('template');
-                      }
-                    }}
-                    aria-pressed={stageMode === 'template'}
-                    title={t('studio.manageTemplates')}
-                  >
-                    {t('studio.templates')}
-                  </button>
-                  {(publishAction !== 'schedule' && stageMode !== 'schedule') && (
-                    <button
-                      type="button"
-                      className={`workspace-page-mode-button workspace-page-mode-button-template workspace-page-mode-button-draft ${stageMode === 'draft' ? 'is-active' : ''}`}
-                      onClick={() => stageMode === 'draft' ? changeStageMode('editor') : changeStageMode('draft')}
-                      aria-pressed={stageMode === 'draft'}
-                      title={t('studio.openDrafts')}
-                    >
-                      {t('studio.draftModeButton')}
-                    </button>
-                  )}
-                  {(publishAction === 'schedule' || stageMode === 'schedule') && (
-                    <div className="workspace-page-schedule-compact-group" aria-label={t('studio.scheduleTools')}>
-                      <button
-                        type="button"
-                        className={`workspace-page-mode-button workspace-page-schedule-compact-button ${stageMode === 'schedule' && scheduleFocus === 'time' ? 'is-active' : ''}`}
-                        onClick={() => openScheduleStage('time')}
-                        aria-pressed={stageMode === 'schedule' && scheduleFocus === 'time'}
-                        title={t('studio.setDateTime')}
-                      >
-                        {t('studio.time')}
-                      </button>
-                      <button
-                        type="button"
-                        className={`workspace-page-mode-button workspace-page-schedule-compact-button ${stageMode === 'schedule' && scheduleFocus === 'repeat' ? 'is-active' : ''}`}
-                        onClick={() => openScheduleStage('repeat')}
-                        aria-pressed={stageMode === 'schedule' && scheduleFocus === 'repeat'}
-                        title={t('studio.configureRepeat')}
-                      >
-                        {t('studio.repeat')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="workspace-page-submit-actions" ref={publishMenuRef}>
-                  <button
-                    type="button"
-                    className={`workspace-page-action-button workspace-page-publish-trigger workspace-page-publish-main ${publishAction === 'schedule' ? 'is-scheduled' : publishAction === 'draft' ? 'is-draft' : 'is-send'} ${successPulse && lastAction === 'sent' ? 'is-active' : ''}`}
-                    onClick={handlePrimaryPublish}
-                    onPointerMove={updateIconRimPointer}
-                    onPointerLeave={clearIconRimPointer}
-                    disabled={sendInFlight || publishingDraft || scheduling || (publishAction === 'draft' && draftStoreSaving)}
-                  >
-                    <span className={`workspace-page-publish-trigger-main ${locale === 'en' ? 'is-english' : ''}`}>
-                      {publishAction === 'schedule'
-                        ? (scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule'))
-                        : publishAction === 'draft'
-                          ? t('studio.saveAction')
-                          : (publishingDraft ? t(reconnectingForSend ? 'studio.reconnecting' : 'studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendAction'))}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-page-publish-trigger workspace-page-publish-menu-toggle ${publishMenuOpen ? 'is-active' : ''}`}
-                    ref={publishMenuToggleRef}
-                    onClick={() => setPublishMenuOpen((current) => !current)}
-                    aria-label={t('studio.morePublishOptions')}
-                    title={t('studio.choosePublishAction')}
-                    aria-expanded={publishMenuOpen}
-                    aria-haspopup="menu"
-                    aria-pressed={publishMenuOpen}
-                    onPointerMove={updateIconRimPointer}
-                    onPointerLeave={clearIconRimPointer}
-                    onKeyDown={(event) => {
-                      if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setPublishMenuOpen(true);
-                      }
-                    }}
-                  >
-                    <span className="workspace-page-publish-trigger-arrow" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="18" height="18" focusable="false">
-                        <defs>
-                          <linearGradient id="workspace-menu-metal" x1="6" y1="8" x2="18" y2="16" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#f5fbff" />
-                            <stop offset="0.4" stopColor="#c2d8e5" />
-                            <stop offset="0.72" stopColor="#819aaa" />
-                            <stop offset="1" stopColor="#e0edf4" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M6 8.8 12 15l6-6.2" fill="none" stroke="rgba(5, 11, 17, 0.86)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M6 8.8 12 15l6-6.2" fill="none" stroke="url(#workspace-menu-metal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M6.4 8.4 12 14.2l5.6-5.8" fill="none" stroke="rgba(250, 253, 255, 0.5)" strokeWidth="0.65" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                  </button>
-
-                  {publishMenuOpen && (
-                    <div className="workspace-page-publish-menu workspace-page-publish-menu-compact" role="menu" aria-label={t('studio.publishAction')}>
-                      <button
-                        type="button"
-                        className={`workspace-page-publish-option is-send ${publishAction === 'send' ? 'is-selected' : ''}`}
-                        autoFocus={publishAction === 'send'}
-                        onClick={() => choosePublishAction('send')}
-                        role="menuitemradio"
-                        aria-checked={publishAction === 'send'}
-                        onPointerMove={updateGlassPointer}
-                        onPointerLeave={clearGlassPointer}
-                      >
-                        <span>{t('studio.sendNow')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`workspace-page-publish-option is-scheduled ${publishAction === 'schedule' ? 'is-selected' : ''}`}
-                        autoFocus={publishAction === 'schedule'}
-                        onClick={() => choosePublishAction('schedule')}
-                        role="menuitemradio"
-                        aria-checked={publishAction === 'schedule'}
-                        onPointerMove={updateGlassPointer}
-                        onPointerLeave={clearGlassPointer}
-                      >
-                        <span>{scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`workspace-page-publish-option is-draft ${publishAction === 'draft' ? 'is-selected' : ''}`}
-                        autoFocus={publishAction === 'draft'}
-                        onClick={() => choosePublishAction('draft')}
-                        role="menuitemradio"
-                        aria-checked={publishAction === 'draft'}
-                        onPointerMove={updateGlassPointer}
-                        onPointerLeave={clearGlassPointer}
-                      >
-                        <span>{t('studio.draftMenuOption')}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
-              <div className={`workspace-page-action-row workspace-page-draft-footer${publishFooterStatus?.kind === 'warning' && publishFooterStatus.message === t('schedule.massWarningTitle') ? ' has-mass-warning' : ''}`}>
-                <div className={`workspace-page-schedule-summary ${publishAction === 'draft' ? 'has-draft-color-picker' : ''}`}>
-                  <div
-                    className={`workspace-page-publish-footer-content${publishFooterStatus ? ' is-feedback-hidden' : ''}`}
-                    aria-hidden={Boolean(publishFooterStatus)}
-                  >
-                    {publishAction === 'schedule'
-                      ? publishScheduleSummary
-                      : publishAction === 'draft'
-                        ? <DraftColorPicker color={draftColor} onChange={setDraftColor} ariaLabel={t('studio.colorNewDraft')} />
-                        : ''}
-                  </div>
-                </div>
-                {publishFooterStatus && (
-                  <div
-                    key={`${inlineNotification?.revision ?? publishFeedbackInstance}-${publishFooterStatus.kind}-${publishFooterStatus.message}`}
-                    className={`workspace-page-publish-transient-feedback is-${publishFooterStatus.kind}${publishFooterStatus.transient ? ' is-notice' : ''}${publishFooterStatus.kind === 'warning' && publishFooterStatus.message === t('schedule.massWarningTitle') ? ' is-mass-warning' : ''}${retriggeredPublishFeedback?.message === publishFooterStatus.message && retriggeredPublishFeedback.kind === publishFooterStatus.kind ? ' is-retriggered' : ''}${connectionRecoveryStatus === 'reconnecting' && publishFooterStatus.message === t('telegramStatus.networkMessage') ? ' is-connection-recovering' : ''}${connectionRecoveryStatus === 'offline' && publishFooterStatus.message === t('telegramStatus.offlineMessage') ? ' is-connection-offline' : ''}`}
-                    style={publishFooterStatus.duration === null
-                      ? undefined
-                      : { '--status-duration': `${publishFooterStatus.duration}ms` } as React.CSSProperties}
-                    role={publishFooterStatus.kind === 'error' ? 'alert' : 'status'}
-                    aria-live={publishFooterStatus.kind === 'error' ? 'assertive' : 'polite'}
-                  >
-                    <span
-                      className="workspace-page-publish-transient-feedback-status"
-                      title={publishFooterStatus.message}
-                      aria-label={publishFooterStatus.message}
-                    >
-                      {connectionRecoveryStatus === 'reconnecting' && publishFooterStatus.message === t('telegramStatus.networkMessage') && (
-                        <span className="workspace-page-connection-spinner" aria-hidden="true" />
-                      )}
-                      {publishFooterStatus.message}
-                    </span>
-                    {sendError && publishFooterStatus.message === sendError && (
-                      <button type="button" className="workspace-page-send-retry" onClick={() => void sendDraftNow()} disabled={sendInFlight}>
-                        {t('studio.retry')}
-                      </button>
-                    )}
-                    {previewHistoryError && previewHistoryErrorRetryable && publishFooterStatus.message === previewHistoryError && (
-                      <button type="button" className="workspace-page-send-retry" onClick={() => setPreviewHistoryRetry((retry) => retry + 1)} disabled={previewHistoryLoading}>
-                        {t('studio.retry')}
-                      </button>
-                    )}
-                    {draftStoreError && publishFooterStatus.message === draftStoreError && draftStoreBackups.map((index) => (
-                      <button key={index} type="button" className="workspace-page-send-retry" onClick={() => void restoreDraftBackup(index)}>
-                        {t('studio.restoreBackup', { number: index })}
-                      </button>
-                    ))}
-                    {draftStoreError && publishFooterStatus.message === draftStoreError && (
-                      <button type="button" className="workspace-page-send-retry" onClick={() => window.location.reload()}>
-                        {t('studio.retry')}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
+              <WorkspacePageActionRows
+                fileInputRef={fileInputRef}
+                albumFileInputRef={albumFileInputRef}
+                onFileSelection={handleFileSelection}
+                onAlbumFileSelection={handleAlbumFileSelection}
+                previewVisible={previewLayout.visible !== false}
+                onTogglePreview={togglePreviewVisibility}
+                stageMode={stageMode}
+                setStageMode={setStageMode}
+                changeStageMode={changeStageMode}
+                closeTemplateEditor={closeTemplateEditor}
+                publishAction={publishAction}
+                scheduleFocus={scheduleFocus}
+                openScheduleStage={openScheduleStage}
+                publishMenuOpen={publishMenuOpen}
+                setPublishMenuOpen={setPublishMenuOpen}
+                publishMenuRef={publishMenuRef}
+                publishMenuToggleRef={publishMenuToggleRef}
+                onPrimaryPublish={handlePrimaryPublish}
+                onChoosePublishAction={choosePublishAction}
+                sendInFlight={sendInFlight}
+                publishingDraft={publishingDraft}
+                scheduling={scheduling}
+                draftStoreSaving={draftStoreSaving}
+                successPulse={successPulse}
+                lastAction={lastAction}
+                reconnectingForSend={reconnectingForSend}
+                publishFooterStatus={publishFooterStatus}
+                publishScheduleSummary={publishScheduleSummary}
+                draftColor={draftColor}
+                setDraftColor={setDraftColor}
+                inlineNotification={inlineNotification}
+                publishFeedbackInstance={publishFeedbackInstance}
+                retriggeredPublishFeedback={retriggeredPublishFeedback}
+                connectionRecoveryStatus={connectionRecoveryStatus}
+                sendError={sendError}
+                onRetrySend={() => { void sendDraftNow(); }}
+                previewHistoryError={previewHistoryError}
+                previewHistoryErrorRetryable={previewHistoryErrorRetryable}
+                previewHistoryLoading={previewHistoryLoading}
+                onRetryPreviewHistory={() => setPreviewHistoryRetry((retry) => retry + 1)}
+                draftStoreError={draftStoreError}
+                draftStoreBackups={draftStoreBackups}
+                onRestoreDraftBackup={(index) => { void restoreDraftBackup(index); }}
+              />
             </div>
           </section>
 

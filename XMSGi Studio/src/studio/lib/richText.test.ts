@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { editorHtmlToRichText, markdownToRichText, richTextToHtml } from './richText';
+import {
+  editorHtmlToRichText,
+  getEditorTextBoundary,
+  getEditorTextLength,
+  getEditorTextOffset,
+  markdownToRichText,
+  richTextToHtml,
+} from './richText';
 
 describe('markdownToRichText', () => {
   it('converts strong and emphasis markers into entities', () => {
@@ -85,9 +92,53 @@ describe('markdownToRichText', () => {
       markdownChanged: false,
     });
   });
+
+  it('counts browser-created paragraph boundaries in text and caret offsets', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<div>first</div><div>second</div>';
+    const secondText = root.lastChild?.firstChild;
+
+    expect(editorHtmlToRichText(root).text).toBe('first\nsecond');
+    expect(getEditorTextLength(root)).toBe(12);
+    expect(secondText).toBeTruthy();
+    expect(getEditorTextOffset(root, secondText!, 6)).toBe(12);
+    expect(getEditorTextBoundary(root, 9)).toEqual({ node: secondText, offset: 3 });
+  });
+
+  it('treats a browser empty-paragraph break as the paragraph boundary', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<div>first</div><div><br></div>';
+
+    expect(editorHtmlToRichText(root).text).toBe('first\n');
+    expect(getEditorTextLength(root)).toBe(6);
+    expect(getEditorTextBoundary(root, 6)).toEqual({ node: root.lastChild, offset: 0 });
+  });
+
+  it('preserves consecutive empty paragraphs created by Enter', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<div><br></div><div><br></div>';
+
+    expect(editorHtmlToRichText(root).text).toBe('\n\n');
+  });
+
+  it('keeps every empty paragraph and maps the caret to the last one', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<div><br></div>'.repeat(5);
+    const lastParagraph = root.lastChild!;
+
+    expect(editorHtmlToRichText(root).text).toBe('\n\n\n\n\n');
+    expect(getEditorTextLength(root)).toBe(5);
+    expect(getEditorTextOffset(root, lastParagraph, 0)).toBe(4);
+    expect(getEditorTextBoundary(root, 4)).toEqual({ node: lastParagraph, offset: 0 });
+  });
 });
 
 describe('richTextToHtml message normalization', () => {
+  it('preserves leading spaces and tabs used for message indentation', () => {
+    expect(richTextToHtml('first\n    second\n\tthird', []))
+      .toBe('first<br>    second<br>\tthird');
+  });
+
   it('removes invisible characters and keeps formatting aligned in previews', () => {
     expect(richTextToHtml('A\u200BB', [{ type: 'bold', offset: 2, length: 1 }]))
       .toBe('A<strong>B</strong>');

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PropsWithChildren } from 'react';
-import { LogOut, UserRound, X } from 'lucide-react';
+import { Copy, LogOut, Minus, Square, UserRound, X } from 'lucide-react';
 import { Notification } from '@/components/Notification';
 import { useLocale } from '@/lib/i18n';
 import type { NotificationState } from '@/types';
@@ -36,6 +36,47 @@ function cacheAccountAvatar(avatarDataUrl: string) {
   } catch {
     // Keep the topbar usable when local storage is unavailable.
   }
+}
+
+function activateOnPointerDown(event: React.PointerEvent<HTMLButtonElement>, action: () => void) {
+  if (event.button !== 0 || event.isPrimary === false) return;
+  action();
+}
+
+function activateOnKeyboardClick(event: React.MouseEvent<HTMLButtonElement>, action: () => void) {
+  if (event.detail === 0) action();
+}
+
+type DesktopWindowControls = NonNullable<Window['desktop']>;
+
+function runWindowControl<T>(name: string, action: () => Promise<T>, onSuccess?: (result: T) => void) {
+  void action()
+    .then((result) => onSuccess?.(result))
+    .catch((error: unknown) => console.error(`Could not ${name} the application window:`, error));
+}
+
+function WindowControls({
+  desktop,
+  isMaximized,
+  onMaximizedChange,
+}: {
+  desktop: DesktopWindowControls;
+  isMaximized: boolean;
+  onMaximizedChange: (isMaximized: boolean) => void;
+}) {
+  return (
+    <div className="electron-window-controls" aria-label="Window controls">
+      <button type="button" aria-label="Minimize window" title="Minimize" onClick={() => runWindowControl('minimize', desktop.minimizeWindow)}>
+        <Minus size={13} aria-hidden="true" />
+      </button>
+      <button type="button" aria-label={isMaximized ? 'Restore window' : 'Maximize window'} title={isMaximized ? 'Restore' : 'Maximize'} onClick={() => runWindowControl('toggle maximize', desktop.toggleMaximizeWindow, onMaximizedChange)}>
+        {isMaximized ? <Copy size={12} aria-hidden="true" /> : <Square size={12} aria-hidden="true" />}
+      </button>
+      <button type="button" className="electron-window-close" aria-label="Close window" title="Close" onClick={() => runWindowControl('close', desktop.closeWindow)}>
+        <X size={13} aria-hidden="true" />
+      </button>
+    </div>
+  );
 }
 
 type AppShellProps = PropsWithChildren<{
@@ -112,6 +153,24 @@ export function AppShell({
   const [historySourceFilterOnOpen, setHistorySourceFilterOnOpen] = useState<'all' | 'personal' | 'workspace' | undefined>();
   const [historySourceFilterOnOpenMode, setHistorySourceFilterOnOpenMode] = useState<'initial' | 'temporary'>('temporary');
   const [historyStatusFilterOnOpen, setHistoryStatusFilterOnOpen] = useState<QuickPlannerPostsFilter | undefined>();
+  const desktop = window.desktop;
+  const hasCustomWindowControls = desktop?.hasCustomWindowControls === true;
+  const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+
+  useEffect(() => {
+    if (!hasCustomWindowControls || !desktop) return undefined;
+    let active = true;
+    const unsubscribe = desktop.onWindowMaximizedChange(setIsWindowMaximized);
+    desktop.isWindowMaximized()
+      .then((isMaximized) => {
+        if (active) setIsWindowMaximized(isMaximized);
+      })
+      .catch((error: unknown) => console.error('Could not read the application window state:', error));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [desktop, hasCustomWindowControls]);
 
   useEffect(() => {
     if (isPlannerSurfaceActive && notification?.visible) closeNotification?.();
@@ -207,9 +266,26 @@ export function AppShell({
     if (isPostsVisible) closePosts();
     onOpenSettings();
   };
+  const openSettingsFromTopbar = () => {
+    setShowAuthForm(false);
+    setIsConfirmingLogout(false);
+    openSettings();
+  };
 
   return (
     <div className={`product-shell ${activeProductView === 'planner' ? 'planner-shell' : 'studio-shell'}`} style={{ position: 'relative' }}>
+      {hasCustomWindowControls && desktop && (
+        <div
+          className="electron-titlebar"
+          onDoubleClick={(event) => {
+            if (event.target === event.currentTarget) {
+              runWindowControl('toggle maximize', desktop.toggleMaximizeWindow, setIsWindowMaximized);
+            }
+          }}
+        >
+          <WindowControls desktop={desktop} isMaximized={isWindowMaximized} onMaximizedChange={setIsWindowMaximized} />
+        </div>
+      )}
       {!connected && headerPending && (
         <div className="topbar topbar-placeholder" aria-hidden="true" />
       )}
@@ -227,53 +303,49 @@ export function AppShell({
               className="settings-action product-mode-switch"
               aria-label={nextViewLabel}
               aria-pressed={view === 'planner'}
-              onClick={() => changeView(nextProductView)}
+              onPointerDown={(event) => activateOnPointerDown(event, () => changeView(nextProductView))}
+              onClick={(event) => activateOnKeyboardClick(event, () => changeView(nextProductView))}
             >
               <span className="action-label">{nextViewLabel}</span>
             </button>
           )}
 
           <div className="topbar-actions">
-            {settingsOpen ? (
-              <button type="button" className="settings-action" onClick={onCloseSettings} aria-label={t('settings.done')}>
-                <span className="action-label">{t('settings.done')}</span>
-              </button>
-            ) : (
-              <>
             <button
               type="button"
-              className={`settings-action${isPostsVisible ? ' is-active' : ''}`}
-              onClick={() => isPostsVisible ? closePosts() : openPosts()}
+              className={`settings-action${isPostsVisible ? ' is-active' : ''}${settingsOpen ? ' is-topbar-hidden' : ''}`}
+              onPointerDown={(event) => activateOnPointerDown(event, () => isPostsVisible ? closePosts() : openPosts())}
+              onClick={(event) => activateOnKeyboardClick(event, () => isPostsVisible ? closePosts() : openPosts())}
               title={t('history.title')}
               aria-label={t('history.title')}
               aria-current={isPostsVisible ? 'page' : undefined}
+              aria-hidden={settingsOpen || undefined}
+              tabIndex={settingsOpen ? -1 : undefined}
             >
               <span className="action-label">{t('history.title')}</span>
             </button>
-
             <button
               type="button"
               className="settings-action"
-              onClick={() => {
-                setShowAuthForm(false);
-                setIsConfirmingLogout(false);
-                openSettings();
-              }}
-              title={t('topbar.settings')}
-              aria-label={t('topbar.settings')}
+              onPointerDown={(event) => activateOnPointerDown(event, () => settingsOpen ? onCloseSettings?.() : openSettingsFromTopbar())}
+              onClick={(event) => activateOnKeyboardClick(event, () => settingsOpen ? onCloseSettings?.() : openSettingsFromTopbar())}
+              title={t(settingsOpen ? 'settings.done' : 'topbar.settings')}
+              aria-label={t(settingsOpen ? 'settings.done' : 'topbar.settings')}
             >
-              <span className="action-label">{t('topbar.settings')}</span>
+              <span className="action-label">{t(settingsOpen ? 'settings.done' : 'topbar.settings')}</span>
             </button>
 
             <button
               ref={logoutPhotoButtonRef}
               type="button"
-              className="topbar-logout-photo"
+              className={`topbar-logout-photo${settingsOpen ? ' is-topbar-hidden' : ''}`}
               aria-haspopup="dialog"
               aria-label={t('auth.logout')}
               title={t('auth.logout')}
               onClick={() => setIsConfirmingLogout(true)}
               disabled={authBusy}
+              aria-hidden={settingsOpen || undefined}
+              tabIndex={settingsOpen ? -1 : undefined}
             >
               {!accountAvatarDataUrl ? (
                 <span className="topbar-logout-photo-fallback" aria-hidden="true">
@@ -290,8 +362,6 @@ export function AppShell({
                 role="img"
               />
             </button>
-              </>
-            )}
           </div>
         </header>
       )}

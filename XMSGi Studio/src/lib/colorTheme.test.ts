@@ -93,6 +93,29 @@ describe('applyColorTheme', () => {
     expect(document.documentElement).not.toHaveClass('is-theme-transitioning');
   });
 
+  it('synchronizes the selected color theme with the Electron window', () => {
+    const setColorTheme = vi.fn().mockResolvedValue({ success: true });
+    window.desktop = {
+      hasCustomWindowControls: false,
+      minimizeWindow: vi.fn().mockResolvedValue(undefined),
+      toggleMaximizeWindow: vi.fn().mockResolvedValue(false),
+      closeWindow: vi.fn().mockResolvedValue(undefined),
+      isWindowMaximized: vi.fn().mockResolvedValue(false),
+      onWindowMaximizedChange: vi.fn().mockReturnValue(vi.fn()),
+      setColorTheme,
+    };
+
+    try {
+      applyColorTheme('dark');
+      applyColorTheme('light');
+
+      expect(setColorTheme).toHaveBeenNthCalledWith(1, 'dark');
+      expect(setColorTheme).toHaveBeenNthCalledWith(2, 'light');
+    } finally {
+      Reflect.deleteProperty(window, 'desktop');
+    }
+  });
+
   it('treats a previously saved graphite theme as dark', () => {
     localStorage.setItem(COLOR_THEME_STORAGE_KEY, 'charcoal');
     expect(readColorTheme()).toBe('dark');

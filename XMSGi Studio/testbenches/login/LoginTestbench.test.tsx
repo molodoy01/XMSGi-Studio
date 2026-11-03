@@ -71,7 +71,7 @@ describe('LoginTestbench', () => {
       /\.login-wordmark-top,\s*\.login-tagline > span:first-child\s*\{([^}]*)\}/,
     )?.[1] ?? '';
     const sharedTransitionRule = themeTransitionStyles.match(
-      /html\.is-theme-transitioning body :where\(\*\)\s*\{([^}]*)\}/,
+      /html\.is-theme-transitioning,[\s\S]*?\{([^}]*)\}/,
     )?.[1] ?? '';
     expect(sharedColorRule).toMatch(/color:\s*var\(--login-ink\);/);
     expect(sharedTransitionRule).toMatch(/transition-duration:\s*320ms/);

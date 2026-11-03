@@ -13,6 +13,14 @@ const themeTransitionStyles = readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../styles/tokens.css'),
   'utf8',
 );
+const colorThemeStyles = readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../styles/colorThemes.css'),
+  'utf8',
+);
+const settingsStyles = readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../styles/settings.css'),
+  'utf8',
+);
 
 function renderSettings(overrides: Partial<React.ComponentProps<typeof SettingsView>> = {}) {
   const onTelegramDisconnect = vi.fn();
@@ -167,13 +175,46 @@ describe('SettingsView Telegram integration', () => {
 
   it('uses the shared text color timing throughout Settings', () => {
     const settingsTransitionRule = themeTransitionStyles.match(
-      /html\.is-theme-transitioning body :where\(\*\)\s*\{([^}]*)\}/,
+      /html\.is-theme-transitioning,[\s\S]*?\{([^}]*)\}/,
     )?.[1] ?? '';
 
     expect(settingsTransitionRule).toMatch(/transition-duration:\s*320ms/);
     expect(settingsTransitionRule).toMatch(/transition-delay:\s*0ms,\s*0ms/);
     expect(settingsTransitionRule).toMatch(/transition-timing-function:\s*cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)/);
     expect(themeTransitionStyles).not.toMatch(/::view-transition/);
+  });
+
+  it('uses glass only for the dark sign-out prompt and keeps connection settings opaque', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.topbar-logout-modal-backdrop:not\(\.telegram-manager-backdrop\) \.topbar-logout-modal\s*\{[^}]*backdrop-filter:\s*blur\(16px\) saturate\(135%\);/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.telegram-manager-dialog\.topbar-logout-modal\s*\{[^}]*border-color:\s*rgba\(215, 230, 240, 0\.32\);[^}]*box-shadow:\s*var\(--shadow-soft\), inset 0 1px 0 rgba\(230, 240, 246, 0\.06\);/,
+    );
+    expect(colorThemeStyles).not.toMatch(
+      /html\[data-theme='dark'\] \.telegram-manager-dialog\.topbar-logout-modal\s*\{[^}]*backdrop-filter:/,
+    );
+  });
+
+  it('styles the dark Telegram summary as glass and keeps its text on one line', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.settings-telegram-summary\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\);/,
+    );
+    expect(settingsStyles).toMatch(
+      /\.settings-telegram-summary-main\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;/,
+    );
+    expect(settingsStyles).toMatch(
+      /\.settings-telegram-summary-main > strong\s*\{[^}]*order:\s*1;/,
+    );
+    expect(settingsStyles).toMatch(
+      /\.settings-telegram-summary-account\s*\{[^}]*order:\s*2;/,
+    );
+    expect(settingsStyles).toMatch(
+      /\.settings-telegram-summary-state\s*\{[^}]*order:\s*3;[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;[^}]*white-space:\s*nowrap;/,
+    );
+    expect(settingsStyles).toMatch(
+      /\.settings-telegram-summary-account\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/,
+    );
   });
 
   it('supports an isolated theme storage key for the settings testbench', () => {

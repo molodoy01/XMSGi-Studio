@@ -411,26 +411,17 @@
 }
 
 .chat-preview-stand.is-mobile .chat-preview-wallpaper-quick-picker {
-  position: static;
-  top: auto;
-  right: auto;
-  align-self: flex-end;
-  flex: 0 0 30px;
+  position: absolute;
+  top: 6px;
+  right: 8px;
   width: min(100%, 280px);
   max-width: 100%;
   gap: 4px;
   transform: none;
 }
 
-.chat-preview-stand.is-mobile .chat-preview-toolbar.is-wallpaper-picker-open {
-  align-items: flex-start;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 0;
-}
-
-.chat-preview-stand.is-mobile .chat-preview-toolbar.is-wallpaper-picker-open .chat-preview-toolbar-label {
-  transform: none;
+.chat-preview-stand.is-mobile > .chat-preview-toolbar {
+  position: relative;
 }
 
 .chat-preview-wallpaper-quick-choice {
@@ -1096,6 +1087,7 @@ img.chat-preview-avatar,
 .chat-preview-message {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  tab-size: 2;
 }
 
 .chat-preview-message a {
@@ -1376,13 +1368,7 @@ img.chat-preview-avatar,
 }
 
 @media (max-width: 760px) {
-  .chat-preview-stand.is-mobile .chat-preview-toolbar.is-wallpaper-picker-open {
-    align-items: flex-start;
-    gap: 2px;
-  }
-
   .chat-preview-stand.is-mobile .chat-preview-wallpaper-quick-picker {
-    align-self: flex-end;
     width: min(100%, 280px);
   }
 

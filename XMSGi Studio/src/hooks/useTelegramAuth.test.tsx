@@ -279,6 +279,58 @@ describe('useTelegramAuth', () => {
     }
   });
 
+  it('does not advance from an invalid Telegram code to 2FA based on unrelated password text', async () => {
+    const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
+    const previousLocale = window.localStorage.getItem('awaitmsg_locale');
+    window.localStorage.setItem('awaitmsg_locale', 'en');
+    const login = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'PHONE_CODE_INVALID: SESSION_PASSWORD_NEEDED',
+    });
+    Object.defineProperty(window, 'telegram', {
+      configurable: true,
+      value: {
+        getAuthState: vi.fn().mockResolvedValue({
+          success: true,
+          authState: { hasSession: false, signedOut: false, connected: false, userName: '', state: 'ready' },
+        }),
+        login,
+      },
+    });
+
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <LocaleProvider>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useTelegramAuth({
+        setIsSettingsOpen: vi.fn(),
+        setChats: vi.fn(),
+        setSelectedChat: vi.fn(),
+      }), { wrapper });
+
+      await waitFor(() => expect(result.current.connectionResolved).toBe(true));
+      act(() => {
+        result.current.setAuthStep('code');
+        result.current.setPhoneNumber('+14155550123');
+        result.current.setPhoneCode('12345');
+      });
+      await act(async () => result.current.handleTelegramAuth());
+
+      expect(login).toHaveBeenCalledWith({
+        phoneNumber: '+14155550123',
+        phoneCode: '12345',
+        password: undefined,
+      });
+      expect(result.current.authStep).toBe('code');
+      expect(result.current.authError).toBe('The Telegram code is incorrect. Check your latest message and try again.');
+    } finally {
+      if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
+      else Reflect.deleteProperty(window, 'telegram');
+      if (previousLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', previousLocale);
+    }
+  });
+
   it('turns bridge network failures into the localized connection message', async () => {
     const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
     const previousLocale = window.localStorage.getItem('awaitmsg_locale');

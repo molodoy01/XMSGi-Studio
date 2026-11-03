@@ -49,6 +49,90 @@ describe('Telegram status presentation', () => {
 });
 
 describe('product navigation', () => {
+  it('switches product views on pointer press without switching again on release', () => {
+    const onViewChange = vi.fn();
+    render(createElement(LocaleProvider, null, createElement(AppShell, {
+      view: 'studio',
+      onViewChange,
+      connected: true,
+      authBusy: false,
+      isConfirmingLogout: false,
+      setIsConfirmingLogout: vi.fn(),
+      setShowAuthForm: vi.fn(),
+      handleDisconnect: async () => undefined,
+      handleForgetAccount: async () => undefined,
+      onOpenSettings: vi.fn(),
+      historyRecords: [],
+      onHistoryCancel: vi.fn(),
+      onHistoryReschedule: vi.fn(),
+      onHistorySendNow: vi.fn(),
+      onHistoryDelete: vi.fn(),
+      onHistoryOpenDraft: vi.fn(),
+      onHistoryClearSent: vi.fn(),
+    })));
+
+    const plannerButton = screen.getByRole('button', { name: 'Planner' });
+    fireEvent.pointerDown(plannerButton, { button: 0, isPrimary: true });
+
+    expect(onViewChange).toHaveBeenCalledOnce();
+    expect(onViewChange).toHaveBeenCalledWith('planner');
+
+    fireEvent.click(plannerButton, { detail: 1 });
+    expect(onViewChange).toHaveBeenCalledOnce();
+  });
+
+  it('opens Posts and Settings on pointer press without waiting for release', () => {
+    const onViewChange = vi.fn();
+    const onOpenSettings = vi.fn();
+    const onCloseSettings = vi.fn();
+    const shellProps = {
+      view: 'studio' as const,
+      onViewChange,
+      connected: true,
+      authBusy: false,
+      isConfirmingLogout: false,
+      setIsConfirmingLogout: vi.fn(),
+      setShowAuthForm: vi.fn(),
+      handleDisconnect: async () => undefined,
+      handleForgetAccount: async () => undefined,
+      onOpenSettings,
+      onCloseSettings,
+      historyRecords: [],
+      onHistoryCancel: vi.fn(),
+      onHistoryReschedule: vi.fn(),
+      onHistorySendNow: vi.fn(),
+      onHistoryDelete: vi.fn(),
+      onHistoryOpenDraft: vi.fn(),
+      onHistoryClearSent: vi.fn(),
+    };
+    const renderShell = (settingsOpen = false) => createElement(
+      LocaleProvider,
+      null,
+      createElement(AppShell, { ...shellProps, settingsOpen }),
+    );
+    const { rerender } = render(renderShell());
+
+    const postsButton = screen.getByRole('button', { name: 'Posts' });
+    fireEvent.pointerDown(postsButton, { button: 0, isPrimary: true });
+    expect(onViewChange).toHaveBeenCalledOnce();
+    expect(onViewChange).toHaveBeenCalledWith('posts');
+    fireEvent.click(postsButton, { detail: 1 });
+    expect(onViewChange).toHaveBeenCalledOnce();
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+    fireEvent.pointerDown(settingsButton, { button: 0, isPrimary: true });
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+    fireEvent.click(settingsButton, { detail: 1 });
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+
+    rerender(renderShell(true));
+    const doneButton = screen.getByRole('button', { name: 'Done' });
+    fireEvent.pointerDown(doneButton, { button: 0, isPrimary: true });
+    expect(onCloseSettings).toHaveBeenCalledOnce();
+    fireEvent.click(doneButton, { detail: 1 });
+    expect(onCloseSettings).toHaveBeenCalledOnce();
+  });
+
   it('shows the XMSGi brand and opens Planner from the Studio topbar', () => {
     const onViewChange = vi.fn();
     render(createElement(LocaleProvider, null, createElement(AppShell, {
@@ -757,10 +841,9 @@ describe('shared History Drawer entry point', () => {
 
   it('shows only Done in the topbar while Settings is open', () => {
     const onCloseSettings = vi.fn();
-    const view = render(createElement(LocaleProvider, null, createElement(AppShell, {
-      view: 'planner',
+    const shellProps = {
+      view: 'planner' as const,
       onViewChange: vi.fn(),
-      settingsOpen: true,
       onCloseSettings,
       connected: true,
       authBusy: false,
@@ -777,11 +860,22 @@ describe('shared History Drawer entry point', () => {
       onHistoryDelete: vi.fn(),
       onHistoryOpenDraft: vi.fn(),
       onHistoryClearSent: vi.fn(),
-    }, createElement('div', null, 'Settings page'))));
+    };
+    const renderShell = (settingsOpen: boolean) => createElement(
+      LocaleProvider,
+      null,
+      createElement(AppShell, { ...shellProps, settingsOpen }, createElement('div', null, 'Settings page')),
+    );
+    const view = render(renderShell(false));
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+    view.rerender(renderShell(true));
 
-    const actionButtons = Array.from(view.container.querySelectorAll('.topbar-actions button'));
+    const actionButtons = Array.from(view.container.querySelectorAll('.topbar-actions button:not([aria-hidden="true"])'));
     expect(actionButtons).toHaveLength(1);
     expect(actionButtons[0]).toHaveAccessibleName('Done');
+    expect(actionButtons[0]).toBe(settingsButton);
+    expect(view.container.querySelector('.topbar-actions [aria-label="Posts"]')).toHaveAttribute('aria-hidden', 'true');
+    expect(view.container.querySelector('.topbar-logout-photo')).toHaveAttribute('aria-hidden', 'true');
     expect(view.container.querySelector('.product-mode-switch')).not.toBeInTheDocument();
     expect(view.container.querySelector('.product-section-title')).not.toBeInTheDocument();
     expect(view.container.querySelector('.settings-view-done')).not.toBeInTheDocument();

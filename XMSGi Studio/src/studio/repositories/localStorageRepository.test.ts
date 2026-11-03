@@ -79,6 +79,44 @@ describe('localStorage repository read safety', () => {
     expect(localStorage.getItem('legacy')).toBe(previous);
   });
 
+  it('keeps the previous verified snapshot and recovers it when both live copies are invalid', () => {
+    const previous = JSON.stringify([{ id: 'existing', name: 'Keep me' }]);
+    localStorage.setItem('primary', previous);
+    localStorage.setItem('legacy', previous);
+    const repository = createLocalStorageRepository<Entity>('primary', 'legacy', 'backup');
+
+    repository.save({ id: 'new', name: 'New record' });
+
+    expect(localStorage.getItem('backup')).toBe(previous);
+    localStorage.setItem('primary', '{invalid');
+    localStorage.setItem('legacy', '{invalid');
+    expect(repository.list()).toEqual([{ id: 'existing', name: 'Keep me' }]);
+  });
+
+  it('does not silently return an empty list when every stored copy is invalid', () => {
+    localStorage.setItem('primary', '{invalid');
+    localStorage.setItem('legacy', '{invalid');
+    localStorage.setItem('backup', '{invalid');
+    const repository = createLocalStorageRepository<Entity>('primary', 'legacy', 'backup');
+
+    expect(() => repository.list()).toThrow('invalid JSON');
+    expect(() => repository.save({ id: 'new', name: 'New record' })).toThrow('invalid JSON');
+  });
+
+  it('does not overwrite the primary copy if the recovery snapshot cannot be written', () => {
+    const previous = JSON.stringify([{ id: 'existing', name: 'Keep me' }]);
+    localStorage.setItem('primary', previous);
+    const repository = createLocalStorageRepository<Entity>('primary', 'legacy', 'backup');
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === 'backup') throw new DOMException('Backup storage unavailable', 'QuotaExceededError');
+      originalSetItem.call(this, key, value);
+    });
+
+    expect(() => repository.save({ id: 'new', name: 'New record' })).toThrow('Backup storage unavailable');
+    expect(localStorage.getItem('primary')).toBe(previous);
+  });
+
   it('reports an unavailable localStorage getter', () => {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
     try {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeTheme } = require('electron');
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -401,6 +401,7 @@ function createWindow() {
     minHeight: 800,
     resizable: true,
     backgroundColor: '#11110f',
+    ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' } : {}),
     autoHideMenuBar: true,
     show: false,
 
@@ -430,6 +431,13 @@ function createWindow() {
     }
 
     return { action: 'deny' };
+  });
+
+  mainWindow.on('maximize', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:window-maximized-changed', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:window-maximized-changed', false);
   });
 
   const expectedRendererUrl = getTrustedRendererUrl(
@@ -488,6 +496,57 @@ function createTray() {
   ]));
   tray.on('double-click', showMainWindow);
 }
+
+ipcMain.handle('app:set-color-theme', (event, theme) => {
+  assertTrustedRenderer(
+    event,
+    mainWindow?.webContents,
+    pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href
+  );
+  if (theme !== 'light' && theme !== 'dark') {
+    throw new TypeError('Color theme must be light or dark.');
+  }
+
+  nativeTheme.themeSource = theme;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setBackgroundColor(theme === 'dark' ? '#0e1317' : '#f7f8fa');
+  }
+  return { success: true };
+});
+
+function getTrustedWindowControlTarget(event) {
+  assertTrustedRenderer(
+    event,
+    mainWindow?.webContents,
+    pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href
+  );
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error('The application window is not available.');
+  }
+  return mainWindow;
+}
+
+ipcMain.handle('app:window-minimize', (event) => {
+  getTrustedWindowControlTarget(event).minimize();
+});
+
+ipcMain.handle('app:window-toggle-maximize', (event) => {
+  const window = getTrustedWindowControlTarget(event);
+  if (window.isMaximized()) {
+    window.unmaximize();
+  } else {
+    window.maximize();
+  }
+  return window.isMaximized();
+});
+
+ipcMain.handle('app:window-close', (event) => {
+  getTrustedWindowControlTarget(event).close();
+});
+
+ipcMain.handle('app:window-is-maximized', (event) => (
+  getTrustedWindowControlTarget(event).isMaximized()
+));
 
 ipcMain.handle('chat-storage-load', async (event) => {
   assertTrustedRenderer(

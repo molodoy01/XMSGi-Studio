@@ -1,136 +1,13 @@
 import { useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import { editorHtmlToRichText } from '@studio/lib/richText';
-
-function countEditorText(node: Node): number {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent?.length ?? 0;
-  if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') return 1;
-
-  let length = 0;
-  node.childNodes.forEach((child) => { length += countEditorText(child); });
-  return length;
-}
-
-function getEditorTextOffset(root: HTMLElement, targetNode: Node, targetOffset: number): number | null {
-  let length = 0;
-  let found = false;
-
-  const visit = (node: Node): boolean => {
-    if (node === targetNode) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        length += Math.max(0, Math.min(targetOffset, node.textContent?.length ?? 0));
-      } else {
-        const childLimit = Math.max(0, Math.min(targetOffset, node.childNodes.length));
-        for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
-          length += countEditorText(node.childNodes[childIndex]);
-        }
-      }
-      found = true;
-      return true;
-    }
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      length += node.textContent?.length ?? 0;
-      return false;
-    }
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
-      length += 1;
-      return false;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      if (visit(child)) return true;
-    }
-    return false;
-  };
-
-  visit(root);
-  return found ? length : null;
-}
-
-function getEditorSelectionTextOffsets(root: HTMLElement, range: Range) {
-  let length = 0;
-  let start: number | null = null;
-  let end: number | null = null;
-
-  const getBoundaryOffset = (node: Node, offset: number) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      return length + Math.max(0, Math.min(offset, node.textContent?.length ?? 0));
-    }
-
-    const childLimit = Math.max(0, Math.min(offset, node.childNodes.length));
-    let boundaryLength = length;
-    for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
-      boundaryLength += countEditorText(node.childNodes[childIndex]);
-    }
-    return boundaryLength;
-  };
-
-  const visit = (node: Node): boolean => {
-    if (node === range.startContainer) start = getBoundaryOffset(node, range.startOffset);
-    if (node === range.endContainer) end = getBoundaryOffset(node, range.endOffset);
-    if (start !== null && end !== null) return true;
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      length += node.textContent?.length ?? 0;
-      return false;
-    }
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
-      length += 1;
-      return false;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      if (visit(child)) return true;
-    }
-    return false;
-  };
-
-  visit(root);
-  return start === null || end === null ? null : { start, end };
-}
-
-function getEditorBoundaryAtTextOffset(root: HTMLElement, targetOffset: number): { node: Node; offset: number } {
-  let length = 0;
-  let boundary: { node: Node; offset: number } | null = null;
-
-  const visit = (node: Node): boolean => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const nodeLength = node.textContent?.length ?? 0;
-      if (targetOffset <= length + nodeLength) {
-        boundary = { node, offset: Math.max(0, targetOffset - length) };
-        return true;
-      }
-      length += nodeLength;
-      return false;
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
-      if (targetOffset <= length + 1 && node.parentNode) {
-        const childIndex = Array.prototype.indexOf.call(node.parentNode.childNodes, node) as number;
-        boundary = { node: node.parentNode, offset: childIndex + (targetOffset > length ? 1 : 0) };
-        return true;
-      }
-      length += 1;
-      return false;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      if (visit(child)) return true;
-    }
-    return false;
-  };
-
-  visit(root);
-  return boundary ?? { node: root, offset: root.childNodes.length };
-}
+import { editorHtmlToRichText, getEditorTextBoundary, getEditorTextOffset } from '@studio/lib/richText';
 
 function restoreEditorSelection(root: HTMLElement, start: number, end: number) {
   const selection = window.getSelection();
   if (!selection) return;
 
-  const startBoundary = getEditorBoundaryAtTextOffset(root, start);
-  const endBoundary = getEditorBoundaryAtTextOffset(root, end);
+  const startBoundary = getEditorTextBoundary(root, start);
+  const endBoundary = getEditorTextBoundary(root, end);
   const range = document.createRange();
   range.setStart(startBoundary.node, startBoundary.offset);
   range.setEnd(endBoundary.node, endBoundary.offset);
@@ -172,10 +49,11 @@ export function useEditorSelection(editorRef: MutableRefObject<HTMLDivElement | 
       || (!editor.contains(selection.anchorNode) && selection.anchorNode !== editor)) return;
     const range = selection.getRangeAt(0);
     savedRangeRef.current = range.cloneRange();
-    const offsets = getEditorSelectionTextOffsets(editor, range);
-    if (!offsets) return;
-    editor.dataset.selectionStart = String(offsets.start);
-    editor.dataset.selectionEnd = String(offsets.end);
+    const start = getEditorTextOffset(editor, range.startContainer, range.startOffset);
+    const end = getEditorTextOffset(editor, range.endContainer, range.endOffset);
+    if (start === null || end === null) return;
+    editor.dataset.selectionStart = String(start);
+    editor.dataset.selectionEnd = String(end);
   };
 
   const restoreSelection = () => {

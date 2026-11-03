@@ -14,15 +14,15 @@ html[data-theme='dark'] .product-shell.planner-shell {
 }
 
 html[data-theme='dark'] .topbar {
-  background: #11161b;
+  background-color: var(--app-topbar-background);
 }
 
 html[data-theme='dark'] .topbar::before {
-  background: #293139;
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='light'] .topbar::before {
-  background: #d7e0e6;
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='light'] .topbar-logout-photo-fallback {
@@ -881,6 +881,14 @@ html[data-theme='dark'] .workspace-page-rich-text-emoji-picker {
   color: #e2e7eb;
 }
 
+html[data-theme='light'] .workspace-page-rich-text-emoji-picker {
+  box-shadow: 0 6px 14px rgba(34, 47, 58, 0.14);
+}
+
+html[data-theme='light'] .workspace-page-rich-text-emoji-picker--floating {
+  box-shadow: 0 8px 20px rgba(34, 47, 58, 0.16);
+}
+
 html[data-theme='dark'] .workspace-page-rich-text-emoji-picker .quick-planner-emoji-search,
 html[data-theme='dark'] .workspace-page-rich-text-emoji-picker .quick-planner-emoji-categories button {
   border-color: #35414a;
@@ -1626,9 +1634,36 @@ html[data-theme='light'] .workspace-page .workspace-page-chat-trigger > svg {
   color: #65717c;
 }
 
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-meta-row {
+  opacity: 1 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-character-count {
+  color: #344b5a !important;
+  font-weight: 500;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-character-count.is-warning {
+  color: #a33b35 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-character-count.is-critical {
+  color: #bd2424 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-rich-text-clear {
+  color: #3f6277 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-clear.is-hidden {
+  visibility: visible !important;
+  pointer-events: none;
+}
+
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-clear:hover,
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-clear:focus-visible {
-  background: rgba(71, 124, 158, 0.1);
+  background: #e4eef3;
   color: #315a73;
 }
 
@@ -4778,12 +4813,27 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stag
   color: var(--studio-control-foreground) !important;
 }
 
-html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar button {
-  width: 34px !important;
-  min-width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-leading-tools > .workspace-page-rich-text-tool-anchor > button,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-toolbar-actions > .workspace-page-rich-text-format-option,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-toolbar-actions > .workspace-page-rich-text-link-controls > .workspace-page-rich-text-link-trigger,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-toolbar-actions > .workspace-page-version-history-trigger,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-toolbar-actions > .workspace-page-editor-export > .workspace-page-editor-export-trigger,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-toolbar-actions > .workspace-page-rich-text-album-controls > .workspace-page-rich-text-album-trigger {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
   border-radius: 7px !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button > svg {
+  width: 19px;
+  height: 19px;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button > svg {
+  width: 19px;
+  height: 19px;
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-action-row .workspace-page-attachment-toggle,
@@ -4908,8 +4958,8 @@ html[data-theme='light'] .workspace-page .workspace-page-action-row.workspace-pa
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected,
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected:hover:not(:disabled),
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected:focus-visible {
-  border-color: #6b9fb5 !important;
-  background: #6b9fb5 !important;
+  border-color: #239dfb !important;
+  background: #239dfb !important;
   color: #ffffff !important;
   box-shadow: 0 1px 3px rgba(34, 47, 58, 0.16) !important;
   transform: none !important;
@@ -4917,6 +4967,18 @@ html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .w
 
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar button:hover:not(:disabled) {
   background: #e4eef3 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar button[aria-pressed='true']:not(:hover):not(:focus-visible),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar button.is-open:not(:hover):not(:focus-visible) {
+  border-color: #9dc9e5 !important;
+  background: #e3f3fc !important;
+  color: #176c9c !important;
+  box-shadow: inset 0 0 0 1px rgba(35, 157, 251, 0.14) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar button:not(:hover):not(:focus-visible):not(.is-active):not([aria-pressed='true']):not(.is-open) {
+  background: transparent !important;
 }
 
 html[data-theme='dark'] .history-drawer.is-page .history-content.is-page .history-record.is-selected,
@@ -5019,11 +5081,11 @@ html[data-theme] .workspace-page .workspace-page-draft-footer .workspace-page-sc
 }
 
 html[data-theme='dark'] .topbar {
-  background: var(--ink);
+  background-color: var(--app-topbar-background);
 }
 
 html[data-theme='dark'] .topbar::before {
-  background: var(--line);
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='dark'] .settings-view-section,
@@ -5688,4 +5750,110 @@ html[data-theme='light'] .quick-planner-activity .quick-planner-activity-view:ho
   box-shadow: 0 2px 6px rgba(34, 47, 58, 0.18), inset 0 0 0 1px rgba(71, 124, 158, 0.12) !important;
   filter: none !important;
   transform: none !important;
+}
+
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active),
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):hover,
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):focus-visible,
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):active {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='dark'] .topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal {
+  border-color: rgba(215, 230, 240, 0.28);
+  background:
+    linear-gradient(145deg, rgba(220, 236, 246, 0.12), rgba(170, 195, 210, 0.025) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.86), rgba(12, 16, 20, 0.9));
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(230, 240, 246, 0.08);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+html[data-theme='dark'] .telegram-manager-dialog.topbar-logout-modal {
+  border-color: rgba(215, 230, 240, 0.32);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(230, 240, 246, 0.06);
+}
+
+html[data-theme='dark'] .settings-telegram-summary {
+  border-color: rgba(215, 230, 240, 0.24);
+  background:
+    radial-gradient(ellipse 90% 130% at 0% 0%, rgba(35, 157, 251, 0.12), transparent 68%),
+    linear-gradient(145deg, rgba(220, 236, 246, 0.1), rgba(170, 195, 210, 0.025) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.78), rgba(12, 16, 20, 0.84));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(230, 240, 246, 0.07);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+html[data-theme='dark'] .settings-telegram-summary:is(:hover, :focus-visible) {
+  border-color: rgba(124, 195, 255, 0.52);
+  background:
+    radial-gradient(ellipse 90% 130% at 0% 0%, rgba(35, 157, 251, 0.16), transparent 68%),
+    linear-gradient(145deg, rgba(220, 236, 246, 0.12), rgba(170, 195, 210, 0.035) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.82), rgba(12, 16, 20, 0.88));
+  box-shadow: 0 0 0 1px rgba(124, 195, 255, 0.12), 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(230, 240, 246, 0.09);
+}
+
+html[data-theme='dark'] .settings-telegram-summary:focus-visible {
+  outline: 2px solid #7cc3ff;
+  outline-offset: 3px;
+}
+
+html[data-theme='dark'] .settings-telegram-summary-account {
+  color: #aebac3;
+}
+
+html[data-theme='dark'] .quick-planner-schedule-popover,
+html[data-theme='dark'] .quick-planner-date-picker,
+html[data-theme='dark'] .quick-planner-time-picker,
+html[data-theme='dark'] .workspace-page-schedule-time-picker,
+html[data-theme='dark'] .workspace-page-schedule-time-menu {
+  border-color: rgba(215, 230, 240, 0.26) !important;
+  background:
+    linear-gradient(145deg, rgba(220, 236, 246, 0.13), rgba(170, 195, 210, 0.035) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.9), rgba(12, 16, 20, 0.94)) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(230, 240, 246, 0.08) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(135%) !important;
+  backdrop-filter: blur(16px) saturate(135%) !important;
+}
+
+html[data-theme='dark'] .quick-planner-date-picker-grid button:not(.is-selected):not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:not([aria-selected='true']):not(:disabled) {
+  border-color: rgba(215, 230, 240, 0.08) !important;
+  background: rgba(15, 21, 26, 0.42) !important;
+}
+
+html[data-theme='dark'] .quick-planner-time-field {
+  border-color: rgba(215, 230, 240, 0.16) !important;
+  background: rgba(15, 21, 26, 0.52) !important;
+}
+
+html[data-theme='dark'] .quick-planner-date-picker-grid button:hover:not(:disabled),
+html[data-theme='dark'] .quick-planner-date-picker-grid button:focus-visible:not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:hover:not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:focus-visible:not(:disabled),
+html[data-theme='dark'] .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='dark'] .workspace-page-schedule-time-picker button:focus-visible:not(:disabled),
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:focus-visible:not(:disabled) {
+  border: 1px solid rgba(124, 195, 255, 0.82) !important;
+  background: rgba(35, 157, 251, 0.2) !important;
+  color: #eaf7ff !important;
+  box-shadow: inset 0 0 0 1px rgba(124, 195, 255, 0.16) !important;
+}
+
+html[data-theme='light'] .quick-planner-date-picker-grid button:hover:not(:disabled),
+html[data-theme='light'] .quick-planner-date-picker-grid button:focus-visible:not(:disabled),
+html[data-theme='light'] .quick-planner-time-list button:hover:not(:disabled),
+html[data-theme='light'] .quick-planner-time-list button:focus-visible:not(:disabled),
+html[data-theme='light'] .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='light'] .workspace-page-schedule-time-picker button:focus-visible:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:focus-visible:not(:disabled) {
+  border: 1px solid #477c9e !important;
+  background: rgba(71, 124, 158, 0.14) !important;
+  color: #244b63 !important;
+  box-shadow: inset 0 0 0 1px rgba(71, 124, 158, 0.12) !important;
 }

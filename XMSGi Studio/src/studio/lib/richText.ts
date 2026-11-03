@@ -139,6 +139,305 @@ export function normalizeEditorText(value: string): string {
   return normalizeTelegramText(value);
 }
 
+const EDITOR_BLOCK_TAGS = new Set([
+  'ADDRESS',
+  'ARTICLE',
+  'ASIDE',
+  'BLOCKQUOTE',
+  'DD',
+  'DIV',
+  'DL',
+  'DT',
+  'FIELDSET',
+  'FIGCAPTION',
+  'FIGURE',
+  'FOOTER',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'HEADER',
+  'HR',
+  'LI',
+  'MAIN',
+  'NAV',
+  'OL',
+  'P',
+  'PRE',
+  'SECTION',
+  'TABLE',
+  'TR',
+  'UL',
+]);
+
+function isEditorBlock(node: Node) {
+  return node.nodeType === Node.ELEMENT_NODE && EDITOR_BLOCK_TAGS.has((node as Element).tagName);
+}
+
+type EditorTextPosition = {
+  offset: number;
+  hasContent: boolean;
+  endsWithNewline: boolean;
+};
+
+function getEditorTextContentPosition(
+  node: Node,
+  initial: EditorTextPosition,
+  followsBlockBoundary = false,
+): EditorTextPosition {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = normalizeEditorText(node.textContent ?? '');
+    return {
+      offset: initial.offset + text.length,
+      hasContent: initial.hasContent || text.length > 0,
+      endsWithNewline: text.length > 0 ? text.endsWith('\n') : initial.endsWithNewline,
+    };
+  }
+  if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
+    return {
+      offset: initial.offset + 1,
+      hasContent: true,
+      endsWithNewline: true,
+    };
+  }
+
+  const children = Array.from(node.childNodes);
+  const isEmptyBlockPlaceholder = isEditorBlock(node)
+    && followsBlockBoundary
+    && children.length === 1
+    && children[0].nodeType === Node.ELEMENT_NODE
+    && (children[0] as Element).tagName === 'BR';
+  if (isEmptyBlockPlaceholder) return initial;
+
+  let position = initial;
+  let previousWasBlock = false;
+  for (const child of children) {
+    const currentIsBlock = isEditorBlock(child);
+    let insertedBlockBoundary = false;
+    if (
+      (currentIsBlock || previousWasBlock)
+      && position.hasContent
+      && !position.endsWithNewline
+    ) {
+      position = {
+        offset: position.offset + 1,
+        hasContent: true,
+        endsWithNewline: true,
+      };
+      insertedBlockBoundary = true;
+    }
+
+    position = getEditorTextContentPosition(child, position, insertedBlockBoundary);
+    previousWasBlock = currentIsBlock;
+  }
+  return position;
+}
+
+export function getEditorTextLength(root: Node): number {
+  return getEditorTextContentPosition(root, {
+    offset: 0,
+    hasContent: false,
+    endsWithNewline: false,
+  }).offset;
+}
+
+export function getEditorTextBoundary(root: Node, targetOffset: number): { node: Node; offset: number } {
+  const maxOffset = getEditorTextLength(root);
+  const safeOffset = Math.max(0, Math.min(targetOffset, maxOffset));
+  const findBoundary = (
+    node: Node,
+    initial: EditorTextPosition,
+    followsBlockBoundary = false,
+  ): { node: Node; offset: number } | null => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? '';
+      const normalizedLength = normalizeEditorText(text).length;
+      if (safeOffset <= initial.offset + normalizedLength) {
+        const targetLength = safeOffset - initial.offset;
+        let rawOffset = 0;
+        while (rawOffset < text.length && normalizeEditorText(text.slice(0, rawOffset)).length < targetLength) {
+          rawOffset += 1;
+        }
+        return { node, offset: rawOffset };
+      }
+      return null;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
+      if (safeOffset <= initial.offset + 1 && node.parentNode) {
+        if (
+          safeOffset === initial.offset + 1
+          && isEditorBlock(node.parentNode)
+          && node.parentNode.nextSibling
+          && isEditorBlock(node.parentNode.nextSibling)
+        ) {
+          return null;
+        }
+        const childIndex = Array.prototype.indexOf.call(node.parentNode.childNodes, node) as number;
+        return { node: node.parentNode, offset: childIndex + (safeOffset > initial.offset ? 1 : 0) };
+      }
+      return null;
+    }
+
+    const children = Array.from(node.childNodes);
+    const isEmptyBlockPlaceholder = isEditorBlock(node)
+      && followsBlockBoundary
+      && children.length === 1
+      && children[0].nodeType === Node.ELEMENT_NODE
+      && (children[0] as Element).tagName === 'BR';
+    if (isEmptyBlockPlaceholder) return { node, offset: 0 };
+
+    let position = initial;
+    let previousWasBlock = false;
+    for (const child of children) {
+      const currentIsBlock = isEditorBlock(child);
+      let insertedBlockBoundary = false;
+      if (
+        (currentIsBlock || previousWasBlock)
+        && position.hasContent
+        && !position.endsWithNewline
+      ) {
+        position = {
+          offset: position.offset + 1,
+          hasContent: true,
+          endsWithNewline: true,
+        };
+        insertedBlockBoundary = true;
+      }
+
+      const childNodes = Array.from(child.childNodes);
+      if (
+        isEditorBlock(child)
+        && safeOffset === position.offset
+        && childNodes.length === 1
+        && childNodes[0].nodeType === Node.ELEMENT_NODE
+        && (childNodes[0] as Element).tagName === 'BR'
+      ) {
+        return { node: child, offset: 0 };
+      }
+
+      const boundary = findBoundary(child, position, insertedBlockBoundary);
+      if (boundary) return boundary;
+      position = getEditorTextContentPosition(child, position, insertedBlockBoundary);
+      previousWasBlock = currentIsBlock;
+    }
+
+    if (safeOffset <= position.offset) {
+      if (
+        safeOffset === position.offset
+        && isEditorBlock(node)
+        && node.nextSibling
+        && isEditorBlock(node.nextSibling)
+      ) {
+        return null;
+      }
+      return { node, offset: children.length };
+    }
+    return null;
+  };
+
+  return findBoundary(root, {
+    offset: 0,
+    hasContent: false,
+    endsWithNewline: false,
+  }) ?? { node: root, offset: root.childNodes.length };
+}
+
+export function getEditorTextOffset(root: Node, targetNode: Node, targetOffset: number): number | null {
+  const findOffset = (
+    node: Node,
+    initial: EditorTextPosition,
+    followsBlockBoundary = false,
+  ): number | null => {
+    if (node === targetNode) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = normalizeEditorText(node.textContent ?? '');
+        return initial.offset + normalizeEditorText(text.slice(0, targetOffset)).length;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
+        return initial.offset + (targetOffset > 0 ? 1 : 0);
+      }
+
+      const children = Array.from(node.childNodes);
+      const isEmptyBlockPlaceholder = isEditorBlock(node)
+        && followsBlockBoundary
+        && children.length === 1
+        && children[0].nodeType === Node.ELEMENT_NODE
+        && (children[0] as Element).tagName === 'BR';
+      if (isEmptyBlockPlaceholder) return initial.offset;
+
+      let position = initial;
+      let previousWasBlock = false;
+      const childLimit = Math.max(0, Math.min(targetOffset, children.length));
+      for (let index = 0; index < childLimit; index += 1) {
+        const child = children[index];
+        const currentIsBlock = isEditorBlock(child);
+        let insertedBlockBoundary = false;
+        if (
+          (currentIsBlock || previousWasBlock)
+          && position.hasContent
+          && !position.endsWithNewline
+        ) {
+          position = {
+            offset: position.offset + 1,
+            hasContent: true,
+            endsWithNewline: true,
+          };
+          insertedBlockBoundary = true;
+        }
+        position = getEditorTextContentPosition(child, position, insertedBlockBoundary);
+        previousWasBlock = currentIsBlock;
+      }
+      return position.offset;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR')) {
+      return null;
+    }
+
+    const children = Array.from(node.childNodes);
+    const isEmptyBlockPlaceholder = isEditorBlock(node)
+      && followsBlockBoundary
+      && children.length === 1
+      && children[0].nodeType === Node.ELEMENT_NODE
+      && (children[0] as Element).tagName === 'BR';
+    if (isEmptyBlockPlaceholder) return targetNode === children[0] ? initial.offset : null;
+
+    let position = initial;
+    let previousWasBlock = false;
+    for (const child of children) {
+      const currentIsBlock = isEditorBlock(child);
+      let insertedBlockBoundary = false;
+      if (
+        (currentIsBlock || previousWasBlock)
+        && position.hasContent
+        && !position.endsWithNewline
+      ) {
+        position = {
+          offset: position.offset + 1,
+          hasContent: true,
+          endsWithNewline: true,
+        };
+        insertedBlockBoundary = true;
+      }
+
+      const childOffset = findOffset(child, position, insertedBlockBoundary);
+      if (childOffset !== null) return childOffset;
+      position = getEditorTextContentPosition(child, position, insertedBlockBoundary);
+      previousWasBlock = currentIsBlock;
+    }
+    return null;
+  };
+
+  return findOffset(root, {
+    offset: 0,
+    hasContent: false,
+    endsWithNewline: false,
+  });
+}
+
 export function sanitizeEditorDom(root: Node): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
@@ -229,7 +528,7 @@ export function editorHtmlToRichText(root: HTMLElement): {
     text += value;
   };
 
-  const visit = (node: Node) => {
+  const visit = (node: Node, followsBlockBoundary = false) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const textNode = node as Text;
       const rawText = textNode.nodeValue || '';
@@ -265,7 +564,29 @@ export function editorHtmlToRichText(root: HTMLElement): {
 
     const offset = text.length;
     additions.forEach((addition) => entityStack.push({ ...addition, offset }));
-    element.childNodes.forEach(visit);
+    const children = Array.from(element.childNodes);
+    const isEmptyBlockPlaceholder = isEditorBlock(element)
+      && followsBlockBoundary
+      && children.length === 1
+      && children[0].nodeType === Node.ELEMENT_NODE
+      && (children[0] as Element).tagName === 'BR';
+    if (!isEmptyBlockPlaceholder) {
+      let previousWasBlock = false;
+      for (const child of children) {
+        const currentIsBlock = isEditorBlock(child);
+        let insertedBlockBoundary = false;
+        if (
+          (currentIsBlock || previousWasBlock)
+          && text.length > 0
+          && !text.endsWith('\n')
+        ) {
+          appendText('\n');
+          insertedBlockBoundary = true;
+        }
+        visit(child, insertedBlockBoundary);
+        previousWasBlock = currentIsBlock;
+      }
+    }
     const end = text.length;
 
     additions.reverse().forEach((addition) => {
@@ -287,7 +608,21 @@ export function editorHtmlToRichText(root: HTMLElement): {
     });
   };
 
-  root.childNodes.forEach(visit);
+  let previousWasBlock = false;
+  for (const child of Array.from(root.childNodes)) {
+    const currentIsBlock = isEditorBlock(child);
+    let insertedBlockBoundary = false;
+    if (
+      (currentIsBlock || previousWasBlock)
+      && text.length > 0
+      && !text.endsWith('\n')
+    ) {
+      appendText('\n');
+      insertedBlockBoundary = true;
+    }
+    visit(child, insertedBlockBoundary);
+    previousWasBlock = currentIsBlock;
+  }
   if (!/[*~`\\]/.test(text)) {
     return {
       text,

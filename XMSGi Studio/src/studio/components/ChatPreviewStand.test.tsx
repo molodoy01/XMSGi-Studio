@@ -1,4 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider } from '@studio/lib/i18n';
@@ -8,6 +11,7 @@ import { ChatPreviewStand } from './ChatPreviewStand';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const chatPreviewStyles = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'ChatPreviewStand.css'), 'utf8');
 const wallpaperStorageKey = 'awaitmsg-chat-preview-wallpaper';
 const chat: Chat = { id: 'chat-1', name: 'Telegram', username: 'telegram', type: 'channel' };
 type PreviewProps = ComponentProps<typeof ChatPreviewStand>;
@@ -231,6 +235,38 @@ describe('ChatPreviewStand wallpaper picker', () => {
 
     try {
       expect(container.querySelector('.chat-preview-message')?.innerHTML).toBe('A<strong>B</strong>');
+    } finally {
+      unmount();
+    }
+  });
+
+  it('hides the live draft bubble when the message contains only whitespace', () => {
+    const { container, unmount } = renderChatPreviewStand([], '  \n  ');
+
+    try {
+      expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  it('lets the draft bubble grow with its text while keeping enough minimum width for metadata', () => {
+    const bubbleRule = chatPreviewStyles.match(/(?:^|\n)\.chat-preview-draft-bubble\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(bubbleRule).toMatch(/width:\s*fit-content;/);
+    expect(bubbleRule).toMatch(/max-width:\s*min\(78%, 340px\);/);
+    expect(bubbleRule).toMatch(/min-width:\s*120px;/);
+    expect(bubbleRule).not.toMatch(/(?:^|\n)\s*width:\s*120px;/);
+  });
+
+  it('keeps an attachment bubble without adding an empty text message', () => {
+    const { container, unmount } = renderChatPreviewStand([
+      { name: 'draft-photo.jpg', path: '/photos/draft-photo.jpg', previewUrl: 'data:image/jpeg;base64,draft' },
+    ], '\n');
+
+    try {
+      expect(container.querySelector('.chat-preview-draft-bubble')).not.toBeNull();
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')).toBeNull();
     } finally {
       unmount();
     }

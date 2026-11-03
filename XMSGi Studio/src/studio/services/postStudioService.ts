@@ -1,5 +1,6 @@
 import { resolveAccountId } from '../domain/accountContext';
 import type { Draft, DraftAttachment, Post } from '../domain/types';
+import { getAttachmentMimeType } from '../lib/draftAttachments';
 
 export type CreateDraftInput = {
   authorAccountId?: string;
@@ -13,15 +14,8 @@ export type CreateDraftInput = {
 function normalizeDraftAttachments(value: CreateDraftInput['attachments']): DraftAttachment[] {
   return (value ?? []).map((attachment, index) => {
     const extended = attachment as Partial<DraftAttachment>;
-    const extension = attachment.name.split('.').pop()?.toLowerCase();
-    const mimeType = extended.mimeType || (extension === 'png' ? 'image/png'
-      : extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg'
-        : extension === 'gif' ? 'image/gif'
-          : extension === 'webp' ? 'image/webp'
-            : extension === 'avif' ? 'image/avif' : 'application/octet-stream');
-    const type = extended.type === 'image' || extended.type === 'file'
-      ? extended.type
-      : mimeType.startsWith('image/') ? 'image' : 'file';
+    const mimeType = getAttachmentMimeType(attachment.name, extended.mimeType);
+    const type = extended.type === 'image' || mimeType.startsWith('image/') ? 'image' : 'file';
 
     return {
       id: extended.id || `draft-attachment-${crypto.randomUUID()}-${index}`,

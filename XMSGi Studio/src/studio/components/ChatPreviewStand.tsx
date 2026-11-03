@@ -11,6 +11,7 @@ import { groupHistory } from '@studio/components/chatPreviewHistoryUtils';
 import { useLocale } from '@studio/lib/i18n';
 import { normalizeTelegramMessage } from '@shared/telegramText.cjs';
 import { richTextToHtml } from '@studio/lib/richText';
+import { getAttachmentPreviewUrl } from '../lib/workspaceAttachments';
 import './ChatPreviewStand.css';
 
 type PreviewAttachment = {
@@ -133,18 +134,6 @@ function readImageAccent(dataUrl: string): Promise<string> {
     image.onerror = () => resolve('');
     image.src = dataUrl;
   });
-}
-
-function toFileUrl(filePath: string) {
-  if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
-
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  const encodedPath = normalizedPath
-    .split('/')
-    .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
-    .join('/');
-
-  return `file:///${encodedPath}`;
 }
 
 function isImageAttachment(attachment: PreviewAttachment) {
@@ -383,6 +372,7 @@ export function ChatPreviewStand({
   const imageAttachments = attachments.filter(isImageAttachment);
   const documentAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
   const normalizedDraft = normalizeTelegramMessage(draftText, draftEntities);
+  const hasDraftMessage = normalizedDraft.message.trim().length > 0;
   const linkEntities = normalizedDraft.entities.filter((entity) => entity.type === 'text_url' && entity.url);
   const normalizedChatSearch = chatSearchQuery.trim().toLocaleLowerCase();
   const visibleChats = chatListOpen ? chats.filter((chat) => (
@@ -423,7 +413,7 @@ export function ChatPreviewStand({
       resizeObserver?.disconnect();
     };
   }, [chatListOpen, previewDevice, visibleChats.length]);
-  const hasDraft = Boolean(normalizedDraft.message.trim() || attachments.length);
+  const hasDraft = Boolean(hasDraftMessage || attachments.length);
   const hasHistoryMessages = Boolean(activePreviewHistory?.messages.length);
   const shouldShowEmptyPreviewHint = !hasDraft && !hasHistoryMessages;
   const wallpaperImage = customWallpaperImage;
@@ -788,7 +778,7 @@ export function ChatPreviewStand({
                   {imageAttachments.length > 0 && (
                     <div className={`chat-preview-attachment-grid ${imageAttachments.length > 1 ? 'is-album' : ''}`}>
                       {imageAttachments.map((attachment, index) => {
-                        const src = attachment.previewUrl || toFileUrl(attachment.path);
+                        const src = getAttachmentPreviewUrl(attachment.path, attachment.previewUrl);
                         return (
                           <button
                             key={`${attachment.path}:${index}`}
@@ -821,7 +811,7 @@ export function ChatPreviewStand({
                       ))}
                     </div>
                   )}
-                  {normalizedDraft.message.trim() && (
+                  {hasDraftMessage && (
                     <div className="chat-preview-message" dangerouslySetInnerHTML={{ __html: richTextToHtml(normalizedDraft.message, normalizedDraft.entities) }} />
                   )}
                   <div className="chat-preview-meta"><time>{previewTime}</time><span aria-label="Sent">✓✓</span></div>
