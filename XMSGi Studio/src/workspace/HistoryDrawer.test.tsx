@@ -917,7 +917,7 @@ describe('Posts page split view', () => {
 
   it('anchors Posts below the topbar and preserves bottom dock alignment', () => {
     expect(globalStyles).toMatch(
-      /\.product-shell-content\.is-posts\s*\{[^}]*height:\s*calc\(100dvh - var\(--app-topbar-height\)\);[^}]*min-height:\s*0;[^}]*flex:\s*0\s*0\s*calc\(100dvh - var\(--app-topbar-height\)\);/,
+      /\.product-shell-content\.is-posts\s*\{[^}]*height:\s*calc\(100dvh - var\(--app-topbar-height\) - var\(--electron-titlebar-height\)\);[^}]*min-height:\s*0;[^}]*flex:\s*0\s*0\s*calc\(100dvh - var\(--app-topbar-height\) - var\(--electron-titlebar-height\)\);/,
     );
     expect(globalStyles).toMatch(
       /\.history-drawer\.is-page \.history-drawer-tools\s*\{[^}]*position:\s*sticky;[^}]*inset-block-end:\s*0;[^}]*bottom:\s*0;[^}]*align-self:\s*end;/,
@@ -2464,7 +2464,7 @@ describe('HistoryDrawer search', () => {
 
     const attachmentPreview = screen.getByLabelText('1 вложение');
     expect(attachmentPreview).toBeInTheDocument();
-    expect(attachmentPreview.querySelector('img')).toHaveAttribute('src', expect.stringContaining('launch-image.png'));
+    expect(attachmentPreview.querySelector('img')).not.toHaveAttribute('src');
     fireEvent.error(attachmentPreview.querySelector('img') as HTMLImageElement);
     expect(attachmentPreview.querySelector('.history-record-attachment-image')).toHaveClass('is-unavailable');
     expect(screen.getAllByText(/Запланировано ·/)[0].parentElement).toHaveClass('history-record-meta');
@@ -3790,7 +3790,7 @@ describe('HistoryDrawer search', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Открыть публикацию: XMSGi Updates' }));
 
-    expect(screen.getByRole('img', { name: 'launch-image.png' })).toHaveAttribute('src', 'file:///C:/files/launch-image.png');
+    expect(screen.getByRole('img', { name: 'launch-image.png' })).not.toHaveAttribute('src');
     const bubble = view.container.querySelector('.history-post-bubble');
     expect(bubble?.firstElementChild).toHaveClass('history-post-attachments');
     expect(bubble?.querySelector('.history-post-text')).toHaveTextContent('A caption below the photo');
@@ -3858,7 +3858,7 @@ describe('HistoryDrawer search', () => {
       expect(document.body.querySelector('.message-attachment-preview')).toBeNull();
 
       act(() => vi.advanceTimersByTime(1));
-      expect(document.body.querySelector('.message-attachment-preview img')).toHaveAttribute('src', 'file:///C:/files/launch-image.png');
+      expect(document.body.querySelector('.message-attachment-preview img')).not.toHaveAttribute('src');
 
       fireEvent.pointerLeave(thumbnail);
       expect(document.body.querySelector('.message-attachment-preview')).toBeNull();

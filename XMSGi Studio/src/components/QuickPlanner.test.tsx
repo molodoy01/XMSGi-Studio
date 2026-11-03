@@ -46,12 +46,12 @@ function createScheduledMessage(overrides: Partial<ScheduledMessage> = {}): Sche
 }
 
 describe('QuickPlanner layout', () => {
-  it('keeps 10px horizontal spacing around the message field at every viewport size', () => {
+  it('keeps 17px horizontal spacing around the message field at every viewport size', () => {
     expect(quickPlannerStyles).toMatch(
-      /\.quick-planner-composer\s*\{[^}]*padding:\s*24px 10px 18px;/,
+      /\.quick-planner-composer\s*\{[^}]*padding:\s*24px 17px 18px;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-composer\s*\{[^}]*padding:\s*20px 10px 16px;/,
+      /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-composer\s*\{[^}]*padding:\s*20px 17px 16px;/,
     );
   });
 
@@ -96,6 +96,47 @@ describe('QuickPlanner feedback', () => {
       'xmsgi-planner-draft-snapshot-v1',
       'xmsgi:active-draft:v1',
     ]) localStorage.removeItem(key);
+  });
+
+  it('removes the message placeholder on focus and restores it on blur', () => {
+    render(<QuickPlanner />);
+    const editor = screen.getByRole('textbox', { name: 'Reminder text' });
+    expect(editor).toHaveAttribute('placeholder');
+    expect(editor.getAttribute('placeholder')).not.toBe('');
+
+    fireEvent.focus(editor);
+    expect(editor).toHaveAttribute('placeholder', '');
+
+    fireEvent.blur(editor);
+    expect(editor.getAttribute('placeholder')).not.toBe('');
+  });
+
+  it('keeps plain Enter in the message field from reaching submit shortcuts', () => {
+    const onAncestorKeyDown = vi.fn();
+    const onSendNow = vi.fn().mockResolvedValue(true);
+    const view = render(
+      <div onKeyDown={onAncestorKeyDown}>
+        <QuickPlanner onSendNow={onSendNow} />
+      </div>,
+      'Send now',
+    );
+    const editor = screen.getByRole('textbox', { name: 'Reminder text' });
+    const submitButton = view.container.querySelector<HTMLButtonElement>('.quick-planner-submit');
+    const initialSubmitClass = submitButton?.className;
+    act(() => editor.focus());
+    const enterEvent = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    editor.dispatchEvent(enterEvent);
+
+    expect(enterEvent.defaultPrevented).toBe(false);
+    expect(onAncestorKeyDown).not.toHaveBeenCalled();
+    expect(onSendNow).not.toHaveBeenCalled();
+    expect(submitButton?.className).toBe(initialSubmitClass);
+    expect(document.activeElement).toBe(editor);
   });
 
   it('hides the Activity panel at the narrow Planner breakpoint', () => {
@@ -408,12 +449,15 @@ describe('QuickPlanner feedback', () => {
     );
   });
 
-  it('keeps the dark action switch background subtle when inactive', () => {
+  it('keeps inactive Planner modes transparent while retaining the switch surface', () => {
     expect(colorThemeStyles).toMatch(
       /html\[data-theme='dark'\] \.quick-planner-mode-switch\s*\{[^}]*border-color:\s*rgba\(110, 166, 202, 0\.1\);[^}]*background:\s*linear-gradient\(180deg, rgba\(32, 40, 46, 0\.32\), rgba\(28, 36, 42, 0\.38\)\);/,
     );
     expect(colorThemeStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner-mode-switch button:hover:not\(\.is-active\),[\s\S]*?focus-visible:not\(\.is-active\)\s*\{[^}]*background:\s*rgba\(180, 193, 201, 0\.08\);[^}]*color:\s*#e0e6ea;/,
+      /html\[data-theme='dark'\] \.quick-planner-mode-switch button:hover:not\(\.is-active\),[\s\S]*?focus-visible:not\(\.is-active\)\s*\{[^}]*color:\s*#e0e6ea;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme\] \.quick-planner-workbench \.quick-planner-mode-switch button:not\(\.is-active\),[\s\S]*?button:not\(\.is-active\):active\s*\{\s*background:\s*transparent !important;\s*background-image:\s*none !important;\s*box-shadow:\s*none !important;/,
     );
   });
 
@@ -423,6 +467,27 @@ describe('QuickPlanner feedback', () => {
     );
     expect(colorThemeStyles).toMatch(
       /html\[data-theme='dark'\] \.quick-planner-date-picker-grid button\.is-selected,\s*html\[data-theme='dark'\] \.quick-planner-time-list button\[aria-selected='true'\]\s*\{[^}]*background:\s*#1a4d73;[^}]*color:\s*#eaf7ff;/,
+    );
+  });
+
+  it('uses glass surfaces for dark date and time popovers while keeping selected values distinct', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-schedule-popover,[\s\S]*?html\[data-theme='dark'\] \.workspace-page-schedule-time-menu\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:not\(\.is-selected\):not\(:disabled\),\s*html\[data-theme='dark'\] \.quick-planner-time-list button:not\(\[aria-selected='true'\]\):not\(:disabled\)\s*\{\s*border-color:\s*rgba\(215, 230, 240, 0\.08\) !important;\s*background:\s*rgba\(15, 21, 26, 0\.42\) !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-date-picker-grid button\.is-selected,\s*html\[data-theme='dark'\] \.quick-planner-time-list button\[aria-selected='true'\]\s*\{[^}]*background:\s*#1a4d73;/,
+    );
+  });
+
+  it('gives date and time options a visible border on hover and focus', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:hover:not\(:disabled\),[\s\S]*?html\[data-theme='dark'\] \.workspace-page-schedule-time-picker button:focus-visible:not\(:disabled\)[\s\S]*?\{\s*border:\s*1px solid rgba\(124, 195, 255, 0\.82\) !important;[\s\S]*?background:\s*rgba\(35, 157, 251, 0\.2\) !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.quick-planner-date-picker-grid button:hover:not\(:disabled\),[\s\S]*?html\[data-theme='light'\] \.workspace-page-schedule-time-picker button:focus-visible:not\(:disabled\)[\s\S]*?\{\s*border:\s*1px solid #477c9e !important;[\s\S]*?background:\s*rgba\(71, 124, 158, 0\.14\) !important;/,
     );
   });
 
@@ -528,6 +593,12 @@ describe('QuickPlanner feedback', () => {
 
   it('uses a restrained dark Planner message field outline and removes it on focus', () => {
     expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-composer\s*\{[^}]*padding:\s*24px 17px 18px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-composer\s*\{[^}]*padding:\s*20px 17px 16px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
       /\.quick-planner-message\s*\{[^}]*transition:\s*background-color 180ms ease,\s*transform 180ms ease;/,
     );
     expect(quickPlannerStyles).toMatch(
@@ -544,6 +615,24 @@ describe('QuickPlanner feedback', () => {
     );
     expect(quickPlannerStyles).toMatch(
       /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus,\s*html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus-visible\s*\{\s*border-color:\s*#46545e;\s*box-shadow:\s*none;\s*outline:\s*none;/,
+    );
+  });
+
+  it('aligns the Planner mode, schedule, and send controls with the message field inset', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner \.quick-planner-toolbar,\s*\.quick-planner \.quick-planner-schedule-row\s*\{\s*padding-inline:\s*17px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner \.quick-planner-workbench:has\(\.quick-planner-schedule-row\) \.quick-planner-schedule-row\s*\{\s*padding-inline:\s*17px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner \.quick-planner-schedule-row > \.quick-planner-schedule-field,[\s\S]*?\.quick-planner \.quick-planner-schedule-row > \.quick-planner-draft-actions\s*\{\s*transform:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner \.quick-planner-workbench:has\(\.quick-planner-schedule-row\) \.quick-planner-schedule-row > \.quick-planner-schedule-field,[\s\S]*?\.quick-planner \.quick-planner-workbench:has\(\.quick-planner-schedule-row\) \.quick-planner-schedule-row > \.quick-planner-draft-actions\s*\{\s*transform:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 560px\)\s*\{\s*\.quick-planner \.quick-planner-schedule-row > \.quick-planner-submit,\s*\.quick-planner \.quick-planner-schedule-row > \.quick-planner-draft-actions\s*\{\s*right:\s*17px;/,
     );
   });
 
@@ -631,6 +720,7 @@ describe('QuickPlanner feedback', () => {
     expect(quickPlannerStyles).toMatch(
       /\.quick-planner-workbench:has\(\.quick-planner-chat-menu\) \.quick-planner-toolbar\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;/,
     );
+    expect(quickPlannerStyles).toMatch(/\.quick-planner-chat-options\s*\{\s*max-height:\s*260px;/);
   });
 
   it('renders a feedback preview in the same accessible Planner status slot', () => {

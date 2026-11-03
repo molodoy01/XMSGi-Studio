@@ -30,11 +30,11 @@ export function normalizeAttachments(value: unknown): DraftAttachment[] {
       if (!path && !unavailable) return [];
 
       const mimeType = typeof attachment.mimeType === 'string' && attachment.mimeType
-        ? attachment.mimeType
+        ? getAttachmentMimeType(attachment.name, attachment.mimeType)
         : inferAttachmentMimeType(attachment.name);
-      const type = attachment.type === 'image' || attachment.type === 'file'
-        ? attachment.type
-        : mimeType.startsWith('image/') ? 'image' : 'file';
+      const type = attachment.type === 'image' || mimeType.startsWith('image/')
+        ? 'image'
+        : 'file';
 
       return [{
         id: typeof attachment.id === 'string' && attachment.id ? attachment.id : `legacy-${index}-${attachment.name}`,
@@ -62,6 +62,7 @@ export function inferAttachmentMimeType(name: string) {
   const imageMimeTypes: Record<string, string> = {
     avif: 'image/avif',
     gif: 'image/gif',
+    jfif: 'image/jpeg',
     jpeg: 'image/jpeg',
     jpg: 'image/jpeg',
     png: 'image/png',
@@ -70,12 +71,23 @@ export function inferAttachmentMimeType(name: string) {
   return extension ? imageMimeTypes[extension] ?? 'application/octet-stream' : 'application/octet-stream';
 }
 
+export function getAttachmentMimeType(name: string, mimeType?: string) {
+  const inferredMimeType = inferAttachmentMimeType(name);
+  if (inferredMimeType !== 'application/octet-stream') return inferredMimeType;
+
+  const normalizedMimeType = mimeType?.trim().toLowerCase();
+  if (normalizedMimeType === 'image/jfif' || normalizedMimeType === 'image/pjpeg') return 'image/jpeg';
+  return normalizedMimeType || inferredMimeType;
+}
+
 export function isTelegramPhotoAlbumImage(name: string) {
-  return /\.(?:jpe?g|png)$/i.test(name);
+  return /\.(?:jpe?g|jfif|png)$/i.test(name);
 }
 
 export function isSupportedPhotoAlbumSource(file: Pick<File, 'name' | 'type'>) {
   return isTelegramPhotoAlbumImage(file.name)
+    || file.type.toLowerCase() === 'image/jfif'
+    || file.type.toLowerCase() === 'image/pjpeg'
     || file.type.toLowerCase() === 'image/webp'
     || /\.webp$/i.test(file.name);
 }

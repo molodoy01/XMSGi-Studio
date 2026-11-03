@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
-import { Upload } from 'lucide-react';
+import { ChevronDown, Download, Upload } from 'lucide-react';
 import type { DraftColor, SavedDraft } from '@studio/types';
 import { useLocale } from '@studio/lib/i18n';
 import { DraftColorPicker } from '@studio/components/DraftColorPicker';
@@ -45,6 +45,7 @@ interface Props {
   saveDraftStage: () => void;
   draftStoreReady: boolean;
   draftStoreSaving: boolean;
+  onExportDrafts: () => void;
   onImportDrafts: () => void;
   onImportEditorText: () => void;
 }
@@ -67,10 +68,14 @@ export function DraftsStage({
   saveDraftStage,
   draftStoreReady,
   draftStoreSaving,
+  onExportDrafts,
   onImportDrafts,
   onImportEditorText,
 }: Props) {
   const { t } = useLocale();
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const importMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const draftNameInputRef = useRef<HTMLInputElement>(null);
   const draftBodyInputRef = useRef<HTMLTextAreaElement>(null);
   const [attentionField, setAttentionField] = useState<'name' | 'body' | null>(null);
@@ -99,6 +104,27 @@ export function DraftsStage({
       window.localStorage.removeItem(SAVED_DRAFT_COLOR_FILTER_KEY);
     }
   }, [selectedDraftColor]);
+
+  useEffect(() => {
+    if (!importMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!importMenuRef.current?.contains(event.target as Node)) setImportMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setImportMenuOpen(false);
+        importMenuTriggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [importMenuOpen]);
 
   const handleDraftSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -239,11 +265,39 @@ export function DraftsStage({
         ) : (
           <>
             <div className="workspace-page-draft-stage-tools">
-              <button type="button" className="workspace-page-stage-secondary" onClick={onImportEditorText} aria-label={t('studio.importText')} title={t('studio.importTextTitle')}>
-                <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.importTxt')}
-              </button>
-              <button type="button" className="workspace-page-stage-secondary" onClick={onImportDrafts} disabled={!draftStoreReady || draftStoreSaving} aria-label={t('studio.importDrafts')} title={t('studio.importDrafts')}>
-                <Upload size={14} strokeWidth={1.8} aria-hidden="true" /> <span>{t('studio.importDraftsCompact')}</span>
+              <div className="workspace-page-draft-import" ref={importMenuRef}>
+                <button
+                  ref={importMenuTriggerRef}
+                  type="button"
+                  className="workspace-page-stage-secondary"
+                  onClick={() => setImportMenuOpen((open) => !open)}
+                  aria-label={t('studio.import')}
+                  aria-haspopup="menu"
+                  aria-expanded={importMenuOpen}
+                  title={t('studio.importOptions')}
+                >
+                  <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.import')} <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+                {importMenuOpen && (
+                  <div className="workspace-page-publish-menu workspace-page-publish-menu-compact workspace-page-draft-import-menu" role="menu" aria-label={t('studio.importOptions')}>
+                    <button type="button" role="menuitem" className="workspace-page-publish-option" onClick={() => { setImportMenuOpen(false); onImportEditorText(); }}>
+                      <span>{t('studio.importTxt')}</span>
+                    </button>
+                    <button type="button" role="menuitem" className="workspace-page-publish-option" onClick={() => { setImportMenuOpen(false); onImportDrafts(); }} disabled={!draftStoreReady || draftStoreSaving} title={t('studio.importDrafts')}>
+                      <span>{t('studio.importDraftsCompact')}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="workspace-page-stage-secondary"
+                onClick={onExportDrafts}
+                disabled={!draftStoreReady || draftStoreSaving}
+                aria-label={t('studio.exportAllDrafts')}
+                title={t('studio.exportAllDrafts')}
+              >
+                <Download size={14} strokeWidth={1.8} aria-hidden="true" /> {t('studio.exportTemplatesCompact')}
               </button>
             </div>
             <button type="button" className="workspace-page-stage-primary workspace-page-draft-stage-add" onClick={() => openDraftEditor()} disabled={!draftStoreReady || draftStoreSaving}>+ {t('studio.draft')}</button>

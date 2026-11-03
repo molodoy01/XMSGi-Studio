@@ -1087,6 +1087,7 @@ img.chat-preview-avatar,
 .chat-preview-message {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  tab-size: 2;
 }
 
 .chat-preview-message a {

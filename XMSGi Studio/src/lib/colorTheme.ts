@@ -48,4 +48,10 @@ export function applyColorTheme(theme: ColorTheme, options: { animate?: boolean;
   } catch {
     // Keep the current theme when browser storage is unavailable.
   }
+
+  if (typeof window !== 'undefined' && window.desktop) {
+    void window.desktop.setColorTheme(theme).catch((error: unknown) => {
+      console.error('Could not update the Electron window theme:', error);
+    });
+  }
 }

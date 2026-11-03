@@ -84,9 +84,9 @@
 
 .product-shell-content.is-posts {
   display: flex;
-  height: calc(100dvh - var(--app-topbar-height));
+  height: calc(100dvh - var(--app-topbar-height) - var(--electron-titlebar-height));
   min-height: 0;
-  flex: 0 0 calc(100dvh - var(--app-topbar-height));
+  flex: 0 0 calc(100dvh - var(--app-topbar-height) - var(--electron-titlebar-height));
   flex-direction: column;
   overflow: hidden;
 }
@@ -3893,6 +3893,8 @@ body:has(.auth-panel) {
 
 .product-shell {
   --app-topbar-height: 45px;
+  --electron-titlebar-height: 0px;
+  --app-chrome-height: calc(var(--app-topbar-height) + var(--electron-titlebar-height));
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -4002,7 +4004,7 @@ body:has(.auth-panel) {
 .product-shell.planner-shell > .product-shell-content > .product-view.is-active {
   flex: 1 1 auto;
   height: auto;
-  max-height: calc(100dvh - var(--app-topbar-height));
+  max-height: calc(100dvh - var(--app-chrome-height));
   min-height: 0;
   overflow: hidden;
 }
@@ -4034,7 +4036,7 @@ body:has(.product-shell.planner-shell) {
   height: var(--app-topbar-height);
   margin-left: calc(50% - 50vw);
   padding: 0 29.5px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 248, 250, 0.92));
+  background-color: var(--app-topbar-background);
 }
 
 .topbar.settings-topbar {
@@ -4046,12 +4048,6 @@ body:has(.product-shell.planner-shell) {
   flex: 0 0 var(--app-topbar-height);
   visibility: hidden;
   pointer-events: none;
-}
-
-.settings-action.product-mode-switch {
-  position: absolute;
-  left: 29.5px;
-  z-index: 2;
 }
 
 @media (min-width: 481px) and (max-width: 760px) {
@@ -4078,7 +4074,7 @@ body:has(.product-shell.planner-shell) {
   bottom: 0;
   width: 100%;
   height: 1px;
-  background: #e4e9ed;
+  background-color: var(--app-topbar-border);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -4098,6 +4094,10 @@ html.electron-runtime .product-shell {
   width: 100%;
   height: 100dvh;
   min-height: 0;
+}
+
+html.electron-custom-window-controls .product-shell {
+  --electron-titlebar-height: 27px;
 }
 
 html.electron-runtime .product-shell.studio-shell {
@@ -4140,7 +4140,7 @@ html.electron-runtime .product-shell.planner-shell > .product-shell-content {
 html.electron-runtime .product-shell.planner-shell > .product-shell-content > .product-view.is-active {
   flex: 1 1 auto;
   height: auto;
-  max-height: calc(100dvh - var(--app-topbar-height));
+  max-height: calc(100dvh - var(--app-chrome-height));
   min-height: 0;
   overflow: hidden;
 }
@@ -4154,10 +4154,94 @@ html.electron-runtime .topbar::before {
   width: 100%;
 }
 
+.electron-titlebar {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 var(--electron-titlebar-height);
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--electron-titlebar-height);
+  padding: 0 0 0 4px;
+  border-bottom: 1px solid var(--window-titlebar-border);
+  background: var(--window-titlebar-background);
+  -webkit-app-region: drag;
+}
+
+html.electron-custom-window-controls .product-shell:has(.auth-panel) > .electron-titlebar {
+  border-bottom: 0;
+  background: var(--window-titlebar-background);
+}
+
+.electron-window-controls {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 1px;
+  -webkit-app-region: no-drag;
+}
+
+.electron-window-controls button {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  height: var(--electron-titlebar-height);
+  min-height: 0;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--window-control-foreground);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.electron-window-controls button:not(.electron-window-close) svg {
+  stroke-width: 2.4;
+}
+
+.electron-window-controls button.electron-window-close {
+  width: 52px;
+  min-width: 52px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.electron-window-controls button:hover,
+.electron-window-controls button:focus-visible {
+  background: var(--window-control-hover);
+  outline: none;
+}
+
+html[data-theme='light'] .electron-window-controls button:not(.electron-window-close):is(:hover, :focus-visible) {
+  color: #17212a;
+  box-shadow: inset 0 0 0 1px #b7c5ce;
+}
+
+html[data-theme='dark'] .electron-window-controls button:not(.electron-window-close):is(:hover, :focus-visible) {
+  background: #293943;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px #41535e;
+}
+
+.electron-window-controls button.electron-window-close:hover,
+.electron-window-controls button.electron-window-close:focus-visible {
+  background: #e5484d;
+  color: #fff;
+}
+
 .topbar-identity,
 .topbar-actions {
   display: flex;
   align-items: center;
+}
+
+.settings-action.product-mode-switch {
+  position: absolute;
+  left: 29.5px;
+  z-index: 2;
 }
 
 .topbar-identity {
@@ -4180,7 +4264,7 @@ html.electron-runtime .topbar::before {
   font-family: "Avenir Next", "Segoe UI Light", "Helvetica Neue", Arial, sans-serif;
   font-size: 20px;
   font-weight: 350;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.26em;
   text-transform: none;
   line-height: 1;
   white-space: nowrap;
@@ -4229,6 +4313,11 @@ html.electron-runtime .topbar::before {
   align-items: center;
   gap: 24px;
   margin-left: auto;
+}
+
+.topbar-actions .is-topbar-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .settings-action {
@@ -4965,7 +5054,7 @@ html.electron-runtime .topbar-logout-modal-backdrop::before {
 
 .auth-top-controls {
   position: fixed;
-  top: 19px;
+  top: 27px;
   right: 30px;
   z-index: 6;
   display: inline-flex;
@@ -8667,7 +8756,7 @@ textarea:focus-visible {
 
   .planner-shell:has(.composer) .app {
     height: auto;
-    min-height: calc(100dvh - var(--app-topbar-height));
+    min-height: calc(100dvh - var(--app-chrome-height));
     overflow: visible;
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
@@ -10731,4 +10820,16 @@ textarea:active,
     justify-content: center;
   }
 
+}
+
+html[data-theme='dark'] .chat-picker-menu,
+html[data-theme='dark'] .history-source-menu {
+  border: 1px solid rgba(215, 230, 240, 0.26) !important;
+  border-radius: 10px !important;
+  background:
+    linear-gradient(145deg, rgba(220, 236, 246, 0.13), rgba(170, 195, 210, 0.035) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.9), rgba(12, 16, 20, 0.94)) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(230, 240, 246, 0.08) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(135%) !important;
+  backdrop-filter: blur(16px) saturate(135%) !important;
 }

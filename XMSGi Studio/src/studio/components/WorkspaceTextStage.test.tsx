@@ -1,10 +1,12 @@
-import { act } from 'react';
+import { act, useDeferredValue, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { LocaleProvider } from '@studio/lib/i18n';
-import type { Chat, SavedDraft, Template } from '@studio/types';
+import { getEditorTextOffset } from '@studio/lib/richText';
+import type { Chat, RichTextEntity, SavedDraft, Template } from '@studio/types';
 import { RichTextEditor as BaseRichTextEditor, shouldPreventEditorInsertion } from './RichTextEditor';
+import { ChatPreviewStand } from './ChatPreviewStand';
 import { WorkspaceTextStage } from './WorkspaceTextStage';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -105,6 +107,7 @@ function renderStage(overrides: Partial<React.ComponentProps<typeof WorkspaceTex
     saveDraftStage: vi.fn(),
     draftStoreReady: true,
     draftStoreSaving: false,
+    onExportDrafts: vi.fn(),
     onImportDrafts: vi.fn(),
     onImportEditorText: vi.fn(),
   };
@@ -215,6 +218,572 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
+  it('enables the eraser for whitespace, tabs, and empty line breaks', () => {
+    const { container, onChange, unmount } = renderRichTextEditor({ text: '  \n\t  ' });
+    const clearButton = container.querySelector<HTMLButtonElement>('[aria-label="Clear editor text"]');
+
+    expect(clearButton).not.toBeNull();
+    expect(clearButton).toBeEnabled();
+    expect(clearButton).toHaveAttribute('aria-hidden', 'false');
+
+    act(() => clearButton?.click());
+
+    expect(onChange).toHaveBeenLastCalledWith('', []);
+
+    unmount();
+  });
+
+  it('keeps the placeholder hidden when Enter follows Tab even if the caret is temporarily unavailable', async () => {
+    const { editor, container, unmount } = renderRichTextEditor();
+    const selection = window.getSelection()!;
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: 'Tab' });
+      await Promise.resolve();
+    });
+
+    selection.removeAllRanges();
+    act(() => fireEvent.keyDown(editor, { key: 'Enter' }));
+
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+
+    unmount();
+  });
+
+  it('inserts two line breaks and keeps the caret on the indented line after Tab + Enter', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor({ text: 'hello' });
+    act(() => editor.focus());
+    const textNode = editor.firstChild!;
+    const range = document.createRange();
+    range.setStart(textNode, textNode.textContent?.length ?? 0);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: 'Tab' });
+      await Promise.resolve();
+    });
+    let enterWasPrevented = false;
+    act(() => {
+      enterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter' });
+    });
+
+    expect(enterWasPrevented).toBe(true);
+    expect(editor.innerHTML).toBe('hello  <br><br>');
+    expect(onChange).toHaveBeenLastCalledWith('hello  \n\n', []);
+    expect(getEditorTextOffset(editor, selection.anchorNode!, selection.anchorOffset)).toBe('hello  \n\n'.length);
+
+    unmount();
+  });
+
+  it('preserves the browser paragraph and caret when Enter inserts a block', () => {
+    const { editor, onChange, unmount } = renderRichTextEditor();
+    act(() => editor.focus());
+    editor.innerHTML = '<div>first</div><div>second</div>';
+    const secondText = editor.lastChild?.firstChild;
+    expect(secondText).toBeInstanceOf(Text);
+
+    const range = document.createRange();
+    range.setStart(secondText!, 3);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    act(() => fireEvent.input(editor));
+
+    expect(onChange).toHaveBeenLastCalledWith('first\nsecond', []);
+    expect(editor.innerHTML).toBe('<div>first</div><div>second</div>');
+    expect(selection?.anchorNode?.textContent).toBe('second');
+    expect(selection?.anchorOffset).toBe(3);
+
+    unmount();
+  });
+
+  it('leaves plain Enter to the browser native editor behavior', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor({ text: '  first' });
+    act(() => editor.focus());
+    const line = document.createElement('div');
+    line.textContent = '  first';
+    editor.replaceChildren(line);
+    const endOfLine = document.createRange();
+    endOfLine.selectNodeContents(line);
+    endOfLine.collapse(false);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(endOfLine);
+
+    let enterWasPrevented = false;
+    await act(async () => {
+      enterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter' });
+      editor.innerHTML = '<div>  first</div><div><br></div>';
+      fireEvent.input(editor, { inputType: 'insertParagraph' });
+      await Promise.resolve();
+    });
+    expect(enterWasPrevented).toBe(false);
+    expect(editor.innerHTML).toBe('<div>  first</div><div><br></div>');
+    expect(onChange).toHaveBeenLastCalledWith('  first\n', []);
+
+    unmount();
+  });
+
+  it('does not intercept Enter during composition or on legacy keyboard events', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor({ text: 'word' });
+    act(() => editor.focus());
+
+    let composingEnterWasPrevented = true;
+    act(() => {
+      composingEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter', isComposing: true });
+    });
+
+    expect(composingEnterWasPrevented).toBe(false);
+    expect(editor.textContent).toBe('word');
+
+    let legacyEnterWasPrevented = true;
+    await act(async () => {
+      legacyEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter', keyCode: 229 });
+      editor.innerHTML = 'word<div><br></div>';
+      fireEvent.input(editor, { inputType: 'insertParagraph' });
+      await Promise.resolve();
+    });
+    expect(legacyEnterWasPrevented).toBe(false);
+    expect(onChange).toHaveBeenLastCalledWith('word\n', []);
+
+    unmount();
+  });
+
+  it('deletes a blank paragraph at the bottom without losing the previous line', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor();
+    act(() => editor.focus());
+    editor.innerHTML = '<div>first</div><div><br></div>';
+    const lastLine = editor.lastChild!;
+    const caret = document.createRange();
+    caret.setStart(lastLine, 0);
+    caret.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(caret);
+
+    let backspaceWasPrevented = true;
+    act(() => {
+      backspaceWasPrevented = !fireEvent.keyDown(editor, { key: 'Backspace' });
+    });
+    expect(backspaceWasPrevented).toBe(false);
+    editor.innerHTML = '<div>first</div>';
+    const previousLine = editor.firstChild!;
+    const endOfPreviousLine = document.createRange();
+    endOfPreviousLine.selectNodeContents(previousLine);
+    endOfPreviousLine.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(endOfPreviousLine);
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith('first', []);
+    expect(editor.innerHTML).toBe('<div>first</div>');
+    expect(selection.anchorNode).toBe(previousLine);
+    expect(selection.anchorOffset).toBe(1);
+
+    unmount();
+  });
+
+  it('keeps every repeated Enter available to the browser native editor behavior', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor();
+    act(() => editor.focus());
+
+    for (let index = 0; index < 5; index += 1) {
+      let enterWasPrevented = false;
+      await act(async () => {
+        enterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter', repeat: index > 0 });
+        editor.insertAdjacentHTML('beforeend', '<div><br></div>');
+        fireEvent.input(editor, { inputType: 'insertParagraph' });
+        await Promise.resolve();
+      });
+      expect(enterWasPrevented).toBe(false);
+      act(() => fireEvent.keyUp(editor, { key: 'Enter' }));
+      expect(onChange).toHaveBeenLastCalledWith('\n'.repeat(index + 1), []);
+    }
+
+    expect(editor.querySelectorAll('div')).toHaveLength(5);
+    expect(onChange).toHaveBeenLastCalledWith('\n\n\n\n\n', []);
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+
+    unmount();
+  });
+
+  it('keeps the caret in the latest empty paragraph after Enter release so Backspace can delete it', async () => {
+    const { editor, onChange, unmount } = renderRichTextEditor();
+    act(() => editor.focus());
+    editor.innerHTML = '<div><br></div><div><br></div><div><br></div>';
+
+    const lastLine = editor.lastChild!;
+    const caret = document.createRange();
+    caret.setStart(lastLine, 0);
+    caret.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(caret);
+
+    act(() => fireEvent.keyUp(editor, { key: 'Enter' }));
+    expect(selection.anchorNode).toBe(lastLine);
+
+    let backspaceWasPrevented = true;
+    act(() => {
+      backspaceWasPrevented = !fireEvent.keyDown(editor, { key: 'Backspace' });
+    });
+    expect(backspaceWasPrevented).toBe(false);
+
+    lastLine.remove();
+    const remainingLastLine = editor.lastChild!;
+    const remainingCaret = document.createRange();
+    remainingCaret.setStart(remainingLastLine, 0);
+    remainingCaret.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(remainingCaret);
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('\n\n', []);
+    act(() => fireEvent.keyUp(editor, { key: 'Backspace' }));
+    expect(selection.anchorNode).toBe(remainingLastLine);
+
+    act(() => {
+      backspaceWasPrevented = !fireEvent.keyDown(editor, { key: 'Backspace' });
+    });
+    expect(backspaceWasPrevented).toBe(false);
+    remainingLastLine.remove();
+    const finalLine = editor.lastChild!;
+    const finalCaret = document.createRange();
+    finalCaret.setStart(finalLine, 0);
+    finalCaret.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(finalCaret);
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('\n', []);
+
+    unmount();
+  });
+
+  it('passes paragraph breaks and formatting from the editor into the live preview', async () => {
+    function EditorWithLivePreview() {
+      const [text, setText] = useState('');
+      const [entities, setEntities] = useState<RichTextEntity[]>([]);
+      const previewText = useDeferredValue(text);
+      const previewEntities = useDeferredValue(entities);
+      const previewFeedRef = useRef<HTMLDivElement | null>(null);
+
+      return (
+        <LocaleProvider>
+          <RichTextEditor
+            text={text}
+            entities={entities}
+            onChange={(nextText, nextEntities) => {
+              setText(nextText);
+              setEntities(nextEntities);
+            }}
+            maxLength={4096}
+          />
+          <ChatPreviewStand
+            chats={[chatA]}
+            selectedChat={chatA}
+            previewHistory={null}
+            previewHistoryLoading={false}
+            previewFeedRef={previewFeedRef}
+            draftText={previewText}
+            draftEntities={previewEntities}
+            attachments={[]}
+            previewTime="10:00"
+            collapsed={false}
+            chatListOpen={false}
+            onToggleChatList={vi.fn()}
+            onSelectChat={vi.fn()}
+          />
+        </LocaleProvider>
+      );
+    }
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<EditorWithLivePreview />));
+    const editor = container.querySelector('[contenteditable="true"]') as HTMLDivElement;
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    act(() => editor.focus());
+    expect(editor.classList.contains('is-empty')).toBe(true);
+    expect(editor.classList.contains('is-focused')).toBe(true);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    act(() => editor.blur());
+    expect(editor.classList.contains('is-focused')).toBe(false);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    act(() => editor.focus());
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: 'Tab' });
+      await Promise.resolve();
+    });
+
+    expect(editor.textContent).toBe('  ');
+    expect(editor.classList.contains('has-content')).toBe(false);
+    expect(editor.classList.contains('is-empty')).toBe(true);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: 'Tab', shiftKey: true });
+      await Promise.resolve();
+    });
+
+    expect(editor.textContent).toBe('');
+    expect(editor.classList.contains('is-empty')).toBe(true);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+
+    editor.innerHTML = '';
+    const emptySelection = window.getSelection()!;
+    const emptyRange = document.createRange();
+    emptyRange.selectNodeContents(editor);
+    emptyRange.collapse(true);
+    emptySelection.removeAllRanges();
+    emptySelection.addRange(emptyRange);
+    const simulateBrowserEnter = async (nextHtml: string, shiftKey = false) => {
+      let wasPrevented = true;
+      await act(async () => {
+        wasPrevented = !fireEvent.keyDown(editor, { key: 'Enter', shiftKey });
+        editor.innerHTML = nextHtml;
+        fireEvent.input(editor, { inputType: shiftKey ? 'insertLineBreak' : 'insertParagraph' });
+        await Promise.resolve();
+      });
+      expect(wasPrevented).toBe(false);
+    };
+    let emptyEnterWasPrevented = false;
+    await act(async () => {
+      emptyEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter' });
+      editor.innerHTML = '<div><br></div>';
+      fireEvent.input(editor, { inputType: 'insertParagraph' });
+      await Promise.resolve();
+    });
+    expect(emptyEnterWasPrevented).toBe(false);
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+    expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+    await simulateBrowserEnter('<div><br></div><div><br></div>');
+    expect(editor.innerHTML).toBe('<div><br></div><div><br></div>');
+    expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+    editor.innerHTML = '';
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+    emptyRange.selectNodeContents(editor);
+    emptyRange.collapse(true);
+    emptySelection.removeAllRanges();
+    emptySelection.addRange(emptyRange);
+
+    let emptyShiftEnterWasPrevented = false;
+    await act(async () => {
+      emptyShiftEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter', shiftKey: true });
+      editor.innerHTML = '<br>';
+      fireEvent.input(editor, { inputType: 'insertLineBreak' });
+      await Promise.resolve();
+    });
+    expect(emptyShiftEnterWasPrevented).toBe(false);
+    expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+
+    editor.innerHTML = '';
+    emptyRange.selectNodeContents(editor);
+    emptyRange.collapse(true);
+    emptySelection.removeAllRanges();
+    emptySelection.addRange(emptyRange);
+
+    let emptyParagraphEnterWasPrevented = true;
+    await act(async () => {
+      emptyParagraphEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter' });
+      editor.innerHTML = '<div><br></div><div><br></div>';
+      fireEvent.input(editor, { inputType: 'insertParagraph' });
+      await Promise.resolve();
+    });
+    expect(emptyParagraphEnterWasPrevented).toBe(false);
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+
+    editor.innerHTML = '<div><br></div>';
+    const resetEmptyParagraphRange = document.createRange();
+    resetEmptyParagraphRange.setStart(editor.firstChild!, 0);
+    resetEmptyParagraphRange.collapse(true);
+    emptySelection.removeAllRanges();
+    emptySelection.addRange(resetEmptyParagraphRange);
+    await simulateBrowserEnter('<div><br></div><div><br></div>');
+    expect(editor.innerHTML).toBe('<div><br></div><div><br></div>');
+
+    editor.innerHTML = '';
+    emptyRange.selectNodeContents(editor);
+    emptyRange.collapse(true);
+    emptySelection.removeAllRanges();
+    emptySelection.addRange(emptyRange);
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: 'Tab' });
+      await Promise.resolve();
+    });
+    expect(editor.textContent).toBe('  ');
+    expect(editor.classList.contains('has-content')).toBe(false);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    let tabEnterWasPrevented = true;
+    act(() => {
+      tabEnterWasPrevented = !fireEvent.keyDown(editor, { key: 'Enter' });
+    });
+    expect(tabEnterWasPrevented).toBe(true);
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    const emptyLineEraser = container.querySelector<HTMLButtonElement>('[aria-label="Clear editor text"]');
+    expect(emptyLineEraser).toBeEnabled();
+    expect(editor.innerHTML).toBe('  <br><br>  ');
+    expect(container.querySelector('.chat-preview-draft-bubble')).toBeNull();
+    await act(async () => {
+      emptyLineEraser?.click();
+      await Promise.resolve();
+    });
+    expect(editor.innerHTML).toBe('');
+    act(() => editor.blur());
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+    act(() => editor.focus());
+
+    editor.innerHTML = '';
+    await act(async () => {
+      fireEvent.input(editor, { inputType: 'deleteContentBackward' });
+      await Promise.resolve();
+    });
+    expect(editor.classList.contains('is-empty')).toBe(true);
+    expect(editor).toHaveAttribute('data-placeholder', 'What shall we share?');
+    expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+
+    const secondLine = 'SecXond line';
+    editor.innerHTML = '<div><strong>First</strong> line</div><div>SecXond line</div>';
+    const secondLineText = editor.lastChild?.firstChild;
+    const selection = window.getSelection()!;
+    const range = document.createRange();
+    range.setStart(secondLineText!, 4);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    try {
+      await act(async () => {
+        fireEvent.input(editor);
+        await Promise.resolve();
+      });
+
+      expect(editor.classList.contains('has-content')).toBe(true);
+      expect(editor.classList.contains('is-empty')).toBe(false);
+      expect(container.querySelector('.workspace-page-rich-text-inline-hint')).toBeNull();
+      expect(editor.innerHTML).toBe('<div><strong>First</strong> line</div><div>SecXond line</div>');
+      expect(selection.anchorNode?.textContent).toBe(secondLine);
+      expect(selection.anchorOffset).toBe(4);
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>First</strong> line<br>SecXond line');
+
+      const currentSecondLine = editor.lastChild?.firstChild;
+      const secondLineStart = document.createRange();
+      secondLineStart.setStart(currentSecondLine!, 0);
+      secondLineStart.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(secondLineStart);
+
+      await act(async () => {
+        fireEvent.keyDown(editor, { key: 'Tab' });
+        await Promise.resolve();
+      });
+
+      expect(editor.innerHTML).toBe('<div><strong>First</strong> line</div><div>  SecXond line</div>');
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>First</strong> line<br>  SecXond line');
+
+      await act(async () => {
+        fireEvent.keyDown(editor, { key: 'Tab', shiftKey: true });
+        await Promise.resolve();
+      });
+
+      expect(editor.innerHTML).toBe('<div><strong>First</strong> line</div><div>SecXond line</div>');
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>First</strong> line<br>SecXond line');
+
+      const firstLineText = editor.querySelector('strong')?.firstChild;
+      const lastLineBlock = editor.lastChild as HTMLElement;
+      const selectedLines = document.createRange();
+      selectedLines.setStart(firstLineText!, 0);
+      selectedLines.setEnd(lastLineBlock, lastLineBlock.childNodes.length);
+      selection.removeAllRanges();
+      selection.addRange(selectedLines);
+
+      await act(async () => {
+        fireEvent.keyDown(editor, { key: 'Tab' });
+        await Promise.resolve();
+      });
+
+      expect(editor.innerHTML).toBe('<div><strong>  First</strong> line</div><div>  SecXond line</div>');
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>  First</strong> line<br>  SecXond line');
+
+      await act(async () => {
+        fireEvent.keyDown(editor, { key: 'Tab', shiftKey: true });
+        await Promise.resolve();
+      });
+
+      expect(editor.innerHTML).toBe('<div><strong>First</strong> line</div><div>SecXond line</div>');
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>First</strong> line<br>SecXond line');
+
+      const currentSecondLineForTab = editor.lastChild?.firstChild;
+      const indentLine = document.createRange();
+      indentLine.setStart(currentSecondLineForTab!, 0);
+      indentLine.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(indentLine);
+      await act(async () => {
+        fireEvent.keyDown(editor, { key: 'Tab' });
+        await Promise.resolve();
+      });
+
+      const indentedLine = editor.lastChild as HTMLElement;
+      const endOfIndentedLine = document.createRange();
+      endOfIndentedLine.selectNodeContents(indentedLine);
+      endOfIndentedLine.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(endOfIndentedLine);
+
+      act(() => fireEvent.keyDown(editor, { key: 'Enter' }));
+      expect(indentedLine.textContent).toBe('  SecXond line  ');
+      expect(editor.querySelectorAll('br')).toHaveLength(2);
+      expect(container.querySelector('.chat-preview-draft-bubble .chat-preview-message')?.innerHTML)
+        .toBe('<strong>First</strong> line<br>  SecXond line<br><br>  ');
+    } finally {
+      act(() => root.unmount());
+      container.remove();
+    }
+  });
+
   it('uses an external scrollbar to control long editor text', () => {
     const { editor, container, unmount } = renderRichTextEditor();
     Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
@@ -284,6 +853,39 @@ describe('WorkspaceTextStage editor flows', () => {
 
     fireEvent.change(searchInput, { target: { value: 'missing phrase' } });
     expect(templateStage?.querySelector('.workspace-page-template-stage-empty')?.textContent).toBe('No matching templates.');
+
+    unmount();
+  });
+
+  it('shows template character counts beside the name in the compact draft-style row', () => {
+    const { unmount } = renderStage({ mode: 'template', templates: [templateA] });
+    const templateStage = document.querySelector('.workspace-page-rich-text-template-stage:not(.workspace-page-rich-text-draft-stage)');
+    const templateButton = templateStage?.querySelector('.workspace-page-template-stage-item > button:first-child');
+
+    expect(templateButton?.querySelector('strong')?.textContent).toBe('Welcome');
+    expect(templateButton?.querySelector('.workspace-page-template-row-summary')?.textContent).toBe('19 characters');
+    expect(templateButton?.querySelector('.workspace-page-template-row-summary')?.previousElementSibling?.tagName).toBe('STRONG');
+
+    unmount();
+  });
+
+  it('exposes template backup import and export actions', () => {
+    const onExportTemplates = vi.fn();
+    const onImportTemplates = vi.fn();
+    const { unmount } = renderStage({
+      mode: 'template',
+      onExportTemplates,
+      onImportTemplates,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    const backupFile = new File(['backup'], 'templates.json', { type: 'application/json' });
+    fireEvent.change(document.querySelector<HTMLInputElement>('input[type="file"][aria-label*="Import"]')!, {
+      target: { files: [backupFile] },
+    });
+
+    expect(onExportTemplates).toHaveBeenCalledOnce();
+    expect(onImportTemplates).toHaveBeenCalledWith(backupFile);
 
     unmount();
   });
@@ -1651,7 +2253,7 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
-  it('keeps typing order and bold formatting after toggling the toolbar at an empty caret', () => {
+  it('keeps typing bold and italic after toggling the toolbar at an empty caret', () => {
     const { container, editor, onChange, unmount } = renderRichTextEditor();
     act(() => editor.focus());
 
@@ -1666,21 +2268,46 @@ describe('WorkspaceTextStage editor flows', () => {
     const boldButton = container.querySelector<HTMLButtonElement>('[aria-label="Bold"]')!;
     act(() => boldButton.click());
     expect(boldButton.getAttribute('aria-pressed')).toBe('true');
+    const italicButton = container.querySelector<HTMLButtonElement>('[aria-label="Italic"]')!;
+    act(() => italicButton.click());
+    expect(italicButton.getAttribute('aria-pressed')).toBe('true');
 
-    const marker = editor.querySelector('b')?.firstChild as Text;
+    const marker = editor.querySelector('b i')?.firstChild as Text;
     expect(marker.textContent).toBe('\u200B');
     act(() => {
-      marker.insertData(marker.length, 'AB');
+      marker.insertData(marker.length, 'A');
       const caretRange = document.createRange();
       caretRange.setStart(marker, marker.length);
+      caretRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(caretRange);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'A' }));
+    });
+
+    expect(editor.querySelector('b i')?.textContent).toBe('A');
+    expect(boldButton.getAttribute('aria-pressed')).toBe('true');
+    expect(italicButton.getAttribute('aria-pressed')).toBe('true');
+
+    act(() => {
+      const currentRange = selection.getRangeAt(0);
+      const textNode = currentRange.startContainer as Text;
+      const currentOffset = currentRange.startOffset;
+      textNode.insertData(currentOffset, 'B');
+      const caretRange = document.createRange();
+      caretRange.setStart(textNode, currentOffset + 1);
       caretRange.collapse(true);
       selection.removeAllRanges();
       selection.addRange(caretRange);
       editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'B' }));
     });
 
-    expect(editor.querySelector('b')?.textContent).toBe('AB');
-    expect(onChange).toHaveBeenLastCalledWith('AB', [{ type: 'bold', offset: 0, length: 2 }]);
+    expect(editor.querySelector('b i')?.textContent).toBe('AB');
+    expect(onChange).toHaveBeenLastCalledWith('AB', [
+      { type: 'bold', offset: 0, length: 2 },
+      { type: 'italic', offset: 0, length: 2 },
+    ]);
+    expect(boldButton.getAttribute('aria-pressed')).toBe('true');
+    expect(italicButton.getAttribute('aria-pressed')).toBe('true');
     expect(selection.getRangeAt(0).startOffset).toBe(2);
 
     unmount();

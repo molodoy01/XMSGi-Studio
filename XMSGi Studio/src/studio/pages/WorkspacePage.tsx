@@ -21,10 +21,20 @@ import { useStudioDrafts } from '../hooks/useStudioDrafts';
 import { useWorkspaceAttachmentSelection } from '../hooks/useWorkspaceAttachmentSelection';
 import type { WorkspacePageProps } from './workspacePageTypes';
 import { ChatPickerChevron } from '../components/ChatPickerChevron';
-import { createTemplate, deleteTemplate, insertTextAtSelection, updateTemplate } from '../lib/templates';
+import {
+  createTemplate,
+  deleteTemplate,
+  insertTextAtSelection,
+  mergeTemplateBackup,
+  parseTemplateBackup,
+  serializeTemplateBackup,
+  TEMPLATE_IMPORT_MAX_BYTES,
+  updateTemplate,
+} from '../lib/templates';
 import { createSavedDraft, deleteSavedDraft, updateSavedDraft } from '../lib/drafts';
 import { isTelegramPhotoAlbumImage, normalizeAttachments } from '../lib/draftAttachments';
 import { getDraftStorageApi, hasDraftContent, readInitialWorkspaceDraft } from '../lib/draftStore';
+import { getLocalAttachmentPath } from '@/lib/localAttachmentPath';
 import type { WorkspaceDraft } from '../lib/draftStore';
 import { normalizeRichTextEntities, richTextToHtml } from '../lib/richText';
 import { sliceRichText } from '../lib/richText';
@@ -221,6 +231,7 @@ export function WorkspacePage({
   });
   const [initialTemplateState] = useState(loadTemplatesWithDefault);
   const [templates, setTemplates] = useState<Template[]>(initialTemplateState.templates);
+  const importedTemplatesRef = useRef<Template[] | null>(null);
   const [templateStorageError, setTemplateStorageError] = useState(initialTemplateState.storageError);
   const [stageMode, setStageMode] = useState<'editor' | 'schedule' | 'template' | 'draft' | 'chat'>(() => {
     return isLivePreviewSurface() ? 'schedule' : 'editor';
@@ -351,26 +362,6 @@ export function WorkspacePage({
   });
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
-
-  useLayoutEffect(() => {
-    const attachmentItems = attachmentItemsRef.current;
-    if (!attachmentItems) return undefined;
-
-    const updateOverflow = () => {
-      attachmentItems.classList.toggle(
-        'has-overflow',
-        attachmentItems.scrollWidth > attachmentItems.clientWidth + 1,
-      );
-    };
-
-    updateOverflow();
-    const resizeObserver = typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(updateOverflow);
-    resizeObserver?.observe(attachmentItems);
-
-    return () => resizeObserver?.disconnect();
-  }, [attachments]);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -511,6 +502,7 @@ export function WorkspacePage({
     prepareWorkspaceVersionSnapshot,
     recordWorkspaceVersion,
     handleRestoreDraftBackup: restoreDraftBackup,
+    handleExportDrafts: exportDrafts,
     handleImportDrafts: importDrafts,
   } = draftLifecycle;
   const recordWorkspaceVersionRef = useRef(recordWorkspaceVersion);
@@ -653,10 +645,10 @@ export function WorkspacePage({
     let cancelled = false;
     const missingPreviews = attachments.filter((attachment) => (
       isImageAttachment(attachment)
-      && !attachment.previewUrl
+      && (!attachment.previewUrl || /^file:/i.test(attachment.previewUrl))
       && !attachment.unavailable
-      && attachment.path
-      && !/^(?:blob:|data:|https?:|file:)/i.test(attachment.path)
+      && (attachment.path || attachment.previewUrl)
+      && !/^(?:blob:|data:|https?:)/i.test(attachment.path)
     ));
     const pending = missingPreviews.filter((attachment) => {
       const key = `${attachment.id}:${attachment.path}`;
@@ -668,7 +660,7 @@ export function WorkspacePage({
 
     void Promise.all(pending.map(async (attachment) => {
       try {
-        const result = await readImageDataUrl(attachment.path);
+        const result = await readImageDataUrl(getLocalAttachmentPath(attachment.path || attachment.previewUrl || ''));
         return { attachment, result };
       } catch (error) {
         return {
@@ -681,10 +673,14 @@ export function WorkspacePage({
       }
     })).then((results) => {
       if (cancelled) return;
-      const loadedPreviews = new Map<string, { path: string; dataUrl: string }>();
+      const loadedPreviews = new Map<string, { path: string; previewUrl?: string; dataUrl: string }>();
       results.forEach(({ attachment, result }) => {
         if (result.success && result.dataUrl) {
-          loadedPreviews.set(attachment.id, { path: attachment.path, dataUrl: result.dataUrl });
+          loadedPreviews.set(attachment.id, {
+            path: attachment.path,
+            previewUrl: attachment.previewUrl,
+            dataUrl: result.dataUrl,
+          });
         } else {
           showPublishFeedback(t('studio.attachmentPreviewFailed', { name: attachment.name }));
         }
@@ -692,7 +688,10 @@ export function WorkspacePage({
       if (loadedPreviews.size > 0) {
         setAttachments((current) => current.map((attachment) => {
           const loaded = loadedPreviews.get(attachment.id);
-          return loaded && loaded.path === attachment.path && !attachment.previewUrl
+          return loaded
+            && loaded.path === attachment.path
+            && loaded.previewUrl === attachment.previewUrl
+            && (!attachment.previewUrl || /^file:/i.test(attachment.previewUrl))
             ? { ...attachment, previewUrl: loaded.dataUrl }
             : attachment;
         }));
@@ -876,12 +875,64 @@ export function WorkspacePage({
       return;
     }
 
+    if (importedTemplatesRef.current === templates) {
+      importedTemplatesRef.current = null;
+      return;
+    }
+
     try {
       saveTemplates(templates);
     } catch {
       setTemplateStorageError(true);
     }
   }, [showPublishFeedback, t, templateStorageError, templates]);
+
+  const handleExportTemplates = () => {
+    try {
+      const backup = serializeTemplateBackup(templates);
+      const url = URL.createObjectURL(new Blob([backup], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `xmsgi-templates-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      showPublishFeedback(t('studio.templatesExported'), 'success');
+    } catch (error) {
+      showPublishFeedback(
+        error instanceof Error && error.message.includes('5 MB')
+          ? t('studio.templateBackupTooLarge')
+          : t('studio.templatesExportFailed'),
+        'warning',
+      );
+    }
+  };
+
+  const handleImportTemplates = async (file: File) => {
+    if (file.size > TEMPLATE_IMPORT_MAX_BYTES) {
+      showPublishFeedback(t('studio.templateBackupTooLarge'), 'warning');
+      return;
+    }
+
+    try {
+      const importedTemplates = parseTemplateBackup(await file.text());
+      const mergedTemplates = mergeTemplateBackup(templates, importedTemplates);
+      serializeTemplateBackup(mergedTemplates);
+      saveTemplates(mergedTemplates);
+      importedTemplatesRef.current = mergedTemplates;
+      setTemplates(mergedTemplates);
+      setTemplateStorageError(false);
+      showPublishFeedback(t('studio.templatesImported', { count: importedTemplates.length }), 'success');
+    } catch (error) {
+      showPublishFeedback(
+        error instanceof Error && error.message.includes('5 MB')
+          ? t('studio.templateBackupTooLarge')
+          : t('studio.templatesImportFailed'),
+        'warning',
+      );
+    }
+  };
 
   const selectedChatId = selectedChat?.id;
 
@@ -2540,6 +2591,7 @@ export function WorkspacePage({
                         saveDraftStage={saveDraftStage}
                         draftStoreReady={draftStoreReady}
                         draftStoreSaving={draftStoreSaving}
+                        onExportDrafts={() => { void exportDrafts(showPublishFeedback); }}
                         onImportDrafts={() => { void importDrafts(showPublishFeedback); }}
                         onImportEditorText={() => void handleImportEditorText()}
                         onInsertTemplate={insertTextAtCursor}
@@ -2552,6 +2604,8 @@ export function WorkspacePage({
                         onDeleteTemplate={handleDeleteTemplate}
                         closeTemplateEditor={closeTemplateEditor}
                         saveTemplateStage={saveTemplateStage}
+                        onExportTemplates={handleExportTemplates}
+                        onImportTemplates={(file) => { void handleImportTemplates(file); }}
                       />
                     )}
                   />

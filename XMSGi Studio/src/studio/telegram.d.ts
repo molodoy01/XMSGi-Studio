@@ -43,6 +43,15 @@ declare global {
   }
 
   interface Window {
+    desktop?: {
+      hasCustomWindowControls: boolean;
+      minimizeWindow: () => Promise<void>;
+      toggleMaximizeWindow: () => Promise<boolean>;
+      closeWindow: () => Promise<void>;
+      isWindowMaximized: () => Promise<boolean>;
+      onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
+      setColorTheme: (theme: 'light' | 'dark') => Promise<{ success: boolean }>;
+    };
     draftStorage: {
       load: () => Promise<DraftStorageResult>;
       migrate: (legacy: { savedDrafts: unknown[]; workspaceDraft: Record<string, unknown> | null }) => Promise<DraftStorageResult>;

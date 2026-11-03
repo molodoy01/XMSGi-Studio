@@ -1,12 +1,13 @@
-import type { MutableRefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, MutableRefObject, PointerEvent } from 'react';
 import { AlertTriangle, ImagePlus } from 'lucide-react';
 import { useLocale } from '@studio/lib/i18n';
 import {
   formatAttachmentSize,
+  getAttachmentPreviewUrl,
   getAttachmentDisplayItems,
   isImageAttachment,
   MAX_PHOTOS_PER_ALBUM,
-  toFileUrl,
   type WorkspaceAttachment,
 } from '../lib/workspaceAttachments';
 
@@ -32,6 +33,87 @@ export function WorkspaceAttachmentTray({
   onHidePreview,
 }: WorkspaceAttachmentTrayProps) {
   const { t } = useLocale();
+  const scrollbarRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ pointerX: number; scrollLeft: number } | null>(null);
+  const [scrollMetrics, setScrollMetrics] = useState({ clientWidth: 0, scrollLeft: 0, scrollWidth: 0, trackWidth: 0 });
+  const hasOverflow = scrollMetrics.scrollWidth > scrollMetrics.clientWidth + 1;
+  const maxScroll = Math.max(0, scrollMetrics.scrollWidth - scrollMetrics.clientWidth);
+  const thumbWidth = hasOverflow
+    ? Math.max(28, scrollMetrics.trackWidth * scrollMetrics.clientWidth / scrollMetrics.scrollWidth)
+    : scrollMetrics.trackWidth;
+  const thumbLeft = maxScroll > 0
+    ? (scrollMetrics.trackWidth - thumbWidth) * scrollMetrics.scrollLeft / maxScroll
+    : 0;
+
+  const updateScrollMetrics = useCallback(() => {
+    const items = attachmentItemsRef.current;
+    const track = scrollbarRef.current;
+    if (!items || !track) return;
+    setScrollMetrics({
+      clientWidth: items.clientWidth,
+      scrollLeft: items.scrollLeft,
+      scrollWidth: items.scrollWidth,
+      trackWidth: track.clientWidth,
+    });
+  }, [attachmentItemsRef]);
+
+  useLayoutEffect(() => {
+    updateScrollMetrics();
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateScrollMetrics);
+    if (attachmentItemsRef.current) resizeObserver?.observe(attachmentItemsRef.current);
+    if (scrollbarRef.current) resizeObserver?.observe(scrollbarRef.current);
+    return () => resizeObserver?.disconnect();
+  }, [attachments, attachmentItemsRef, updateScrollMetrics]);
+
+  const handleScrollbarPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!hasOverflow) return;
+    const track = event.currentTarget;
+    const bounds = track.getBoundingClientRect();
+    const pointerX = event.clientX - bounds.left;
+    const thumb = track.querySelector<HTMLElement>('.workspace-page-attachment-scrollbar-thumb');
+    const items = attachmentItemsRef.current;
+    if (!items) return;
+
+    if (thumb?.contains(event.target as Node)) {
+      dragRef.current = { pointerX: event.clientX, scrollLeft: items.scrollLeft };
+      track.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+
+    const travel = Math.max(0, bounds.width - thumbWidth);
+    items.scrollLeft = travel > 0
+      ? Math.max(0, Math.min(maxScroll, (pointerX - thumbWidth / 2) / travel * maxScroll))
+      : 0;
+  };
+
+  const handleScrollbarPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current || !attachmentItemsRef.current) return;
+    const travel = Math.max(0, event.currentTarget.clientWidth - thumbWidth);
+    if (travel === 0) return;
+    attachmentItemsRef.current.scrollLeft = Math.max(
+      0,
+      Math.min(maxScroll, dragRef.current.scrollLeft + (event.clientX - dragRef.current.pointerX) * maxScroll / travel),
+    );
+  };
+
+  const handleScrollbarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = attachmentItemsRef.current;
+    if (!items || !hasOverflow) return;
+    const step = Math.max(80, items.clientWidth * 0.6);
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      items.scrollLeft += event.key === 'ArrowLeft' ? -step : step;
+    } else if (event.key === 'Home') {
+      items.scrollLeft = 0;
+    } else if (event.key === 'End') {
+      items.scrollLeft = maxScroll;
+    } else {
+      return;
+    }
+    event.preventDefault();
+  };
 
   return (
     <div
@@ -39,7 +121,34 @@ export function WorkspaceAttachmentTray({
       aria-label={t('studio.attachedFiles')}
       aria-hidden={attachments.length === 0}
     >
-      <div className="workspace-page-media-items" ref={attachmentItemsRef}>
+      <div
+        ref={scrollbarRef}
+        className={`workspace-page-attachment-scrollbar${hasOverflow ? ' is-visible' : ''}`}
+        role={hasOverflow ? 'scrollbar' : undefined}
+        tabIndex={hasOverflow ? 0 : undefined}
+        aria-label={t('studio.attachedFiles')}
+        aria-controls="workspace-page-attachment-items"
+        aria-orientation="horizontal"
+        aria-valuemin={0}
+        aria-valuemax={maxScroll}
+        aria-valuenow={Math.min(maxScroll, scrollMetrics.scrollLeft)}
+        onPointerDown={handleScrollbarPointerDown}
+        onPointerMove={handleScrollbarPointerMove}
+        onPointerUp={() => { dragRef.current = null; }}
+        onPointerCancel={() => { dragRef.current = null; }}
+        onKeyDown={handleScrollbarKeyDown}
+      >
+        <div
+          className="workspace-page-attachment-scrollbar-thumb"
+          style={{ left: `${thumbLeft}px`, width: `${thumbWidth}px` }}
+        />
+      </div>
+      <div
+        id="workspace-page-attachment-items"
+        className="workspace-page-media-items"
+        ref={attachmentItemsRef}
+        onScroll={updateScrollMetrics}
+      >
         {getAttachmentDisplayItems(attachments).map((item) => {
           if (item.kind === 'album') {
             return (
@@ -58,20 +167,20 @@ export function WorkspaceAttachmentTray({
                     ) : (
                       <img
                         key={file.id}
-                        src={file.previewUrl || toFileUrl(file.path)}
+                        src={getAttachmentPreviewUrl(file.path, file.previewUrl)}
                         alt=""
                         tabIndex={0}
                         aria-label={t('studio.previewFile', { name: file.name })}
                         onMouseEnter={(event) => onSchedulePreview(
                           event.currentTarget,
                           file.name,
-                          file.previewUrl || toFileUrl(file.path),
+                          getAttachmentPreviewUrl(file.path, file.previewUrl),
                         )}
                         onMouseLeave={onHidePreview}
                         onFocus={(event) => onShowPreview(
                           event.currentTarget,
                           file.name,
-                          file.previewUrl || toFileUrl(file.path),
+                          getAttachmentPreviewUrl(file.path, file.previewUrl),
                         )}
                         onBlur={onHidePreview}
                       />
@@ -127,14 +236,14 @@ export function WorkspaceAttachmentTray({
                 </div>
               ) : isImageAttachment(file) ? (
                 <img
-                  src={file.previewUrl || toFileUrl(file.path)}
+                  src={getAttachmentPreviewUrl(file.path, file.previewUrl)}
                   alt=""
                   className="workspace-page-attachment-thumbnail"
                   tabIndex={0}
                   aria-label={t('studio.previewFile', { name: file.name })}
-                  onMouseEnter={(event) => onSchedulePreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
+                  onMouseEnter={(event) => onSchedulePreview(event.currentTarget, file.name, getAttachmentPreviewUrl(file.path, file.previewUrl))}
                   onMouseLeave={onHidePreview}
-                  onFocus={(event) => onShowPreview(event.currentTarget, file.name, file.previewUrl || toFileUrl(file.path))}
+                  onFocus={(event) => onShowPreview(event.currentTarget, file.name, getAttachmentPreviewUrl(file.path, file.previewUrl))}
                   onBlur={onHidePreview}
                 />
               ) : (

@@ -17,6 +17,12 @@
   --surface-hover: #e9edf0;
   --accent: #477c9e;
   --accent-soft: #e7f0f5;
+  --app-topbar-background: #f7f8fa;
+  --window-titlebar-background: #e8edf1;
+  --window-titlebar-border: #d7e0e6;
+  --app-topbar-border: #d7e0e6;
+  --window-control-foreground: #303b45;
+  --window-control-hover: #d7e0e6;
   --shadow-soft: 0 8px 28px rgba(34, 47, 58, 0.08);
 
   --mono: "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
@@ -42,12 +48,20 @@
   --surface-hover: #29363e;
   --accent: #239dfb;
   --accent-soft: #17364d;
+  --app-topbar-background: #1a232a;
+  --window-titlebar-background: #11181e;
+  --window-titlebar-border: #293139;
+  --app-topbar-border: #293139;
+  --window-control-foreground: #d8e0e6;
+  --window-control-hover: #1b2329;
   --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.28);
 }
 
 html.is-theme-transitioning,
 html.is-theme-transitioning body,
-html.is-theme-transitioning body :where(*) {
+html.is-theme-transitioning body :where(*),
+html.is-theme-transitioning body :where(*)::before,
+html.is-theme-transitioning body :where(*)::after {
   transition-property: color, background-color, border-color, outline-color, fill, stroke, box-shadow, text-decoration-color !important;
   transition-duration: 320ms !important;
   transition-delay: 0ms, 0ms, 0ms, 0ms, 0ms, 0ms, 0ms, 0ms !important;
@@ -57,7 +71,9 @@ html.is-theme-transitioning body :where(*) {
 @media (prefers-reduced-motion: reduce) {
   html.is-theme-transitioning,
   html.is-theme-transitioning body,
-  html.is-theme-transitioning body :where(*) {
+  html.is-theme-transitioning body :where(*),
+  html.is-theme-transitioning body :where(*)::before,
+  html.is-theme-transitioning body :where(*)::after {
     transition-duration: 0ms !important;
   }
 }

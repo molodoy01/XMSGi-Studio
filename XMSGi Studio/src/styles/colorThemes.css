@@ -14,15 +14,15 @@ html[data-theme='dark'] .product-shell.planner-shell {
 }
 
 html[data-theme='dark'] .topbar {
-  background: #11161b;
+  background-color: var(--app-topbar-background);
 }
 
 html[data-theme='dark'] .topbar::before {
-  background: #293139;
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='light'] .topbar::before {
-  background: #d7e0e6;
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='light'] .topbar-logout-photo-fallback {
@@ -4958,8 +4958,8 @@ html[data-theme='light'] .workspace-page .workspace-page-action-row.workspace-pa
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected,
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected:hover:not(:disabled),
 html[data-theme='light'] .workspace-page .workspace-page-publish-menu-compact .workspace-page-publish-option.is-selected:focus-visible {
-  border-color: #6b9fb5 !important;
-  background: #6b9fb5 !important;
+  border-color: #239dfb !important;
+  background: #239dfb !important;
   color: #ffffff !important;
   box-shadow: 0 1px 3px rgba(34, 47, 58, 0.16) !important;
   transform: none !important;
@@ -5081,11 +5081,11 @@ html[data-theme] .workspace-page .workspace-page-draft-footer .workspace-page-sc
 }
 
 html[data-theme='dark'] .topbar {
-  background: var(--ink);
+  background-color: var(--app-topbar-background);
 }
 
 html[data-theme='dark'] .topbar::before {
-  background: var(--line);
+  background-color: var(--app-topbar-border);
 }
 
 html[data-theme='dark'] .settings-view-section,
@@ -5750,4 +5750,110 @@ html[data-theme='light'] .quick-planner-activity .quick-planner-activity-view:ho
   box-shadow: 0 2px 6px rgba(34, 47, 58, 0.18), inset 0 0 0 1px rgba(71, 124, 158, 0.12) !important;
   filter: none !important;
   transform: none !important;
+}
+
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active),
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):hover,
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):focus-visible,
+html[data-theme] .quick-planner-workbench .quick-planner-mode-switch button:not(.is-active):active {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='dark'] .topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal {
+  border-color: rgba(215, 230, 240, 0.28);
+  background:
+    linear-gradient(145deg, rgba(220, 236, 246, 0.12), rgba(170, 195, 210, 0.025) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.86), rgba(12, 16, 20, 0.9));
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(230, 240, 246, 0.08);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+html[data-theme='dark'] .telegram-manager-dialog.topbar-logout-modal {
+  border-color: rgba(215, 230, 240, 0.32);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(230, 240, 246, 0.06);
+}
+
+html[data-theme='dark'] .settings-telegram-summary {
+  border-color: rgba(215, 230, 240, 0.24);
+  background:
+    radial-gradient(ellipse 90% 130% at 0% 0%, rgba(35, 157, 251, 0.12), transparent 68%),
+    linear-gradient(145deg, rgba(220, 236, 246, 0.1), rgba(170, 195, 210, 0.025) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.78), rgba(12, 16, 20, 0.84));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(230, 240, 246, 0.07);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+html[data-theme='dark'] .settings-telegram-summary:is(:hover, :focus-visible) {
+  border-color: rgba(124, 195, 255, 0.52);
+  background:
+    radial-gradient(ellipse 90% 130% at 0% 0%, rgba(35, 157, 251, 0.16), transparent 68%),
+    linear-gradient(145deg, rgba(220, 236, 246, 0.12), rgba(170, 195, 210, 0.035) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.82), rgba(12, 16, 20, 0.88));
+  box-shadow: 0 0 0 1px rgba(124, 195, 255, 0.12), 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(230, 240, 246, 0.09);
+}
+
+html[data-theme='dark'] .settings-telegram-summary:focus-visible {
+  outline: 2px solid #7cc3ff;
+  outline-offset: 3px;
+}
+
+html[data-theme='dark'] .settings-telegram-summary-account {
+  color: #aebac3;
+}
+
+html[data-theme='dark'] .quick-planner-schedule-popover,
+html[data-theme='dark'] .quick-planner-date-picker,
+html[data-theme='dark'] .quick-planner-time-picker,
+html[data-theme='dark'] .workspace-page-schedule-time-picker,
+html[data-theme='dark'] .workspace-page-schedule-time-menu {
+  border-color: rgba(215, 230, 240, 0.26) !important;
+  background:
+    linear-gradient(145deg, rgba(220, 236, 246, 0.13), rgba(170, 195, 210, 0.035) 48%, transparent 76%),
+    linear-gradient(145deg, rgba(40, 49, 57, 0.9), rgba(12, 16, 20, 0.94)) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(230, 240, 246, 0.08) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(135%) !important;
+  backdrop-filter: blur(16px) saturate(135%) !important;
+}
+
+html[data-theme='dark'] .quick-planner-date-picker-grid button:not(.is-selected):not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:not([aria-selected='true']):not(:disabled) {
+  border-color: rgba(215, 230, 240, 0.08) !important;
+  background: rgba(15, 21, 26, 0.42) !important;
+}
+
+html[data-theme='dark'] .quick-planner-time-field {
+  border-color: rgba(215, 230, 240, 0.16) !important;
+  background: rgba(15, 21, 26, 0.52) !important;
+}
+
+html[data-theme='dark'] .quick-planner-date-picker-grid button:hover:not(:disabled),
+html[data-theme='dark'] .quick-planner-date-picker-grid button:focus-visible:not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:hover:not(:disabled),
+html[data-theme='dark'] .quick-planner-time-list button:focus-visible:not(:disabled),
+html[data-theme='dark'] .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='dark'] .workspace-page-schedule-time-picker button:focus-visible:not(:disabled),
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:focus-visible:not(:disabled) {
+  border: 1px solid rgba(124, 195, 255, 0.82) !important;
+  background: rgba(35, 157, 251, 0.2) !important;
+  color: #eaf7ff !important;
+  box-shadow: inset 0 0 0 1px rgba(124, 195, 255, 0.16) !important;
+}
+
+html[data-theme='light'] .quick-planner-date-picker-grid button:hover:not(:disabled),
+html[data-theme='light'] .quick-planner-date-picker-grid button:focus-visible:not(:disabled),
+html[data-theme='light'] .quick-planner-time-list button:hover:not(:disabled),
+html[data-theme='light'] .quick-planner-time-list button:focus-visible:not(:disabled),
+html[data-theme='light'] .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='light'] .workspace-page-schedule-time-picker button:focus-visible:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:hover:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-time-picker button:focus-visible:not(:disabled) {
+  border: 1px solid #477c9e !important;
+  background: rgba(71, 124, 158, 0.14) !important;
+  color: #244b63 !important;
+  box-shadow: inset 0 0 0 1px rgba(71, 124, 158, 0.12) !important;
 }

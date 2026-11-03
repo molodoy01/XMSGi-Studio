@@ -1,3 +1,5 @@
+export { getLocalAttachmentPath } from '@/lib/localAttachmentPath';
+
 export function toAttachmentUrl(filePath: string) {
   if (/^(?:data:|https?:|file:)/i.test(filePath)) return filePath;
   const normalizedPath = filePath.replace(/\\/g, '/');
@@ -6,18 +8,6 @@ export function toAttachmentUrl(filePath: string) {
     .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
     .join('/');
   return `file:///${encodedPath}`;
-}
-
-export function getLocalAttachmentPath(filePath: string) {
-  if (!/^file:/i.test(filePath)) return filePath;
-
-  try {
-    const url = new URL(filePath);
-    const decodedPath = decodeURIComponent(url.pathname);
-    return decodedPath.replace(/^\/([a-z]:\/)/i, '$1');
-  } catch {
-    return filePath;
-  }
 }
 
 export function isImageAttachment(filePath: string) {

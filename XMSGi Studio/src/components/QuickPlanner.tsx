@@ -245,6 +245,7 @@ export function QuickPlanner({
   const { locale, t } = useLocale();
   const [selectedMode, setSelectedMode] = useState('Send now');
   const [message, setMessage] = useState(readPlannerDraft);
+  const [messageInputFocused, setMessageInputFocused] = useState(false);
   const [messageEntities, setMessageEntities] = useState(readPlannerDraftEntities);
   const lastLoadedDraftRevisionRef = useRef<number | null>(null);
   const initialAttachmentLimitRef = useRef(false);
@@ -918,7 +919,17 @@ export function QuickPlanner({
     }
   };
 
-  const handleEmojiPickerKeyDown = (event: { key: string; ctrlKey?: boolean; metaKey?: boolean; preventDefault: () => void }) => {
+  const handleEmojiPickerKeyDown = (event: {
+    key: string;
+    ctrlKey?: boolean;
+    metaKey?: boolean;
+    altKey?: boolean;
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
+    if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.stopPropagation();
+    }
     if (!normalizedEmojiSearchQuery || visibleEmojiOptions.length === 0) return;
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -1362,6 +1373,8 @@ export function QuickPlanner({
                 aria-describedby="quick-planner-counter"
                 maxLength={1023}
                 value={message}
+                onFocus={() => setMessageInputFocused(true)}
+                onBlur={() => setMessageInputFocused(false)}
                 onClick={(event) => {
                   const textarea = event.currentTarget;
                   if (event.detail >= 4) {
@@ -1422,7 +1435,7 @@ export function QuickPlanner({
                   }
                 }}
                 onKeyDown={handleEmojiPickerKeyDown}
-                placeholder={t('quickPlanner.messagePlaceholder')}
+                placeholder={messageInputFocused ? '' : t('quickPlanner.messagePlaceholder')}
               />
               <span id="quick-planner-counter" className="quick-planner-sr-only">
                 {t('quickPlanner.characterCount', { count: message.length })}

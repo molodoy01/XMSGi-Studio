@@ -49,6 +49,8 @@ interface Props {
   onDeleteTemplate: (template: Template) => void;
   closeTemplateEditor: () => void;
   saveTemplateStage: () => void;
+  onExportTemplates?: () => void;
+  onImportTemplates?: (file: File) => void;
   savedDrafts: SavedDraft[];
   onInsertDraft: (draft: SavedDraft) => void;
   draftEditingId: string | null;
@@ -64,6 +66,7 @@ interface Props {
   saveDraftStage: () => void;
   draftStoreReady: boolean;
   draftStoreSaving: boolean;
+  onExportDrafts: () => void;
   onImportDrafts: () => void;
   onImportEditorText: () => void;
 }
@@ -104,6 +107,8 @@ export function WorkspaceTextStage({
   onDeleteTemplate,
   closeTemplateEditor,
   saveTemplateStage,
+  onExportTemplates,
+  onImportTemplates,
   savedDrafts,
   onInsertDraft,
   draftEditingId,
@@ -119,6 +124,7 @@ export function WorkspaceTextStage({
   saveDraftStage,
   draftStoreReady,
   draftStoreSaving,
+  onExportDrafts,
   onImportDrafts,
   onImportEditorText,
 }: Props) {
@@ -159,6 +165,8 @@ export function WorkspaceTextStage({
         onDeleteTemplate={onDeleteTemplate}
         closeTemplateEditor={closeTemplateEditor}
         saveTemplateStage={saveTemplateStage}
+        onExportTemplates={onExportTemplates}
+        onImportTemplates={onImportTemplates}
       />
 
       <DraftsStage
@@ -179,6 +187,7 @@ export function WorkspaceTextStage({
         saveDraftStage={saveDraftStage}
         draftStoreReady={draftStoreReady}
         draftStoreSaving={draftStoreSaving}
+        onExportDrafts={onExportDrafts}
         onImportDrafts={onImportDrafts}
         onImportEditorText={onImportEditorText}
       />

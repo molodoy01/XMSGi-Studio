@@ -2,6 +2,7 @@ import { useRef, type ChangeEvent, type Dispatch, type MutableRefObject, type Se
 import { useLocale } from '@studio/lib/i18n';
 import {
   convertWebpToTelegramPhoto,
+  getAttachmentMimeType,
   inferAttachmentMimeType,
   isSupportedPhotoAlbumSource,
 } from '../lib/draftAttachments';
@@ -107,12 +108,12 @@ export function useWorkspaceAttachmentSelection({
 
     const safePosition = Math.max(0, Math.min(position, draftBody.length));
     const copiedAttachments = await Promise.all(acceptedFiles.map(async (file) => {
-      const mimeType = file.type || inferAttachmentMimeType(file.name);
+      const mimeType = getAttachmentMimeType(file.name, file.type);
       const type = mimeType.startsWith('image/') ? 'image' : 'file';
       try {
         const draftStorage = getDraftStorageApi();
         if (!draftStorage) {
-          const dataUrl = await readFileAsDataUrl(file);
+          const dataUrl = await readFileAsDataUrl(file, mimeType);
           return {
             id: createAttachmentId(), type, name: file.name, mimeType, path: dataUrl,
             size: file.size, previewUrl: type === 'image' ? dataUrl : undefined, position: safePosition,

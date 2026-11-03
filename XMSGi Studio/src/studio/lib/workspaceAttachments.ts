@@ -1,4 +1,5 @@
 import type { DraftAttachment } from '../domain/types';
+import { inferAttachmentMimeType } from './draftAttachments';
 
 export type WorkspaceAttachment = DraftAttachment;
 
@@ -55,7 +56,9 @@ export function createAttachmentId() {
 }
 
 export function isImageAttachment(attachment: WorkspaceAttachment) {
-  return attachment.type === 'image' || attachment.mimeType.startsWith('image/');
+  return attachment.type === 'image'
+    || attachment.mimeType.startsWith('image/')
+    || inferAttachmentMimeType(attachment.name).startsWith('image/');
 }
 
 export type PhotoAlbumDisplayItem = {
@@ -116,12 +119,14 @@ export function formatAttachmentSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
-export function readFileAsDataUrl(file: File) {
+export function readFileAsDataUrl(file: File, mimeType = file.type) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        resolve(reader.result);
+        resolve(mimeType
+          ? reader.result.replace(/^data:[^;,]+/i, `data:${mimeType}`)
+          : reader.result);
         return;
       }
       reject(new Error(`The selected file could not be converted to a data URL: ${file.name}`));
@@ -131,14 +136,8 @@ export function readFileAsDataUrl(file: File) {
   });
 }
 
-export function toFileUrl(filePath: string) {
-  if (/^(?:blob:|data:|https?:|file:)/i.test(filePath)) return filePath;
-
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  const encodedPath = normalizedPath
-    .split('/')
-    .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
-    .join('/');
-
-  return `file:///${encodedPath}`;
+export function getAttachmentPreviewUrl(filePath: string, previewUrl?: string) {
+  if (previewUrl && /^(?:blob:|data:|https?:)/i.test(previewUrl)) return previewUrl;
+  if (/^(?:blob:|data:|https?:)/i.test(filePath)) return filePath;
+  return '';
 }

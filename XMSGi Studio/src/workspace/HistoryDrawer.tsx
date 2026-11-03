@@ -360,7 +360,7 @@ export function HistoryDrawer({
     const imagePaths = [...records, ...draftItems]
       .flatMap((record) => record.attachments)
       .filter(isImageAttachment)
-      .filter((attachment) => !/^(?:data:|https?:)/i.test(attachment))
+      .filter((attachment) => !/^(?:blob:|data:|https?:)/i.test(attachment))
       .filter((attachment) => !imagePreviewSources[attachment])
       .filter((attachment) => !imagePreviewAttemptsRef.current.has(attachment));
     imagePaths.forEach((attachment) => imagePreviewAttemptsRef.current.add(attachment));
@@ -385,7 +385,8 @@ export function HistoryDrawer({
   }, [draftItems, imagePreviewSources, isOpen, records]);
 
   const getDisplayedAttachmentUrl = (filePath: string) => (
-    imagePreviewSources[filePath] ?? toAttachmentUrl(filePath)
+    imagePreviewSources[filePath]
+    ?? (/^(?:blob:|data:|https?:)/i.test(filePath) ? filePath : undefined)
   );
 
   useLayoutEffect(() => {

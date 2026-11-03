@@ -157,9 +157,9 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
   align-items: center;
   gap: 6px;
   color: var(--dim);
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 600;
   transition: color 150ms ease, transform 150ms ease;
 }
 
@@ -172,22 +172,31 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
 .settings-telegram-summary-main {
   min-width: 0;
   flex: 1;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .settings-telegram-summary-main > strong {
+  order: 1;
+  flex: 0 0 auto;
   font-size: 17px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .settings-telegram-summary-state {
   display: inline-flex;
+  order: 3;
+  flex: 0 0 auto;
   align-items: center;
+  margin-left: auto;
+  white-space: nowrap;
   gap: 8px;
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
   line-height: 1.4;
 }
 
@@ -215,10 +224,16 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
 }
 
 .settings-telegram-summary-account {
-  overflow-wrap: anywhere;
+  order: 2;
+  min-width: 0;
+  overflow: hidden;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .telegram-manager-backdrop {
@@ -561,6 +576,7 @@ html.electron-runtime .telegram-manager-backdrop::before {
     --telegram-entry-offset: 22px;
   }
   .settings-telegram-summary { gap: 10px; padding: 12px; }
+  .settings-telegram-summary-main { gap: 8px; }
   .settings-telegram-summary-open > span { display: none; }
 }
 

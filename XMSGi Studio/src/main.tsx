@@ -12,6 +12,7 @@ if ('scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 document.documentElement.classList.toggle('electron-runtime', isDesktopTelegramRuntime());
+document.documentElement.classList.toggle('electron-custom-window-controls', window.desktop?.hasCustomWindowControls === true);
 applyColorTheme(readColorTheme());
 window.scrollTo(0, 0);
 

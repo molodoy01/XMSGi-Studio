@@ -9,6 +9,7 @@ function getStorageErrorMessage(error: unknown, fallback: string): string {
 export function createLocalStorageRepository<T extends { id: string }>(
   key: string,
   legacyKey?: string,
+  backupKey?: string,
 ): Repository<T> {
   const readAll = (): T[] => {
     let storage: Storage;
@@ -25,18 +26,51 @@ export function createLocalStorageRepository<T extends { id: string }>(
       throw new Error(getStorageErrorMessage(error, 'Local storage could not be read.'));
     }
 
-    if (primaryRaw !== null) return parseEntityList<T>(primaryRaw, key);
-
-    if (!legacyKey) return [];
-
-    let legacyRaw: string | null;
-    try {
-      legacyRaw = storage.getItem(legacyKey);
-    } catch (error) {
-      throw new Error(getStorageErrorMessage(error, 'Legacy local storage could not be read.'));
+    let primaryError: unknown;
+    if (primaryRaw !== null) {
+      try {
+        return parseEntityList<T>(primaryRaw, key);
+      } catch (error) {
+        if (!backupKey) throw error;
+        primaryError = error;
+      }
     }
-    if (legacyRaw === null) return [];
-    return parseEntityList<T>(legacyRaw, legacyKey);
+
+    if (legacyKey) {
+      let legacyRaw: string | null;
+      try {
+        legacyRaw = storage.getItem(legacyKey);
+      } catch (error) {
+        throw new Error(getStorageErrorMessage(error, 'Legacy local storage could not be read.'));
+      }
+      if (legacyRaw !== null) {
+        try {
+          return parseEntityList<T>(legacyRaw, legacyKey);
+        } catch (error) {
+          if (!backupKey) throw error;
+          primaryError ??= error;
+        }
+      }
+    }
+
+    if (backupKey) {
+      let backupRaw: string | null;
+      try {
+        backupRaw = storage.getItem(backupKey);
+      } catch (error) {
+        throw new Error(getStorageErrorMessage(error, 'Backup local storage could not be read.'));
+      }
+      if (backupRaw !== null) {
+        try {
+          return parseEntityList<T>(backupRaw, backupKey);
+        } catch (error) {
+          primaryError ??= error;
+        }
+      }
+    }
+
+    if (primaryError) throw primaryError;
+    return [];
   };
 
   const writeAll = (items: T[]) => {
@@ -47,9 +81,22 @@ export function createLocalStorageRepository<T extends { id: string }>(
     } catch (error) {
       throw new Error(getStorageErrorMessage(error, 'Local storage is unavailable.'));
     }
+    if (backupKey) {
+      const currentItems = readAll();
+      storage.setItem(backupKey, JSON.stringify(currentItems));
+      if (storage.getItem(backupKey) !== JSON.stringify(currentItems)) {
+        throw new Error('Local storage backup could not be verified.');
+      }
+    }
     storage.setItem(key, serialized);
+    if (storage.getItem(key) !== serialized) {
+      throw new Error('Local storage write could not be verified.');
+    }
     if (legacyKey) {
       storage.setItem(legacyKey, serialized);
+      if (storage.getItem(legacyKey) !== serialized) {
+        throw new Error('Legacy local storage write could not be verified.');
+      }
     }
   };
 

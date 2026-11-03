@@ -31,6 +31,14 @@ const globalStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import
 const colorThemeStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/colorThemes.css'), 'utf8');
 const themeTokenStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/tokens.css'), 'utf8');
 
+describe('WorkspacePage editor line breaks', () => {
+  it('keeps contenteditable line breaks inline so Enter advances by one row', () => {
+    const lineBreakRule = workspacePageStyles.match(/\.workspace-page-rich-text-input br\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(lineBreakRule).not.toMatch(/display:\s*block/);
+  });
+});
+
 describe('WorkspacePage publish action colors', () => {
   it('fills the editor card with the input and toolbar whether preview is shown or hidden', () => {
     expect(workspacePageStyles).toMatch(
@@ -43,13 +51,13 @@ describe('WorkspacePage publish action colors', () => {
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:not\(\.is-toolbar-active\) \.workspace-page-rich-text-meta-row,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:has\(\.workspace-page-rich-text-input\.is-empty\) \.workspace-page-rich-text-meta-row\s*\{\s*opacity:\s*0\.45;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*24px;[^}]*bottom:\s*-22px;[^}]*display:\s*inline-flex;[^}]*width:\s*68px;[^}]*min-width:\s*68px;[^}]*border:\s*0;[^}]*border-radius:\s*7px;[^}]*background:\s*transparent;[^}]*font-variant-numeric:\s*tabular-nums;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*49px;[^}]*bottom:\s*-22px;[^}]*display:\s*inline-flex;[^}]*width:\s*68px;[^}]*min-width:\s*68px;[^}]*border:\s*0;[^}]*border-radius:\s*7px;[^}]*background:\s*transparent;[^}]*font-variant-numeric:\s*tabular-nums;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*min-height:\s*34px;\s*margin:\s*4px 0 0 auto;\s*transform:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*10px;[^}]*bottom:\s*-22px;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*35px;[^}]*bottom:\s*-22px;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear svg\s*\{\s*width:\s*20px;\s*height:\s*20px;/,
@@ -130,10 +138,10 @@ describe('WorkspacePage publish action colors', () => {
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*width:\s*max-content;[^}]*max-width:\s*100%;[^}]*transform:\s*translateY\(-4px\);/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*24px;[^}]*bottom:\s*-22px;[^}]*width:\s*68px;[^}]*min-width:\s*68px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*49px;[^}]*bottom:\s*-22px;[^}]*width:\s*68px;[^}]*min-width:\s*68px;/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*10px;[^}]*bottom:\s*-22px;[^}]*width:\s*24px;[^}]*height:\s*24px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*35px;[^}]*bottom:\s*-22px;[^}]*width:\s*24px;[^}]*height:\s*24px;/,
     );
     expect(workspacePageStyles).toMatch(
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*6px;\s*transform:\s*translateY\(-9px\);/,
@@ -362,8 +370,8 @@ describe('WorkspacePage publish action colors', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters\s*\{[^}]*margin-left:\s*auto;/);
   });
 
-  it('centers the remaining draft import actions after hiding export', () => {
-    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*center;/);
+  it('aligns the draft import and export actions next to the add-draft button', () => {
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*end;/);
   });
 
   it('aligns saved draft names at a consistent inset from the left edge', () => {
@@ -674,6 +682,83 @@ describe('WorkspacePage main-screen flows', () => {
           'src',
           'data:image/webp;base64,dGVzdA==',
         );
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('restores legacy JFIF files as JPEG images in the attachment chips', async () => {
+    inMemoryDraftStore.migrationVersion = 1;
+    inMemoryDraftStore.workspaceDraft = {
+      documentId: 'legacy-jfif-preview-test',
+      body: 'Draft with a JFIF image',
+      entities: [],
+      attachments: [{
+        id: 'legacy-jfif',
+        name: 'OIP (1).jfif',
+        type: 'file',
+        mimeType: 'application/octet-stream',
+        path: '/stored/OIP (1).jfif',
+        size: 1024,
+        position: 0,
+      }],
+      savedAt: '12:00',
+    };
+    vi.mocked(window.draftStorage.readImageDataUrl!).mockResolvedValue({
+      success: true,
+      dataUrl: 'data:image/jpeg;base64,dGVzdA==',
+    });
+
+    const { unmount } = await renderWorkspacePage();
+
+    try {
+      await waitFor(() => {
+        expect(window.draftStorage.readImageDataUrl).toHaveBeenCalledWith('/stored/OIP (1).jfif');
+        expect(document.querySelector('.workspace-page-attachment-thumbnail')).toHaveAttribute(
+          'src',
+          'data:image/jpeg;base64,dGVzdA==',
+        );
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('loads file URL image attachments through the draft preview bridge', async () => {
+    inMemoryDraftStore.migrationVersion = 1;
+    inMemoryDraftStore.workspaceDraft = {
+      documentId: 'file-url-image-preview-test',
+      body: 'Draft with a file URL image',
+      entities: [],
+      attachments: [{
+        id: 'stored-file-url-photo',
+        name: '01 (16).png',
+        type: 'image',
+        mimeType: 'image/png',
+        path: 'file:///C:/Users/malod/AppData/Local/XMSGi-Workspace-Agent/drafts/01%20(16).png',
+        size: 1024,
+        position: 0,
+      }],
+      savedAt: '12:00',
+    };
+    vi.mocked(window.draftStorage.readImageDataUrl!).mockResolvedValue({
+      success: true,
+      dataUrl: 'data:image/png;base64,dGVzdA==',
+    });
+
+    const { unmount } = await renderWorkspacePage();
+
+    try {
+      await waitFor(() => {
+        expect(window.draftStorage.readImageDataUrl).toHaveBeenCalledWith(
+          'C:/Users/malod/AppData/Local/XMSGi-Workspace-Agent/drafts/01 (16).png',
+        );
+        expect(document.querySelector('.workspace-page-attachment-thumbnail')).toHaveAttribute(
+          'src',
+          'data:image/png;base64,dGVzdA==',
+        );
+        expect(document.querySelector('img[src^="file:"]')).toBeNull();
       });
     } finally {
       unmount();
@@ -1320,8 +1405,6 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/@media \(max-width: 840px\)[\s\S]*?html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*transform:\s*translateY\(15px\);/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)\s*\{\s*\.workspace-page-rich-text-editor\s*\{\s*height:\s*100%;\s*padding-bottom:\s*6px;\s*\}\s*\.workspace-page-rich-text-editor \.workspace-page-rich-text-input\s*\{\s*flex:\s*1 1 0;\s*min-height:\s*0;\s*margin-bottom:\s*8px;\s*\}/);
     expect(workspacePageStyles).not.toMatch(/\.workspace-page-attachment-tray\.is-empty\s*\{[^}]*display:\s*none/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*transform:\s*scaleY\(-1\);[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items > \*\s*\{\s*transform:\s*scaleY\(-1\);/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page \.workspace-page-preview-panel\s*\{[^}]*width:\s*278px;[^}]*min-width:\s*278px;[^}]*max-width:\s*278px;[^}]*flex:\s*0 0 278px;/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page \.workspace-page-editor-shell\s*\{\s*max-height:\s*none;\s*margin-bottom:\s*0;/);
     expect(workspacePageStyles).toMatch(/html\.electron-runtime \.workspace-page-rich-text-chat-stage\.is-active \.workspace-page-chat-stage-main\s*\{\s*flex:\s*1 1 0%;\s*min-height:\s*0;\s*overflow-y:\s*auto;/);
@@ -1333,6 +1416,18 @@ describe('WorkspacePage main-screen flows', () => {
 
   it('keeps the Schedule Time and Repeat controls fixed-size at compact Electron widths', () => {
     expect(workspacePageStyles).toMatch(/@media \(max-width: 840px\)[\s\S]*?html\.electron-runtime \.workspace-page-action-left-group \.workspace-page-schedule-compact-button\s*\{[^}]*flex:\s*0 0 80px !important;[^}]*width:\s*80px !important;[^}]*min-width:\s*80px !important;[^}]*font-size:\s*14px !important;/);
+  });
+
+  it('shows three attachment chips before scrolling the attachment tray', () => {
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-card\s*\{[^}]*flex:\s*0 0 calc\(\(688px - 16px\) \/ 3 - 15px\);[^}]*width:\s*calc\(\(688px - 16px\) \/ 3 - 15px\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray\s*\{\s*display:\s*grid;\s*grid-template-rows:\s*10px minmax\(0, 1fr\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*100%;[^}]*max-width:\s*640px;[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto;[^}]*gap:\s*0;[^}]*padding:\s*0 0 0 12px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*align-items:\s*center;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray\s*\{[^}]*flex:\s*0 0 56px;[^}]*height:\s*56px;[^}]*min-height:\s*56px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*130px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\s*\{[^}]*position:\s*relative;[^}]*height:\s*8px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\.is-visible\s*\{\s*visibility:\s*visible;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar-thumb\s*\{[^}]*position:\s*absolute;[^}]*border-radius:\s*999px;/);
   });
 
   it('keeps the Electron post input inset and centered inside the editor stage', () => {
@@ -2910,9 +3005,10 @@ describe('WorkspacePage main-screen flows', () => {
   it('keeps light Studio bottom buttons visually consistent across toggle states', () => {
     expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):is\(:hover, :focus-visible\):not\(:disabled\)\s*\{[^}]*border-color:\s*#239dfb !important;[^}]*background:\s*#239dfb !important;[^}]*color:\s*#ffffff !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-action-row\.workspace-page-schedule-row > \.workspace-page-submit-actions > \.workspace-page-publish-main:hover:not\(:disabled\),[\s\S]*?\.workspace-page-publish-main:focus-visible:not\(:disabled\)\s*\{\s*border-color:\s*#168de8 !important;\s*background:\s*#168de8 !important;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-publish-menu-compact \.workspace-page-publish-option\.is-selected:not\(:hover\):not\(:focus-visible\)\s*\{[^}]*border-color:\s*#d7dfe4 !important;[^}]*background:\s*#f0f2f4 !important;[^}]*color:\s*#3a4650 !important;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-publish-menu-compact \.workspace-page-publish-option:is\(\.is-selected, \.is-send, \.is-scheduled, \.is-draft\):is\(:hover, :focus-visible\):not\(:disabled\)\s*\{[^}]*background:\s*rgba\(35, 157, 251, 0\.12\) !important;[^}]*color:\s*#087acb !important;/);
-    expect(workspacePageStyles).toMatch(/workspace-page-publish-option:hover:not\(:disabled\)::before,[\s\S]*?workspace-page-publish-option:hover:not\(:disabled\)::after\s*\{\s*opacity:\s*0 !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-publish-menu-compact \.workspace-page-publish-option\.is-selected:not\(:hover\):not\(:focus-visible\)\s*\{[^}]*border-color:\s*#239dfb !important;[^}]*background:\s*#239dfb !important;[^}]*color:\s*#ffffff !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-publish-menu-compact \.workspace-page-publish-option:not\(\.is-selected\):is\(:hover, :focus-visible\):not\(:disabled\)\s*\{[^}]*border-color:\s*rgba\(35, 157, 251, 0\.52\) !important;[^}]*background:\s*#eaf6ff !important;[^}]*color:\s*#087acb !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-publish-menu-compact \.workspace-page-publish-option\.is-selected:is\(:hover, :focus-visible\):not\(:disabled\)\s*\{[^}]*background:\s*#239dfb !important;[^}]*color:\s*#ffffff !important;[^}]*transform:\s*none !important;/);
+    expect(workspacePageStyles).toMatch(/workspace-page-publish-option:is\(:hover, :focus-visible\)::before,[\s\S]*?workspace-page-publish-option:is\(:hover, :focus-visible\)::after\s*\{\s*opacity:\s*0 !important;/);
     expect(colorThemeStyles).not.toMatch(/\.workspace-page-action-left-group > button:hover:not\(:disabled\)\s*\{[^}]*background:\s*#6b9fb5 !important;/);
     expect(colorThemeStyles).not.toMatch(/\.workspace-page-action-row\.workspace-page-schedule-row button\[aria-pressed='true'\],[\s\S]*?background:\s*var\(--studio-control-background\) !important;/);
   });
@@ -2952,8 +3048,19 @@ describe('WorkspacePage main-screen flows', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:disabled\s*\{[^}]*color:\s*#697780 !important;[^}]*opacity:\s*0\.62;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-time-list button:disabled\s*\{[^}]*color:\s*#697780 !important;[^}]*opacity:\s*0\.62;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-schedule-time-picker button:disabled\s*\{[^}]*color:\s*#697780 !important;[^}]*opacity:\s*0\.62;/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-schedule-time-picker\s*\{[^}]*background:\s*#151b20 !important;[^}]*color-scheme:\s*dark;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-schedule-time-picker\s*\{[^}]*color-scheme:\s*dark;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-schedule-time-picker,[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:hover:not\(:disabled\):not\(\.is-selected\),\s*html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:focus-visible:not\(:disabled\):not\(\.is-selected\)\s*\{\s*color:\s*#e2f3ff !important;/);
+  });
+
+  it('uses a glass surface for compact dark-theme popovers', () => {
+    expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-schedule-time-menu,[\s\S]*?html\[data-theme='dark'\] \.workspace-page-rich-text-emoji-picker--floating\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-rich-text-emoji-picker--floating\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(plannerNotificationStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner \.quick-planner-chat-menu,[\s\S]*?html\[data-theme='dark'\] \.quick-planner-emoji-picker--floating\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(plannerNotificationStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-emoji-picker--floating\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(globalStyles).toMatch(/html\[data-theme='dark'\] \.chat-picker-menu,\s*html\[data-theme='dark'\] \.history-source-menu\s*\{[^}]*backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-schedule-popover,[\s\S]*?html\[data-theme='dark'\] \.workspace-page-schedule-time-menu\s*\{[\s\S]*?backdrop-filter:\s*blur\(16px\) saturate\(135%\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-date-picker-grid button:not\(\.is-selected\):not\(:disabled\),[\s\S]*?background:\s*rgba\(15, 21, 26, 0\.42\) !important;/);
   });
 
   it('lightens selection and editing highlights in the light theme', () => {
@@ -2995,7 +3102,7 @@ describe('WorkspacePage main-screen flows', () => {
 
   it('aligns the empty editor prompt with the first typed line', () => {
     const editorRule = workspacePageStyles.match(/\.workspace-page-rich-text-input\s*\{[^}]*--workspace-page-editor-padding-block:\s*12px;[^}]*--workspace-page-editor-padding-inline:\s*14px;[^}]*\}/)?.[0] ?? '';
-    const emptyPromptRule = workspacePageStyles.match(/\.workspace-page-rich-text-input\.is-empty::before\s*\{([^}]*)\}/)?.[1] ?? '';
+    const emptyPromptRule = workspacePageStyles.match(/\.workspace-page-rich-text-input\.is-empty:not\(\.is-focused\)::before\s*\{([^}]*)\}/)?.[1] ?? '';
     const finalEditorRule = workspacePageStyles.match(/\.workspace-page \.workspace-page-rich-text-input\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(editorRule).not.toBe('');
@@ -3713,20 +3820,28 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('hides draft export and keeps the centered draft import flow available', async () => {
+  it('provides import choices and draft export together in the centered footer', async () => {
     const { unmount } = await renderWorkspacePage();
     await openDraftsStage();
     const footer = document.querySelector('.workspace-page-draft-stage-footer');
     const exportButton = Array.from(footer?.querySelectorAll('button') ?? [])
       .find((button) => button.getAttribute('aria-label') === 'Export all drafts') as HTMLButtonElement;
     const importButton = Array.from(footer?.querySelectorAll('button') ?? [])
-      .find((button) => button.getAttribute('aria-label') === 'Import a saved-drafts backup (.json); merge or replace the current library') as HTMLButtonElement;
+      .find((button) => button.getAttribute('aria-label') === 'Import') as HTMLButtonElement;
 
-    expect(exportButton).toBeUndefined();
+    expect(exportButton).toBeTruthy();
     expect(importButton).toBeTruthy();
-    expect(importButton.textContent).toContain('Import backup');
-    expect(importButton.title).toBe('Import a saved-drafts backup (.json); merge or replace the current library');
+    expect(importButton.title).toBe('Choose what to import');
+    expect(footer?.querySelectorAll('.workspace-page-draft-stage-tools > button')).toHaveLength(1);
     expect(footer?.querySelector('[title="Export .txt"]')).toBeNull();
+
+    vi.mocked(window.draftStorage.exportBackup).mockResolvedValueOnce({ success: true });
+    await act(async () => {
+      exportButton.click();
+      await Promise.resolve();
+    });
+    expect(window.draftStorage.exportBackup).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Backup exported.');
 
     vi.mocked(window.draftStorage.importBackup).mockResolvedValueOnce({
       success: true,
@@ -3734,10 +3849,14 @@ describe('WorkspacePage main-screen flows', () => {
     });
     await act(async () => {
       importButton.click();
+    });
+    const backupOption = screen.getByRole('menuitem', { name: 'Import backup' });
+    expect(screen.getByRole('menuitem', { name: 'Import .txt' })).toBeInTheDocument();
+    await act(async () => {
+      backupOption.click();
       await Promise.resolve();
     });
 
-    expect(window.draftStorage.exportBackup).not.toHaveBeenCalled();
     expect(window.draftStorage.importBackup).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toBe('Drafts imported.');
     unmount();
@@ -3929,7 +4048,7 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('preserves an unreadable template store and reports the storage error', async () => {
+  it('recovers a corrupt primary template store from valid legacy data', async () => {
     const corruptedTemplates = '{damaged templates';
     localStorage.setItem('xmsgi_domain_templates', corruptedTemplates);
     localStorage.setItem('awaitmsg_domain_templates', JSON.stringify([{
@@ -3943,9 +4062,10 @@ describe('WorkspacePage main-screen flows', () => {
 
     const { unmount } = await renderWorkspacePage();
 
-    expect(await screen.findByText('Templates could not be loaded or saved. Existing data was left unchanged.')).toBeInTheDocument();
-    expect(localStorage.getItem('xmsgi_domain_templates')).toBe(corruptedTemplates);
-    expect(localStorage.getItem('awaitmsg_domain_templates')).toContain('Do not overwrite');
+    expect(screen.queryByText('Templates could not be loaded or saved. Existing data was left unchanged.')).toBeNull();
+    expect(localStorage.getItem('xmsgi_domain_templates')).not.toBe(corruptedTemplates);
+    expect(localStorage.getItem('xmsgi_domain_templates')).toContain('Do not overwrite');
+    expect(localStorage.getItem('xmsgi_domain_templates_backup')).toContain('Do not overwrite');
     unmount();
   });
 
@@ -4002,7 +4122,7 @@ describe('WorkspacePage main-screen flows', () => {
       templatesButton.click();
     });
     await act(async () => {
-      (document.querySelector('.workspace-page-rich-text-template-stage .workspace-page-template-stage-footer-actions button') as HTMLButtonElement).click();
+      screen.getByRole('button', { name: '+ New template' }).click();
     });
 
     const nameInput = document.querySelector('[aria-label="Template name"]') as HTMLInputElement;
@@ -4056,12 +4176,13 @@ describe('WorkspacePage main-screen flows', () => {
     vi.mocked(window.draftStorage.importText).mockResolvedValueOnce({ success: true, text: 'Imported plain text' });
     const { unmount } = await renderWorkspacePage();
     await openDraftsStage();
-    const importButton = document.querySelector('.workspace-page-rich-text-draft-stage [aria-label="Import text into editor"]') as HTMLButtonElement;
-    expect(importButton.textContent).toContain('Import .txt');
-    expect(importButton.title).toBe('Import a .txt file into the editor');
+    const importButton = document.querySelector('.workspace-page-rich-text-draft-stage [aria-label="Import"]') as HTMLButtonElement;
 
     await act(async () => {
       importButton.click();
+    });
+    await act(async () => {
+      screen.getByRole('menuitem', { name: 'Import .txt' }).click();
       await Promise.resolve();
     });
     const replaceConfirmation = screen.getByRole('alertdialog');
@@ -4086,7 +4207,10 @@ describe('WorkspacePage main-screen flows', () => {
     await openDraftsStage();
 
     await act(async () => {
-      (document.querySelector('[aria-label="Import text into editor"]') as HTMLButtonElement).click();
+      (document.querySelector('[aria-label="Import"]') as HTMLButtonElement).click();
+    });
+    await act(async () => {
+      screen.getByRole('menuitem', { name: 'Import .txt' }).click();
       await Promise.resolve();
     });
 
@@ -4278,6 +4402,35 @@ describe('WorkspacePage main-screen flows', () => {
       expect(document.querySelector('.workspace-page-attachment-preview img')?.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
     } finally {
       vi.useRealTimers();
+      unmount();
+    }
+  });
+
+  it('adds JFIF files with generic MIME as JPEG images to a photo album', async () => {
+    const { unmount } = await renderWorkspacePage();
+    const albumInput = document.querySelector<HTMLInputElement>('input[accept*=".jfif"][multiple]')!;
+    const jfif = new File(['image'], 'photo.jfif', { type: 'application/octet-stream' });
+    vi.mocked(window.draftStorage.readImageDataUrl!).mockResolvedValue({
+      success: true,
+      dataUrl: 'data:image/jpeg;base64,dGVzdA==',
+    });
+
+    await act(async () => {
+      Object.defineProperty(albumInput, 'files', { value: [jfif], configurable: true });
+      albumInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    try {
+      await waitFor(() => {
+        expect(window.draftStorage.copyAttachment).toHaveBeenCalledWith(jfif);
+        expect(window.draftStorage.readImageDataUrl).toHaveBeenCalledWith('/stored/photo.jfif');
+        expect(document.querySelector('.workspace-page-photo-album-preview img')).toHaveAttribute(
+          'src',
+          'data:image/jpeg;base64,dGVzdA==',
+        );
+      });
+    } finally {
       unmount();
     }
   });
@@ -5079,6 +5232,8 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('shows an enlarged preview when hovering or focusing an attached image', async () => {
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-thumbnail\s*\{[^}]*box-sizing:\s*border-box;[^}]*border:\s*1px solid/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-preview\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*10000;[^}]*pointer-events:\s*none;/);
     localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
       body: 'Photo caption',
       entities: [],

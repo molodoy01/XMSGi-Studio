@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
 import { Eraser } from 'lucide-react';
 import type { RichTextEntity } from '@studio/types';
-import { editorHtmlToRichText, normalizeEditorText, richTextToHtml, sliceRichText } from '@studio/lib/richText';
+import {
+  editorHtmlToRichText,
+  getEditorTextBoundary,
+  getEditorTextOffset,
+  normalizeEditorText,
+  richTextToHtml,
+  sliceRichText,
+} from '@studio/lib/richText';
 import { getMessageCounterTone, getRemainingMessageLength } from '@studio/lib/messageLimits';
 import { useLocale } from '@studio/lib/i18n';
 import { EditorToolbar } from '@studio/components/editor/EditorToolbar';
@@ -10,6 +17,8 @@ import type { EditorToolbarFormat } from '@studio/components/editor/EditorToolba
 import { LogoIntroAnimation, type LogoIntroState } from '@studio/components/editor/LogoIntroAnimation';
 import { useEditorFormats } from '@studio/components/editor/useEditorFormats';
 import { useEditorSelection } from '@studio/components/editor/useEditorSelection';
+
+const INDENT_WIDTH = 2;
 
 interface Props {
   text: string;
@@ -44,52 +53,16 @@ function isValidEditorLink(value: string): boolean {
   }
 }
 
-function getNormalizedEditorTextLength(node: Node): number {
-  if (node.nodeType === Node.TEXT_NODE) return normalizeEditorText(node.textContent ?? '').length;
-  if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') return 1;
-  return Array.from(node.childNodes).reduce((length, child) => length + getNormalizedEditorTextLength(child), 0);
-}
-
-function getNormalizedEditorTextOffset(root: HTMLElement, targetNode: Node, targetOffset: number): number | null {
-  let offset = 0;
-
-  const visit = (node: Node): boolean => {
-    if (node === targetNode) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        offset += normalizeEditorText((node.textContent ?? '').slice(0, targetOffset)).length;
-      } else {
-        const childLimit = Math.max(0, Math.min(targetOffset, node.childNodes.length));
-        for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
-          offset += getNormalizedEditorTextLength(node.childNodes[childIndex]);
-        }
-      }
-      return true;
-    }
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      offset += normalizeEditorText(node.textContent ?? '').length;
-      return false;
-    }
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR') {
-      offset += 1;
-      return false;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      if (visit(child)) return true;
-    }
-    return false;
-  };
-
-  return visit(root) ? offset : null;
-}
-
 export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteImages, inputRef, stageContent, stageMode = 'editor', maxLength, onOpenAlbum, albumDisabled, onExportText, onBeforeClear, onOpenVersionHistory, selectedEffectId, onEffectChange }: Props) {
   const { t } = useLocale();
+  const [hasIndentedLineBreak, setHasIndentedLineBreak] = useState(false);
+  const hasEditorContent = Boolean(text.trim()) || hasIndentedLineBreak;
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorScrollbarRef = useRef<HTMLDivElement | null>(null);
   const editorScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const logicalTextLengthRef = useRef(text.length);
+  const previousTextRef = useRef(text);
+  const pendingTabEnterRef = useRef(false);
   const [editorScrollMetrics, setEditorScrollMetrics] = useState({
     scrollTop: 0,
     scrollHeight: 0,
@@ -122,6 +95,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
   });
   useEffect(() => {
     logicalTextLengthRef.current = text.length;
+    if (previousTextRef.current && !text) setHasIndentedLineBreak(false);
+    previousTextRef.current = text;
     const editor = editorRef.current;
     if (!editor || document.activeElement === editor) return;
     const nextHtml = richTextToHtml(text, entities);
@@ -229,15 +204,23 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     const editor = editorRef.current;
     const selection = window.getSelection();
     const selectionRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectionNodes = selectionRange ? {
+      startContainer: selectionRange.startContainer,
+      startOffset: selectionRange.startOffset,
+      endContainer: selectionRange.endContainer,
+      endOffset: selectionRange.endOffset,
+    } : null;
     const selectionOffsets = selectionRange
       && (selectionRange.startContainer === editor || editor.contains(selectionRange.startContainer))
       && (selectionRange.endContainer === editor || editor.contains(selectionRange.endContainer))
       ? {
-          start: getNormalizedEditorTextOffset(editor, selectionRange.startContainer, selectionRange.startOffset),
-          end: getNormalizedEditorTextOffset(editor, selectionRange.endContainer, selectionRange.endOffset),
+          start: getEditorTextOffset(editor, selectionRange.startContainer, selectionRange.startOffset),
+          end: getEditorTextOffset(editor, selectionRange.endContainer, selectionRange.endOffset),
         }
       : null;
+    const editorHtmlBeforeParsing = editor.innerHTML;
     const value = editorHtmlToRichText(editor);
+    const editorDomChanged = editor.innerHTML !== editorHtmlBeforeParsing;
     const limited = value.text.length > maxLength
       ? sliceRichText(value.text, value.entities, 0, maxLength)
       : value;
@@ -254,6 +237,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
       } else {
         const mapOffset = (sourceOffset: number | null) => {
           if (sourceOffset === null) return limited.text.length;
+          if (!value.markdownChanged) return Math.min(sourceOffset, limited.text.length);
           const sourceOffsetMap = value.sourceOffsetMap ?? [];
           const safeOffset = Math.max(0, Math.min(sourceOffset, sourceOffsetMap.length - 1));
           return Math.min(sourceOffsetMap[safeOffset] ?? limited.text.length, limited.text.length);
@@ -265,9 +249,25 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
           );
         }
       }
-    } else if (selectionOffsets?.start !== null && selectionOffsets?.start !== undefined
+    } else if (editorDomChanged
+      && selectionOffsets?.start !== null && selectionOffsets?.start !== undefined
       && selectionOffsets?.end !== null && selectionOffsets?.end !== undefined) {
-      restoreTextSelection(selectionOffsets.start, selectionOffsets.end);
+      const startNode = selectionNodes?.startContainer;
+      const endNode = selectionNodes?.endContainer;
+      if (startNode?.isConnected && endNode?.isConnected
+        && (startNode === editor || editor.contains(startNode))
+        && (endNode === editor || editor.contains(endNode))) {
+        const getRestoredOffset = (node: Node, offset: number) => node.nodeType === Node.TEXT_NODE
+          ? normalizeEditorText((node.textContent ?? '').slice(0, offset)).length
+          : Math.min(offset, node.childNodes.length);
+        const restoredRange = document.createRange();
+        restoredRange.setStart(startNode, getRestoredOffset(startNode, selectionNodes!.startOffset));
+        restoredRange.setEnd(endNode, getRestoredOffset(endNode, selectionNodes!.endOffset));
+        selection?.removeAllRanges();
+        selection?.addRange(restoredRange);
+      } else {
+        restoreTextSelection(selectionOffsets.start, selectionOffsets.end);
+      }
     }
     if (selectionOffsets) saveSelection();
     onChange(limited.text, limited.entities);
@@ -500,6 +500,13 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     if (shouldPreventEditorInsertion(currentLength, selectedLength, maxLength)) event.preventDefault();
   };
 
+  const saveOrInitializeEditorSelection = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (editor.childNodes.length === 0) placeCaretAtStart();
+    else saveSelection();
+  };
+
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
 
@@ -573,6 +580,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     const editor = editorRef.current;
     if (!editor) return;
     editor.innerHTML = '';
+    setHasIndentedLineBreak(false);
     logicalTextLengthRef.current = 0;
     clearSelection();
     onChange('', []);
@@ -583,7 +591,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
 
   const remainingCharacters = getRemainingMessageLength(text.length, maxLength);
   const counterTone = getMessageCounterTone(remainingCharacters);
-  const hasEditorText = Boolean(text.trim());
+  const hasEditorText = text.length > 0 || hasIndentedLineBreak;
   useEffect(() => {
     const updateHighlightFromPointerDown = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return;
@@ -673,7 +681,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
               editorRef.current = element;
               if (inputRef) inputRef.current = element;
             }}
-            className={`workspace-page-textarea workspace-page-rich-text-input workspace-page-rich-text-stage-view ${stageMode === 'editor' ? 'is-active' : ''} ${text.trim() ? 'has-content' : 'is-empty'} ${isLogoIntroActive ? 'is-logo-intro' : ''} ${logoState.glowFinishing ? 'is-logo-intro-finishing' : ''}`}
+            className={`workspace-page-textarea workspace-page-rich-text-input workspace-page-rich-text-stage-view ${stageMode === 'editor' ? 'is-active' : ''} ${hasEditorContent ? 'has-content' : 'is-empty'} ${editorFocused ? 'is-focused' : ''} ${isLogoIntroActive ? 'is-logo-intro' : ''} ${logoState.glowFinishing ? 'is-logo-intro-finishing' : ''}`}
             contentEditable
             suppressContentEditableWarning
             role="textbox"
@@ -685,10 +693,160 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
             onFocus={() => {
               if (!suppressToolbarActivationRef.current) setToolbarActive(true);
               setEditorFocused(true);
-              if (!text.trim()) placeCaretAtStart();
+              if (!hasEditorContent) placeCaretAtStart();
             }}
             onBeforeInput={handleBeforeInput}
             onKeyDown={(event) => {
+              if (event.key === 'Enter' && event.nativeEvent.isComposing) {
+                pendingTabEnterRef.current = false;
+                return;
+              }
+              if (
+                event.key !== 'Tab'
+                && (event.key !== 'Enter' || event.ctrlKey || event.metaKey || event.altKey)
+              ) {
+                pendingTabEnterRef.current = false;
+              }
+              if (event.key === 'Tab') {
+                pendingTabEnterRef.current = false;
+                const editor = editorRef.current;
+                const selection = window.getSelection();
+                const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+                if (!editor || !selection || !range
+                  || (range.startContainer !== editor && !editor.contains(range.startContainer))) {
+                  event.preventDefault();
+                  return;
+                }
+
+                const start = getEditorTextOffset(editor, range.startContainer, range.startOffset);
+                const end = getEditorTextOffset(editor, range.endContainer, range.endOffset);
+                if (start === null || end === null) {
+                  event.preventDefault();
+                  return;
+                }
+
+                event.preventDefault();
+                const value = editorHtmlToRichText(editor).text;
+                if (event.shiftKey) setHasIndentedLineBreak(false);
+                const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+                const lineStarts = [lineStart];
+                let newline = value.indexOf('\n', lineStart);
+                while (newline !== -1 && newline + 1 < end) {
+                  lineStarts.push(newline + 1);
+                  newline = value.indexOf('\n', newline + 1);
+                }
+
+                if (!event.shiftKey && logicalTextLengthRef.current + lineStarts.length * INDENT_WIDTH > maxLength) {
+                  pendingTabEnterRef.current = false;
+                  event.preventDefault();
+                  return;
+                }
+
+                const editAtTextOffset = (offset: number, insertedText: string) => {
+                  const boundary = getEditorTextBoundary(editor, offset);
+                  const insertionRange = document.createRange();
+                  insertionRange.setStart(boundary.node, boundary.offset);
+                  insertionRange.collapse(true);
+                  insertionRange.insertNode(document.createTextNode(insertedText));
+                };
+
+                if (!event.shiftKey && start === end) {
+                  range.deleteContents();
+                  const indent = document.createTextNode('  ');
+                  range.insertNode(indent);
+                  range.setStartAfter(indent);
+                  range.collapse(true);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                } else if (event.shiftKey) {
+                  const removals = lineStarts.flatMap((offset) => {
+                    const leadingSpaces = value.slice(offset).match(/^ +/)?.[0].length ?? 0;
+                    return leadingSpaces > 0 ? [{ offset, length: Math.min(INDENT_WIDTH, leadingSpaces) }] : [];
+                  });
+                  if (removals.length === 0) return;
+
+                  const mapOffset = (offset: number) => {
+                    let removed = 0;
+                    for (const removal of removals) {
+                      if (offset <= removal.offset) break;
+                      if (offset <= removal.offset + removal.length) {
+                        return removal.offset - removed;
+                      }
+                      removed += removal.length;
+                    }
+                    return offset - removed;
+                  };
+                  for (const removal of [...removals].reverse()) {
+                    const removalRange = document.createRange();
+                    const from = getEditorTextBoundary(editor, removal.offset);
+                    const to = getEditorTextBoundary(editor, removal.offset + removal.length);
+                    removalRange.setStart(from.node, from.offset);
+                    removalRange.setEnd(to.node, to.offset);
+                    removalRange.deleteContents();
+                  }
+                  restoreTextSelection(mapOffset(start), mapOffset(end));
+                } else {
+                  for (const offset of [...lineStarts].reverse()) editAtTextOffset(offset, '  ');
+                  const insertedBeforeStart = lineStarts.filter((offset) => offset <= start).length * INDENT_WIDTH;
+                  const insertedBeforeEnd = lineStarts.filter((offset) => offset < end).length * INDENT_WIDTH;
+                  restoreTextSelection(start + insertedBeforeStart, end + insertedBeforeEnd);
+                }
+
+                pendingTabEnterRef.current = !event.shiftKey;
+                emitChange();
+                saveSelection();
+                return;
+              }
+
+              if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                if (!pendingTabEnterRef.current) return;
+                const editor = editorRef.current;
+                if (!editor) return;
+                event.preventDefault();
+                const selection = window.getSelection();
+                let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+                const hasEditorRange = Boolean(range
+                  && (range.startContainer === editor || editor?.contains(range.startContainer))
+                  && (range.endContainer === editor || editor?.contains(range.endContainer)));
+                if (!range || !hasEditorRange) {
+                  range = document.createRange();
+                  range.selectNodeContents(editor);
+                  range.collapse(false);
+                }
+                if (!selection) return;
+
+                let indent = '';
+                if (pendingTabEnterRef.current && range) {
+                  const offset = getEditorTextOffset(editor, range.startContainer, range.startOffset);
+                  if (offset !== null) {
+                    const value = editorHtmlToRichText(editor).text;
+                    const lineStart = value.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
+                    indent = value.slice(lineStart).match(/^[ \t]*/)?.[0] ?? '';
+                  }
+                }
+                pendingTabEnterRef.current = false;
+
+                const selectedLength = range.toString().length;
+                if (logicalTextLengthRef.current - selectedLength + 2 + indent.length > maxLength) return;
+
+                range.deleteContents();
+                const firstLineBreak = document.createElement('br');
+                const secondLineBreak = document.createElement('br');
+                range.insertNode(firstLineBreak);
+                firstLineBreak.parentNode?.insertBefore(secondLineBreak, firstLineBreak.nextSibling);
+                const caretMarker = document.createTextNode(indent);
+                secondLineBreak.parentNode?.insertBefore(caretMarker, secondLineBreak.nextSibling);
+                const nextRange = document.createRange();
+                nextRange.setStart(caretMarker, caretMarker.length);
+                nextRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(nextRange);
+                setHasIndentedLineBreak(true);
+                emitChange();
+                saveSelection();
+                return;
+              }
+
               if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== 'h') return;
               event.preventDefault();
               onOpenVersionHistory?.();
@@ -706,8 +864,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
               } else {
                 const currentRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
                 if (!currentRange) return;
-                const start = getNormalizedEditorTextOffset(editor, currentRange.startContainer, currentRange.startOffset);
-                const end = getNormalizedEditorTextOffset(editor, currentRange.endContainer, currentRange.endOffset);
+                const start = getEditorTextOffset(editor, currentRange.startContainer, currentRange.startOffset);
+                const end = getEditorTextOffset(editor, currentRange.endContainer, currentRange.endOffset);
                 if (start === null || end === null) return;
 
                 const editorText = editorHtmlToRichText(editor).text;
@@ -720,18 +878,26 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
               saveSelection();
               syncToolbarStateFromSelection();
             }}
-            onInput={() => {
+            onInput={(event) => {
+              const inputType = (event.nativeEvent as InputEvent).inputType;
+              if (inputType === 'insertParagraph' || inputType === 'insertLineBreak') {
+                setHasIndentedLineBreak(true);
+              } else {
+                pendingTabEnterRef.current = false;
+                if (inputType?.startsWith('delete') && editorRef.current) {
+                  const value = editorHtmlToRichText(editorRef.current).text;
+                  setHasIndentedLineBreak(/[ \t]+\n/.test(value));
+                }
+              }
               if (!isApplyingFormatRef.current) emitChange();
               scheduleToolbarStateSync();
             }}
             onMouseUp={() => {
-              if (editorRef.current?.textContent) saveSelection();
-              else placeCaretAtStart();
+              saveOrInitializeEditorSelection();
               syncToolbarStateFromSelection();
             }}
             onKeyUp={() => {
-              if (editorRef.current?.textContent) saveSelection();
-              else placeCaretAtStart();
+              saveOrInitializeEditorSelection();
               syncToolbarStateFromSelection();
             }}
             onSelect={() => {
@@ -753,7 +919,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
           <LogoIntroAnimation
             stageMode={stageMode}
             editorFocused={editorFocused}
-            hasContent={Boolean(text.trim())}
+            hasContent={hasEditorContent}
             editorRef={editorRef}
             state={logoState}
             setState={setLogoState}

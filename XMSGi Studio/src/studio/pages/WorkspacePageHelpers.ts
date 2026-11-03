@@ -98,15 +98,17 @@ export function loadTemplatesWithDefault(): { templates: Template[]; storageErro
 
   try {
     let templatesChanged = false;
-    if (window.localStorage.getItem(DEFAULT_TEMPLATE_SEEDED_KEY) !== '1') {
+    const seedDefaultTemplate = window.localStorage.getItem(DEFAULT_TEMPLATE_SEEDED_KEY) !== '1';
+    const seedBuiltInTemplates = window.localStorage.getItem(BUILT_IN_TEMPLATES_SEEDED_KEY) !== '1';
+
+    if (seedDefaultTemplate) {
       if (!templates.some((template) => template.name === DEFAULT_DRAFT_NAME && template.body === DEFAULT_DRAFT_BODY)) {
         templates.push(createTemplate({ name: DEFAULT_DRAFT_NAME, body: DEFAULT_DRAFT_BODY }));
         templatesChanged = true;
       }
-      window.localStorage.setItem(DEFAULT_TEMPLATE_SEEDED_KEY, '1');
     }
 
-    if (window.localStorage.getItem(BUILT_IN_TEMPLATES_SEEDED_KEY) !== '1') {
+    if (seedBuiltInTemplates) {
       const missingTemplates = BUILT_IN_TEMPLATES
         .filter((builtIn) => !templates.some((template) => template.name === builtIn.name && template.body === builtIn.body))
         .map((template) => createTemplate(template));
@@ -114,11 +116,11 @@ export function loadTemplatesWithDefault(): { templates: Template[]; storageErro
         templates = [...missingTemplates, ...templates];
         templatesChanged = true;
       }
-      if (templatesChanged) saveTemplates(templates);
-      window.localStorage.setItem(BUILT_IN_TEMPLATES_SEEDED_KEY, '1');
-    } else if (templatesChanged) {
-      saveTemplates(templates);
     }
+
+    if (templatesChanged) saveTemplates(templates);
+    if (seedDefaultTemplate) window.localStorage.setItem(DEFAULT_TEMPLATE_SEEDED_KEY, '1');
+    if (seedBuiltInTemplates) window.localStorage.setItem(BUILT_IN_TEMPLATES_SEEDED_KEY, '1');
   } catch {
     return { templates, storageError: true };
   }
