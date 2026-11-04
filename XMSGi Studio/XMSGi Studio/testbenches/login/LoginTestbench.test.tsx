@@ -117,10 +117,10 @@ describe('LoginTestbench', () => {
       .toHaveTextContent('Checking your connection…');
 
     fireEvent.change(statePicker, { target: { value: 'opening-studio' } });
-    expect(document.querySelector('.connection-spinner'))
-      .toHaveAttribute('role', 'status');
-    expect(document.querySelector('.connection-status-card'))
-      .toHaveTextContent('Opening Studio…');
+    const openingStudioButton = screen.getByRole('button', { name: 'Opening Studio…' });
+    expect(openingStudioButton).toHaveAttribute('aria-busy', 'true');
+    expect(openingStudioButton.querySelector('.login-returning-spinner')).toBeInTheDocument();
+    expect(document.querySelector('.connection-spinner')).not.toBeInTheDocument();
 
     fireEvent.change(statePicker, { target: { value: 'offline' } });
     expect(screen.getByRole('status')).toHaveTextContent('No internet connection. Reconnect and try again.');

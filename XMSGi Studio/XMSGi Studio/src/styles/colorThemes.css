@@ -735,6 +735,19 @@ html[data-theme='dark'] .workspace-page-version-history-document-menu {
   scrollbar-color: #596974 #20282e;
 }
 
+html[data-theme='light'] .workspace-page-version-history-restore {
+  color: #8f3434;
+}
+
+html[data-theme='light'] .workspace-page-version-history-restore:hover:not(:disabled) {
+  color: #762a2a;
+}
+
+html[data-theme='light'] .workspace-page-version-history-restore:disabled {
+  color: #65717a;
+  opacity: 1;
+}
+
 html[data-theme='dark'] .workspace-page-version-history-list::-webkit-scrollbar-track,
 html[data-theme='dark'] .workspace-page-version-history-preview::-webkit-scrollbar-track,
 html[data-theme='dark'] .workspace-page-version-history-document-menu::-webkit-scrollbar-track {

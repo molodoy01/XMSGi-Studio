@@ -56,6 +56,7 @@ export function LoginPage({
   const { locale, t } = useLocale();
   const [colorTheme, setColorTheme] = useState(readColorTheme);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [returningFontsReady, setReturningFontsReady] = useState(false);
   const returningUserLabel = returningUserName || (returningUserUsername ? `@${returningUserUsername}` : t('auth.returningUser'));
   const returningUserActionLabel = t('auth.returnToApp', { name: returningUserLabel });
   const loginLayoutRef = useRef<HTMLElement>(null);
@@ -78,6 +79,40 @@ export function LoginPage({
       window.removeEventListener('offline', updateOnlineState);
     };
   }, []);
+
+  useEffect(() => {
+    if (!signedOut || returningFontsReady) return undefined;
+
+    const fontSet = document.fonts;
+    if (!fontSet || typeof fontSet.load !== 'function') {
+      setReturningFontsReady(true);
+      return undefined;
+    }
+
+    let active = true;
+    const fontLoads = [
+      fontSet.load('700 76px "Orbitron"', `${t('auth.loginHeroMain')} ${t('auth.welcomeBack')}`),
+      fontSet.load('800 32px "Orbitron"', t('auth.loginHeroSub')),
+      fontSet.load('700 23px "Orbitron"', t('auth.loginHeroTagline')),
+      fontSet.load('700 18px "Exo 2"', t('auth.loginHeroTagline')),
+      fontSet.load('500 14px "Exo 2"', t('auth.loginHeroTaglineSub')),
+      fontSet.load('600 14px "Exo 2"', `${returningUserActionLabel} ${t('auth.openingStudio')}`),
+    ];
+
+    void Promise.allSettled(fontLoads).then((results) => {
+      if (!active) return;
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          console.error('Unable to load a Welcome Back font before display.', result.reason);
+        }
+      }
+      setReturningFontsReady(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [locale, returningFontsReady, returningUserActionLabel, signedOut, t]);
 
   useLayoutEffect(() => {
     const layout = loginLayoutRef.current;
@@ -115,6 +150,12 @@ export function LoginPage({
           divider.style.setProperty('--login-divider-line-top', `${heroTop - dividerRect.top}px`);
           divider.style.setProperty('--login-divider-line-height', `${heroBottom - heroTop}px`);
         }
+      }
+
+      if (signedOut) {
+        const panelFlowTop = panel.offsetTop - appliedTop;
+        panel.style.setProperty('--login-panel-offset', `${studioRect.top - layoutTop - panelFlowTop}px`);
+        return;
       }
 
       if (showAuthForm && visibleAuthMessage && errorSlot && window.innerWidth >= 461) {
@@ -162,11 +203,11 @@ export function LoginPage({
       resizeObserver.disconnect();
       window.removeEventListener('resize', syncPanelTop);
     };
-  }, [authError, authStep, locale, showAuthForm, visibleAuthMessage]);
+  }, [authError, authStep, locale, returningUserActionLabel, showAuthForm, signedOut, visibleAuthMessage]);
 
   return (
     <>
-      {connecting && isOnline && (
+      {connecting && isOnline && !(openingStudio && signedOut) && (
         <div className="connection-spinner show" role="status" aria-live="polite">
           <div className="connection-status-card">
             <div className="connection-spinner-ring" aria-hidden="true" />
@@ -176,7 +217,7 @@ export function LoginPage({
       )}
 
       <div className="app">
-        <section className={`auth-panel auth-screen ${showAuthForm ? 'is-auth-open' : ''}`} lang={locale}>
+        <section className={`auth-panel auth-screen${showAuthForm ? ' is-auth-open' : ''}${signedOut ? ' is-returning' : ''}${signedOut && returningFontsReady ? ' is-returning-fonts-ready' : ''}`} lang={locale}>
           <div className="auth-top-controls">
             <button
               type="button"
@@ -244,11 +285,15 @@ export function LoginPage({
                       className="login-returning-account"
                       onClick={handleWelcomeBack}
                       disabled={authBusy}
-                      aria-label={returningUserActionLabel}
-                      data-tooltip={returningUserActionLabel}
+                      aria-label={openingStudio ? t('auth.openingStudio') : returningUserActionLabel}
+                      aria-busy={openingStudio}
+                      aria-live="polite"
+                      data-tooltip={openingStudio ? t('auth.openingStudio') : returningUserActionLabel}
                     >
-                      <span>{returningUserActionLabel}</span>
-                      <ArrowUpRight size={18} aria-hidden="true" />
+                      <span>{openingStudio ? t('auth.openingStudio') : returningUserActionLabel}</span>
+                      {openingStudio
+                        ? <span className="login-returning-spinner" aria-hidden="true" />
+                        : <ArrowUpRight size={18} aria-hidden="true" />}
                     </button>
                   </div>
                 ) : (

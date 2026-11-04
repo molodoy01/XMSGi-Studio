@@ -1,10 +1,15 @@
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyColorTheme, COLOR_THEME_STORAGE_KEY } from '@/lib/colorTheme';
 import { LocaleProvider } from '@/lib/i18n';
 import { LoginPage } from './LoginPage';
+
+const loginPageStyles = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'LoginPage.css'), 'utf8');
 
 function renderLogin(overrides: Partial<ComponentProps<typeof LoginPage>> = {}) {
   const props: ComponentProps<typeof LoginPage> = {
@@ -67,8 +72,10 @@ describe('LoginPage', () => {
     expect(container.querySelector('.auth-screen')).toHaveAttribute('lang');
     if (signedOut) {
       expect(container.querySelector('.login-returning-user')).toBeInTheDocument();
+      expect(container.querySelector('.auth-screen')).toHaveClass('is-returning');
     } else {
       expect(container.querySelector('.login-returning-user')).not.toBeInTheDocument();
+      expect(container.querySelector('.auth-screen')).not.toHaveClass('is-returning');
     }
   });
 
@@ -297,11 +304,76 @@ describe('LoginPage', () => {
     }
   });
 
-  it('shows the Studio message while returning to a saved account', () => {
-    renderLogin({ connecting: true, openingStudio: true });
+  it('shows the Studio loading state inside the return button', () => {
+    const { container } = renderLogin({
+      connecting: true,
+      openingStudio: true,
+      signedOut: true,
+      authBusy: true,
+      returningUserName: 'Alex Example',
+    });
 
-    expect(screen.getByRole('status')).toHaveTextContent('Opening Studio…');
+    const returnButton = screen.getByRole('button', { name: 'Opening Studio…' });
+    expect(returnButton).toHaveAttribute('aria-busy', 'true');
+    expect(returnButton).toHaveAttribute('aria-live', 'polite');
+    expect(returnButton.querySelector('.login-returning-spinner')).toHaveAttribute('aria-hidden', 'true');
+    expect(container.querySelector('.connection-spinner')).not.toBeInTheDocument();
     expect(screen.queryByText('Checking your connection…')).not.toBeInTheDocument();
+  });
+
+  it('waits for the Welcome Back fonts before revealing the layout', async () => {
+    const originalFonts = Object.getOwnPropertyDescriptor(document, 'fonts');
+    const resolveFontLoads: Array<() => void> = [];
+    const load = vi.fn(() => new Promise<FontFace[]>((resolve) => {
+      resolveFontLoads.push(() => resolve([]));
+    }));
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { load } });
+
+    try {
+      const { container } = renderLogin({ signedOut: true });
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(6));
+      expect(container.querySelector('.auth-screen')).not.toHaveClass('is-returning-fonts-ready');
+
+      resolveFontLoads.forEach((resolve) => resolve());
+      await waitFor(() => {
+        expect(container.querySelector('.auth-screen')).toHaveClass('is-returning-fonts-ready');
+      });
+    } finally {
+      if (originalFonts) {
+        Object.defineProperty(document, 'fonts', originalFonts);
+      } else {
+        Reflect.deleteProperty(document, 'fonts');
+      }
+    }
+  });
+
+  it('keeps the Welcome Back layout from animating into a shifted position', () => {
+    expect(loginPageStyles).toMatch(
+      /\.auth-screen\.is-returning \.login-layout\s*\{\s*animation:\s*none;/,
+    );
+    expect(loginPageStyles).toMatch(
+      /\.auth-screen\.is-returning:not\(\.is-returning-fonts-ready\) \.login-layout\s*\{\s*visibility:\s*hidden;/,
+    );
+    expect(loginPageStyles).toMatch(
+      /\.auth-screen\.is-returning \.login-panel\s*\{\s*transition:\s*none;/,
+    );
+    expect(loginPageStyles).toMatch(
+      /@media \(min-width: 461px\)\s*\{[\s\S]*?\.auth-screen\.is-returning \.login-layout\s*\{\s*transform:\s*translateY\(calc\(0px - var\(--app-topbar-height, 45px\)\)\);/,
+    );
+    expect(loginPageStyles).toMatch(/\.login-panel\s*\{[^}]*align-self:\s*start;[^}]*top:\s*var\(--login-panel-offset, 0px\);/);
+
+    const bounds = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('login-layout')) return new DOMRect(0, 200, 700, 355);
+      if (this.classList.contains('login-wordmark-bottom')) return new DOMRect(0, 180, 100, 40);
+      return new DOMRect(0, 0, 0, 0);
+    });
+
+    try {
+      const { container } = renderLogin({ signedOut: true });
+      expect(container.querySelector('.login-panel')).toHaveStyle('--login-panel-offset: -20px');
+    } finally {
+      bounds.mockRestore();
+    }
   });
 
   it('closes the form when Continue is clicked a second time', () => {

@@ -1748,12 +1748,21 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
       grid-template-columns: minmax(0, 1fr);
       justify-items: center;
       align-self: center;
+      align-content: safe center;
       width: min(calc(100% + 12px), 760px);
       margin-left: 0;
     }
 
+    html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-activity {
+      display: none;
+    }
+
+    html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading {
+      min-height: 0;
+      margin-bottom: 0;
+    }
+
     html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-workbench {
-      top: -68px;
       left: 0;
       width: min(100%, 760px);
     }
@@ -1796,9 +1805,17 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
 }
 
 @media (max-width: 780px) {
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-layout {
+    align-content: safe center;
+  }
+
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-workbench {
-    height: auto;
-    min-height: 676px;
+    box-sizing: border-box;
+    height: 510px;
+    min-height: 510px;
+    flex: 0 0 510px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-toolbar,

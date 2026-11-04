@@ -58,6 +58,7 @@ html[data-theme='dark'] .login-submit:active {
     height: 355px;
     min-height: 355px;
     grid-template-rows: minmax(0, 1fr);
+    top: 0;
     transition: none;
   }
 

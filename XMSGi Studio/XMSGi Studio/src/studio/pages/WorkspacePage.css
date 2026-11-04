@@ -6670,29 +6670,6 @@ html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .works
   justify-self: end;
 }
 
-@container draft-stage (max-width: 530px) {
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) > .workspace-page-draft-stage-footer {
-    grid-template-columns: minmax(0, 1fr) max-content;
-    grid-template-rows: auto auto;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-tools {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    justify-self: end;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-footer-left {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-add {
-    grid-column: 2;
-    grid-row: 2;
-  }
-}
-
 .workspace-page-draft-stage-footer .workspace-page-stage-secondary,
 .workspace-page-draft-stage-footer .workspace-page-stage-primary {
   min-height: 34px;
@@ -9960,14 +9937,14 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
     height: 100%;
     min-height: 0;
     gap: 0;
-    max-width: min(320px, 100%);
+    max-width: min(640px, 100%);
     padding: 0 8px;
     scroll-padding-right: 8px;
     scroll-padding-left: 8px;
   }
 
   .workspace-page-attachment-tray .workspace-page-attachment-scrollbar {
-    max-width: min(320px, 100%);
+    max-width: min(640px, 100%);
   }
 
   .workspace-page-attachment-card {

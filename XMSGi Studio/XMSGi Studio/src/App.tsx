@@ -994,7 +994,7 @@ function AppContent() {
       closeNotification={closeNotification}
       connected={sessionResolved && (connected || sessionAvailable) && !signedOut}
       connectionRecoveryStatus={connectionRecoveryStatus}
-      headerPending={connecting || !connectionResolved}
+      headerPending={connecting || !connectionResolved || signedOut}
       authBusy={authBusy}
       isConfirmingLogout={isConfirmingLogout}
       setIsConfirmingLogout={setIsConfirmingLogout}

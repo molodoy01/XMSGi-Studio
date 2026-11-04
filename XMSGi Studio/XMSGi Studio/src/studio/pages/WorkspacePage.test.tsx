@@ -31,6 +31,17 @@ const globalStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import
 const colorThemeStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/colorThemes.css'), 'utf8');
 const themeTokenStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/tokens.css'), 'utf8');
 
+describe('WorkspacePage version history restore colors', () => {
+  it('keeps the restore action readable in the light theme, including when disabled', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page-version-history-restore\s*\{[^}]*color:\s*#8f3434;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page-version-history-restore:disabled\s*\{[^}]*color:\s*#65717a;[^}]*opacity:\s*1;/,
+    );
+  });
+});
+
 describe('WorkspacePage editor line breaks', () => {
   it('keeps contenteditable line breaks inline so Enter advances by one row', () => {
     const lineBreakRule = workspacePageStyles.match(/\.workspace-page-rich-text-input br\s*\{([^}]*)\}/)?.[1] ?? '';
@@ -372,6 +383,8 @@ describe('WorkspacePage publish action colors', () => {
 
   it('aligns the draft import and export actions next to the add-draft button', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*end;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-add\s*\{[^}]*grid-column:\s*3;[^}]*justify-self:\s*end;/);
+    expect(workspacePageStyles).not.toMatch(/@container draft-stage \(max-width: 530px\)[\s\S]*?\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-row:\s*1;/);
   });
 
   it('aligns saved draft names at a consistent inset from the left edge', () => {
@@ -1424,7 +1437,8 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*100%;[^}]*max-width:\s*640px;[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto;[^}]*gap:\s*0;[^}]*padding:\s*0 0 0 12px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*align-items:\s*center;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray\s*\{[^}]*flex:\s*0 0 56px;[^}]*height:\s*56px;[^}]*min-height:\s*56px;/);
-    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*min\(320px, 100%\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*min\(640px, 100%\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-attachment-scrollbar\s*\{[^}]*max-width:\s*min\(640px, 100%\);/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-card\s*\{[^}]*flex:\s*0 0 min\(220px, calc\(100vw - 40px\)\);[^}]*width:\s*min\(220px, calc\(100vw - 40px\)\);[^}]*min-width:\s*156px;/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-thumbnail,\s*\.workspace-page-attachment-file-mark\s*\{\s*flex:\s*0 0 26px;\s*width:\s*26px;\s*height:\s*26px;/);
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-copy\s*\{\s*display:\s*grid;/);
