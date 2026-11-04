@@ -1,4 +1,5 @@
 {
+  "git.autoRepositoryDetection": false,
   "git.repositoryScanIgnoredFolders": [
     "XMSGi Studio"
   ]
