@@ -1,26 +1,16 @@
-node_modules/
-dist/
-.env
-.env.*
-!.env.example
-release/
-release-working-*/
-*.session
-*session*
-*.log
-desktop.ini
-vitest-*.json
-
-readme-preview.html
-topics-out.json
-*.exe
-*.AppImage
-*.dmg
-*.deb
-personal-website/
-.playwright-mcp/
-app-current-view.png
-browser-*.txt
-login-open-jitter-check.png
-login-page-snapshot.txt
-workspace-theme-check.png
+# Root ignores — nested project + standalone website clone
+.vite/
+website XMSGi Studio/
+XMSGi Studio/node_modules/
+XMSGi Studio/dist/
+XMSGi Studio/release/
+XMSGi Studio/release-working-*/
+*.tsbuildinfo
+Studio/Studio module/node_modules/
+Studio/Studio module/dist/
+/Stands/
+node_modules
+/.playwright-mcp/
+/dist/
+/release/
+/release-working-*/

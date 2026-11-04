@@ -1,24 +1,598 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Telegram content calendar and post planning | XMSGi Studio</title>
-  <meta name="description" content="Build a practical Telegram content plan with drafts, scheduled posts, and message history in XMSGi Studio.">
-  <meta property="og:type" content="website"><meta property="og:title" content="Telegram content calendar | XMSGi Studio"><meta property="og:description" content="Organize Telegram ideas and posts with drafts, scheduling, and a clear message history.">
-  <meta property="og:url" content="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/"><meta property="og:image" content="https://molodoy01.github.io/XMSGi-Studio/screenshots/posts-light.webp"><meta name="twitter:card" content="summary_large_image">
-  <link rel="canonical" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/"><link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/"><link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/telegram-content-calendar/"><link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/">
-  <link rel="stylesheet" href="../../seo.css">
-</head>
-<body>
-  <header class="site-header"><div class="wrap header-row"><a class="brand" href="../../"><span class="brand-mark"></span>XMSGi Studio</a><nav class="nav" aria-label="Main navigation"><a href="../../">Home</a><a href="../telegram-post-editor/">Post editor</a><a class="optional" href="../../ru/telegram-content-calendar/">RU</a><a href="https://github.com/molodoy01/XMSGi-Studio">GitHub</a></nav></div></header>
-  <main>
-    <section class="hero"><div class="wrap hero-grid"><div><p class="eyebrow">Telegram publishing workflow</p><h1>A Telegram content plan <em>without the rush</em></h1><p class="lead">Collect ideas, prepare posts ahead of time, and choose when they go out. XMSGi Studio brings drafts, scheduling, and message history into one workflow for your Telegram account.</p><div class="actions"><a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">Download the app</a><a class="button secondary" href="../../">Project home</a></div></div><aside class="hero-note"><strong>Plan instead of chasing deadlines</strong>Spread post preparation over time and return to drafts when you are ready to finish them.</aside></div></section>
-    <section class="section"><div class="wrap"><div class="section-head"><p class="eyebrow">A practical workflow</p><h2>Keep planned posts in a clear queue</h2><p>A content plan does not have to add another complicated tool. Save ideas, prepare each message in the editor, and schedule it for a suitable time.</p></div><div class="feature-list"><article class="feature"><h3>Keep ideas as drafts</h3><p>Save unfinished material and return to it when you are ready to continue.</p></article><article class="feature"><h3>Choose a publishing time</h3><p>Schedule a one-time send or use the available repeat options.</p></article><article class="feature"><h3>Review message history</h3><p>See scheduled messages and delivery outcomes in the Posts area.</p></article></div></div></section>
-    <section class="section alt"><div class="wrap"><div class="section-head"><p class="eyebrow">Inside the app</p><h2>From post preparation to history</h2></div><div class="gallery"><figure><img src="../../screenshots/planner-light.webp" alt="Plan a Telegram post in XMSGi Studio Planner" width="1920" height="1080"><figcaption>Prepare a draft in Planner and check its preview.</figcaption></figure><figure><img src="../../screenshots/posts-light.webp" alt="Light Telegram publishing history and schedule in XMSGi Studio" width="1480" height="760"><figcaption>Review the queue and message history in Posts.</figcaption></figure></div></div></section>
-    <section class="section"><div class="wrap"><div class="section-head"><p class="eyebrow">Getting started</p><h2>Turn an idea into a scheduled post</h2></div><div class="steps"><article class="step"><h3>Capture the topic</h3><p>Save an idea or start writing a message in the editor.</p></article><article class="step"><h3>Prepare the post</h3><p>Format the text, add media, and review the preview.</p></article><article class="step"><h3>Schedule it</h3><p>Choose a date and time, then review the queue in Posts.</p></article></div></div></section>
-    <section class="closing"><div class="wrap closing-row"><h2>Organize Telegram publishing in one desktop app</h2><a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">Download XMSGi Studio</a></div></section>
-  </main>
-  <footer><div class="wrap footer-row"><span>© <span id="year"></span> XMSGi Studio</span><nav class="footer-links" aria-label="Related pages"><a href="../../">Home</a><a href="../telegram-post-editor/">Post editor</a><a href="../telegram-post-templates/">Post templates</a><a href="../../ru/telegram-content-calendar/">RU</a></nav></div></footer>
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telegram content calendar with XMSGi Studio</title>
+    <meta name="description" content="Plan Telegram content ahead of time with drafts, scheduled posts, repeat publishing, and a clear publishing history in XMSGi Studio." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Telegram content calendar with XMSGi Studio" />
+    <meta property="og:description" content="Plan your Telegram publishing workflow with saved drafts, schedule automation, and a clean history of sent posts." />
+    <meta property="og:url" content="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/" />
+    <meta property="og:image" content="https://molodoy01.github.io/XMSGi-Studio/screenshots/02.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/" />
+    <link rel="alternate" hreflang="en" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/" />
+    <link rel="alternate" hreflang="ru" href="https://molodoy01.github.io/XMSGi-Studio/ru/telegram-content-calendar/" />
+    <link rel="alternate" hreflang="x-default" href="https://molodoy01.github.io/XMSGi-Studio/en/telegram-content-calendar/" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../../../public/favicon-32.png" />
+    <style>
+      :root {
+        --bg: #f5f8fa;
+        --bg-alt: #e9f1f4;
+        --panel: #ffffff;
+        --panel-strong: #ffffff;
+        --line: rgba(28, 57, 72, 0.14);
+        --line-strong: rgba(25, 117, 145, 0.34);
+        --text: #193444;
+        --muted: #536b79;
+        --soft: #748894;
+        --accent: #167a96;
+        --accent-2: #348d85;
+        --highlight: #4b826e;
+        --shadow: rgba(25, 54, 68, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        background: linear-gradient(180deg, var(--bg) 0%, #071a26 100%);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      a { color: inherit; text-decoration: none; }
+      img { max-width: 100%; display: block; }
+      .wrap {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(7, 18, 25, 0.82);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+      }
+      .site-header .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 68px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .brand-mark {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 0 14px rgba(123, 200, 255, 0.9);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .nav a:hover { color: var(--text); }
+      .lang-switch {
+        display: inline-flex;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.02);
+      }
+      .lang-switch a {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lang-switch a.is-active {
+        background: linear-gradient(135deg, rgba(123,200,255,0.2), rgba(151,240,255,0.12));
+        color: var(--text);
+        border: 1px solid rgba(123,200,255,0.32);
+      }
+
+      main { padding-bottom: 72px; }
+      .hero {
+        padding: 72px 0 36px;
+      }
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 18px;
+        color: var(--accent-2);
+        font-size: 0.76rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2.4rem, 6vw, 5rem);
+        line-height: 0.98;
+        letter-spacing: -0.06em;
+        max-width: 760px;
+      }
+      h1 .accent {
+        display: block;
+        background: linear-gradient(90deg, #f0f7ff 0%, var(--accent-2) 35%, #b5edd8 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero-copy {
+        margin-top: 22px;
+        max-width: 650px;
+        color: var(--muted);
+        font-size: 1.08rem;
+      }
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 28px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 20px;
+        border-radius: 12px;
+        font-weight: 700;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+      }
+      .button:hover { transform: translateY(-1px); }
+      .button.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #06141e;
+      }
+      .button.secondary {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        color: var(--text);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 36px;
+      }
+      .stat {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 20px;
+      }
+      .stat strong {
+        display: block;
+        font-size: clamp(1.2rem, 2vw, 1.9rem);
+        margin-bottom: 8px;
+      }
+      .stat span { color: var(--muted); }
+
+      .section {
+        padding-top: 42px;
+      }
+      .section-head {
+        max-width: 760px;
+        margin-bottom: 22px;
+      }
+      .section-head h2 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        letter-spacing: -0.05em;
+        line-height: 1.05;
+      }
+      .section-head p {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 1.06rem;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 22px 22px 18px;
+        box-shadow: 0 15px 35px rgba(2,10,16,0.18);
+      }
+      .card .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: rgba(123,200,255,0.12);
+        border: 1px solid rgba(123,200,255,0.3);
+        color: var(--accent-2);
+        font-size: 1.3rem;
+      }
+      .card h3 {
+        margin: 16px 0 10px;
+        font-size: 1.18rem;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .process {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 10px;
+      }
+      .step {
+        position: relative;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px 18px 18px;
+      }
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: rgba(151,240,255,0.10);
+        border: 1px solid rgba(151,240,255,0.28);
+        color: var(--accent-2);
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .step h3 { margin: 0 0 8px; font-size: 1.08rem; }
+      .step p { margin: 0; color: var(--muted); }
+
+      .showcase {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr;
+        gap: 20px;
+        margin-top: 12px;
+      }
+      .showcase-media,
+      .quote-box,
+      .list-box {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        overflow: hidden;
+      }
+      .showcase-media img {
+        width: 100%;
+        height: auto;
+      }
+      .quote-box,
+      .list-box {
+        padding: 22px;
+      }
+      .quote-box p {
+        margin: 0 0 18px;
+        font-size: 1.08rem;
+        color: var(--muted);
+      }
+      .quote-box strong {
+        display: block;
+        font-size: 1rem;
+      }
+      .list-box ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+      .list-box li + li { margin-top: 10px; }
+
+      .cta-panel {
+        margin-top: 36px;
+        padding: 30px 26px;
+        background: linear-gradient(135deg, rgba(17,31,38,0.96), rgba(9,23,32,0.96));
+        border: 1px solid var(--line-strong);
+        border-radius: 24px;
+      }
+      .cta-panel h2 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        letter-spacing: -0.04em;
+      }
+      .cta-panel p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        max-width: 700px;
+      }
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      .site-footer {
+        border-top: 1px solid var(--line);
+        margin-top: 48px;
+        padding: 22px 0 42px;
+        color: var(--muted);
+      }
+      .site-footer .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+      }
+
+      @media (max-width: 900px) {
+        .feature-grid, .process { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .showcase { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 640px) {
+        .nav { gap: 10px; font-size: 0.68rem; letter-spacing: 0.08em; }
+        .nav a:not(:first-child) { display: none; }
+        .stats, .feature-grid, .process { grid-template-columns: 1fr; }
+        .site-header .wrap { min-height: 62px; }
+        .brand { letter-spacing: 0.04em; }
+        .hero { padding-top: 48px; }
+        .hero-actions, .cta-row { flex-direction: column; align-items: stretch; }
+        .button { width: 100%; }
+      }
+      body { background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%); }
+      .site-header { background: rgba(249, 252, 253, 0.92); }
+      .brand-mark { box-shadow: 0 0 14px rgba(22, 122, 150, 0.3); }
+      .lang-switch, .button.secondary { background: var(--panel); }
+      .lang-switch a.is-active { color: var(--text); }
+      h1 .accent { background-image: linear-gradient(90deg, #176b83 0%, #278d91 55%, #4b826e 100%); }
+      .button.primary { background: linear-gradient(135deg, #176b83, #348d85); color: #ffffff; }
+      .stat, .card, .step, .showcase-media, .quote-box, .list-box { background: var(--panel); }
+      .card { box-shadow: 0 12px 30px var(--shadow); }
+      .showcase { grid-template-columns: 1fr; }
+      .showcase-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+      .showcase-media { box-shadow: 0 12px 30px var(--shadow); }
+      .showcase-caption { margin: 0; padding: 12px 16px; color: var(--muted); font-size: 0.9rem; }
+      .quote-box p { color: var(--muted); }
+      .cta-panel { background: linear-gradient(135deg, #e4f0f1, #edf4f6); }
+      @media (max-width: 640px) {
+        .showcase-gallery { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="../../" aria-label="XMSGi Studio home">
+          <span class="brand-mark"></span>
+          <span>XMSGi Studio</span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="../../">Home</a>
+          <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">GitHub</a>
+          <div class="lang-switch" aria-label="Language switcher">
+            <a class="is-active" href="./" aria-label="English version">EN</a>
+            <a href="../../ru/telegram-content-calendar/" aria-label="Russian version">RU</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <div class="eyebrow">Telegram content planning</div>
+          <h1>Build a calmer <span class="accent">Telegram content calendar</span></h1>
+          <p class="hero-copy">
+            XMSGi Studio helps you organize content ideas, prepare posts in advance, and send them on schedule from your own Telegram account.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest" target="_blank" rel="noopener">Download XMSGi Studio</a>
+            <a class="button secondary" href="../../">Open the main page</a>
+          </div>
+          <div class="stats">
+            <div class="stat">
+              <strong>ideas</strong>
+              <span>Keep notes and content topics together instead of scattering them across chats.</span>
+            </div>
+            <div class="stat">
+              <strong>schedule</strong>
+              <span>Set a date and time for each post and simplify repeat publishing.</span>
+            </div>
+            <div class="stat">
+              <strong>history</strong>
+              <span>Review queued posts and sent messages in one place.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Why teams need a Telegram content plan</h2>
+            <p>
+              When you publish regularly, you need a repeatable workflow. A content calendar helps you keep a consistent rhythm without scrambling to write every post at the last minute.
+            </p>
+          </div>
+          <div class="feature-grid">
+            <article class="card">
+              <div class="icon">✍️</div>
+              <h3>Collect ideas in one place</h3>
+              <p>Save drafts, post ideas, and topics in a single workflow so nothing slips between messages and notes.</p>
+            </article>
+            <article class="card">
+              <div class="icon">⏱️</div>
+              <h3>Publish on time</h3>
+              <p>Schedule Telegram posts when you need them so your channel stays consistent without the last-minute rush.</p>
+            </article>
+            <article class="card">
+              <div class="icon">📊</div>
+              <h3>Track your publishing rhythm</h3>
+              <p>Review activity and understand what volume of posts fits your week without overloading your audience.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>How XMSGi Studio supports Telegram planning</h2>
+            <p>XMSGi Studio fits a practical publishing workflow: prepare, schedule, and review without a bot-based middle layer.</p>
+          </div>
+          <div class="process">
+            <div class="step">
+              <div class="step-number">1</div>
+              <h3>Draft your idea</h3>
+              <p>Write your post, gather your key message, and save it before it disappears into the stream.</p>
+            </div>
+            <div class="step">
+              <div class="step-number">2</div>
+              <h3>Prepare the final version</h3>
+              <p>Format the content, add media, and review the message before it goes out.</p>
+            </div>
+            <div class="step">
+              <div class="step-number">3</div>
+              <h3>Schedule it</h3>
+              <p>Set a date and time, then use repeat modes to keep a consistent publishing rhythm.</p>
+            </div>
+            <div class="step">
+              <div class="step-number">4</div>
+              <h3>Review the queue</h3>
+              <p>Check which posts are queued, scheduled, or already sent from the shared history view.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <div class="showcase">
+            <div class="showcase-media">
+            <div class="showcase-gallery">
+              <figure class="showcase-media">
+                <img src="../../screenshots/01.webp" alt="XMSGi Studio Planner with live Telegram post preview" loading="lazy" width="1920" height="1080" />
+                <figcaption class="showcase-caption">Plan a post and preview it in Telegram</figcaption>
+              </figure>
+              <figure class="showcase-media">
+                <img src="../../screenshots/02.webp" alt="XMSGi Studio Posts in light theme with scheduled message history" loading="lazy" width="1478" height="776" />
+                <figcaption class="showcase-caption">Review scheduled and sent messages</figcaption>
+              </figure>
+            </div>
+            <div class="quote-box">
+              <p>
+                A sustainable Telegram content calendar is not about publishing more than you can handle. It is about making sure the right post reaches the right audience at the right moment.
+              </p>
+              <strong>Key workflow:</strong>
+              <ul style="margin: 16px 0 0; padding-left: 18px; color: var(--muted);">
+                <li>draft and collect ideas;</li>
+                <li>prepare final copy;</li>
+                <li>schedule or repeat;</li>
+                <li>follow the publishing history.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>What XMSGi Studio can do in practice</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="card">
+              <div class="icon">🗂️</div>
+              <h3>Drafts and ideas</h3>
+              <p>Keep drafts in one place and return to them when your content plan is ready for the next post.</p>
+            </article>
+            <article class="card">
+              <div class="icon">📅</div>
+              <h3>Scheduled publishing</h3>
+              <p>Set a message to go out on a specific day and time, with repeat options for regular content.</p>
+            </article>
+            <article class="card">
+              <div class="icon">🔁</div>
+              <h3>Recurring content</h3>
+              <p>Use repeat scheduling for ongoing themes and keep your Telegram output as consistent as your workflow.</p>
+            </article>
+            <article class="card">
+              <div class="icon">🧾</div>
+              <h3>Post history</h3>
+              <p>Review scheduled, sent, and draft items in a shared history panel to keep publishing organized.</p>
+            </article>
+            <article class="card">
+              <div class="icon">📈</div>
+              <h3>Activity overview</h3>
+              <p>Track confirmed sends and the rhythm of publishing over time to avoid overloading or underposting.</p>
+            </article>
+            <article class="card">
+              <div class="icon">🔒</div>
+              <h3>Local work process</h3>
+              <p>Keep draft data on the device while sending content through your own Telegram account.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <div class="cta-panel">
+            <h2>Organize your Telegram content without losing momentum</h2>
+            <p>
+              XMSGi Studio is designed for a practical, local workflow: prepare posts, schedule them, and keep your queue under control.
+            </p>
+            <div class="cta-row">
+              <a class="button primary" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest" target="_blank" rel="noopener">Download</a>
+              <a class="button secondary" href="../../">Main page</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>© <span id="year">2026</span> XMSGi Studio</span>
+        <div class="footer-links">
+          <a href="../../">Home</a>
+          <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/molodoy01/XMSGi-Studio/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="../../ru/telegram-content-calendar/" aria-label="Russian version">RU</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const yearNode = document.getElementById('year');
+      if (yearNode) {
+        yearNode.textContent = new Date().getFullYear();
+      }
+    </script>
+  </body>
 </html>

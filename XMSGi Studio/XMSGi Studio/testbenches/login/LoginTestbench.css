@@ -1,0 +1,164 @@
+.login-testbench {
+  position: fixed;
+  z-index: 10001;
+  top: 14px;
+  left: 50%;
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 7px;
+  border: 1px solid rgba(102, 114, 125, 0.28);
+  border-radius: 6px;
+  background: var(--surface-raised, #fff);
+  box-shadow: 0 8px 28px rgba(34, 47, 58, 0.14);
+  color: var(--text, #242a31);
+  font: 500 12px/1.2 "Segoe UI", sans-serif;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.login-testbench-scenario {
+  display: grid;
+  flex: 0 0 auto;
+  min-width: 160px;
+  gap: 3px;
+  color: var(--dim, #66727d);
+}
+
+.login-testbench-scenario span {
+  white-space: nowrap;
+}
+
+.login-testbench-scenario select {
+  width: 100%;
+  max-width: 220px;
+  border: 0;
+  background: transparent;
+  color: var(--text, #242a31);
+  font: 600 13px/1.3 "Segoe UI", sans-serif;
+}
+
+.login-testbench-scenario option {
+  background: var(--surface-raised, #fff);
+  color: var(--text, #242a31);
+}
+
+.login-testbench-themes {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line, #e2e6ea);
+  border-radius: 4px;
+}
+
+.login-testbench-view,
+.login-testbench-languages {
+  flex: 0 0 auto;
+}
+
+.login-testbench button,
+.login-testbench a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.login-testbench-themes button[aria-pressed="true"] {
+  background: var(--surface-muted, #f0f2f4);
+  color: var(--signal, #536f80);
+}
+
+.login-testbench-reset:hover,
+.login-testbench-exit:hover,
+.login-testbench button:focus-visible,
+.login-testbench a:focus-visible,
+.login-testbench select:focus-visible {
+  outline: 2px solid var(--signal, #536f80);
+  outline-offset: 2px;
+}
+
+.login-testbench-reset {
+  white-space: nowrap;
+}
+
+.login-testbench-pages {
+  white-space: nowrap;
+}
+
+.login-testbench-exit {
+  border-left: 1px solid var(--line, #e2e6ea) !important;
+}
+
+.login-testbench ~ .app .auth-language-switch {
+  display: none;
+}
+
+.login-testbench-languages {
+  display: flex;
+  gap: 2px;
+}
+
+.login-testbench-languages button[aria-pressed="true"] {
+  color: var(--signal, #536f80);
+  font-weight: 700;
+}
+
+html[data-theme='dark'] .login-testbench {
+  border-color: rgba(150, 170, 190, 0.3);
+  background: #171d22;
+  color: #e2e7eb;
+}
+
+html[data-theme='dark'] .login-testbench-scenario select {
+  color: #e2e7eb;
+}
+
+html[data-theme='dark'] .login-testbench-scenario option {
+  background: #171d22;
+  color: #e2e7eb;
+}
+
+html[data-theme='dark'] .login-testbench-themes button[aria-pressed="true"] {
+  background: #27343d;
+  color: #7cc3ff;
+}
+
+@media (max-width: 560px) {
+  .login-testbench {
+    top: 8px;
+    left: 12px;
+    max-width: calc(100vw - 24px);
+    gap: 4px;
+    transform: none;
+  }
+
+  .login-testbench-scenario {
+    min-width: 135px;
+  }
+
+  .login-testbench-scenario select {
+    max-width: 100%;
+  }
+}
+
+html[data-theme='dark'] .login-testbench-languages button[aria-pressed="true"] {
+  color: #7cc3ff;
+}

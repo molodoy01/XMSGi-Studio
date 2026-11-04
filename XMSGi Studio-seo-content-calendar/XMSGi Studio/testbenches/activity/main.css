@@ -1,0 +1,83 @@
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--void);
+}
+
+.activity-testbench {
+  min-height: 100vh;
+  padding: 126px 24px 48px;
+}
+
+.activity-testbench-main {
+  width: min(100%, 500px);
+  margin: 0 auto;
+}
+
+.activity-testbench-main h1 {
+  margin: 0 0 22px;
+  color: var(--signal);
+  font: 500 24px/1.3 "Orbitron", "Segoe UI", sans-serif;
+}
+
+.activity-testbench-preview {
+  --planner-muted: var(--dim, #66727d);
+  --planner-accent: var(--signal, #477c9e);
+  --planner-accent-rgb: 71, 124, 158;
+
+  display: flex;
+  min-height: 510px;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid rgba(112, 130, 143, 0.12);
+  border-radius: 7px;
+  background: linear-gradient(165deg, #ffffff 0%, #fdfdfc 100%);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(34, 47, 58, 0.035), 0 8px 24px rgba(34, 47, 58, 0.035);
+}
+
+.activity-testbench-upcoming-reserved {
+  min-height: 250px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(112, 130, 143, 0.12);
+}
+
+.activity-testbench-upcoming-reserved h2 {
+  margin: 0;
+  color: var(--text);
+  font: 500 17px/1.35 "Segoe UI", sans-serif;
+}
+
+html[data-theme='dark'] .activity-testbench-preview {
+  border-color: rgba(190, 205, 216, 0.07);
+  background: linear-gradient(165deg, #171d22 0%, #151b20 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.018), 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme='dark'] .activity-testbench-upcoming-reserved {
+  border-top-color: rgba(190, 205, 216, 0.07);
+}
+
+@media (max-width: 760px) {
+  .activity-testbench {
+    padding-top: 148px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

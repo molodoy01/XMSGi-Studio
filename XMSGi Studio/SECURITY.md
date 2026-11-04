@@ -28,7 +28,7 @@ We aim to review and triage reports quickly. If the issue is valid, we will work
 ## Bundled Telegram API defaults
 
 The app ships with default `apiId`/`apiHash` values (see `xmsgiApi` in
-`package.json`) so it works out of the box on first launch.
+`XMSGi Studio/package.json`) so it works out of the box on first launch.
 These identify the application to Telegram, not your account:
 
 - you can override them at any time with your own credentials from

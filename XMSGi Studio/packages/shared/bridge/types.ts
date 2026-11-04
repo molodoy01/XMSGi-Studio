@@ -1,7 +1,7 @@
-import type { Dispatch, SetStateAction } from 'react';
 import type {
   Chat,
-  NotificationType,
+  InlineKeyboardMarkup,
+  NotificationState,
   RichTextEntity,
   SavedDraft,
   ScheduledMessage,
@@ -23,12 +23,15 @@ export interface StudioSchedulePayload {
   date: string;
   time: string;
   attachments?: string[];
-  attachmentGroups?: string[][];
   entities?: RichTextEntity[];
   silent?: boolean;
   effect?: string;
   waitForConfirmation?: boolean;
   replaceMessage?: ScheduledMessage;
+}
+
+export interface StudioBridgeNotification extends NotificationState {
+  errorDetails?: BridgeErrorDetails;
 }
 
 export interface StudioSchedulerActions {
@@ -41,17 +44,14 @@ export interface StudioSchedulerActions {
   cancelingIds: ReadonlySet<string>;
   sendingIds: ReadonlySet<string>;
   publishingDraft: boolean;
-  handleSchedule: (payload?: StudioSchedulePayload, repeat?: StudioScheduleRepeatOptions) => void | Promise<void | boolean | 'sent-history-failed'>;
+  handleSchedule: (payload?: StudioSchedulePayload, repeat?: StudioScheduleRepeatOptions) => void | Promise<void>;
   handleSendDraftNow: (
     chat: Chat,
     text: string,
     attachments?: string[],
     entities?: RichTextEntity[],
-    attachmentGroups?: string[][],
-    onAttachmentGroupResult?: (groupIndex: number, sent: boolean) => void,
-    effect?: string,
-    suppressNotifications?: boolean,
-  ) => Promise<boolean | 'sent-history-failed'>;
+    replyMarkup?: InlineKeyboardMarkup,
+  ) => Promise<boolean>;
   handleSendNow: (message: ScheduledMessage) => void | Promise<void>;
   handleDeleteMessage: (message: ScheduledMessage) => void | Promise<void>;
   handleClearSent: () => void;
@@ -61,29 +61,15 @@ export interface StudioSchedulerActions {
 
 export interface StudioSchedulerRuntime extends StudioSchedulerActions {
   protocolVersion: BridgeProtocolVersion;
-  showNotification: (
-    message: string,
-    type: NotificationType,
-    title: string,
-    errorDetails?: BridgeErrorDetails,
-    durationMs?: number,
-  ) => void;
+  notification: StudioBridgeNotification;
+  closeNotification: () => void;
 }
 
 export type RegisterHandler<T> = (handler: T | null) => void;
 
-export interface StudioPlannerTextPayload {
-  text: string;
-  attachments: string[];
-  entities: RichTextEntity[];
-  effect?: string;
-}
-
 export interface StudioHistoryBridgeCallbacks {
-  onRegisterPlannerTextOpener?: RegisterHandler<(payload: StudioPlannerTextPayload) => Promise<boolean>>;
-  onRegisterBeforeLeaveStudio?: RegisterHandler<() => Promise<boolean>>;
   onRegisterHistoryDraftOpener?: RegisterHandler<(draft: SavedDraft) => void>;
-  onRegisterHistoryDraftUseHandler?: RegisterHandler<(draft: SavedDraft) => Promise<boolean>>;
+  onRegisterHistoryDraftUseHandler?: RegisterHandler<(draft: SavedDraft) => void>;
   onRegisterHistoryDraftClearHandler?: RegisterHandler<() => Promise<boolean>>;
   onRegisterHistoryDraftDeleteHandler?: RegisterHandler<(draftId: string) => Promise<boolean>>;
   onRegisterHistoryRescheduleHandler?: RegisterHandler<(message: ScheduledMessage) => void>;
@@ -91,10 +77,7 @@ export interface StudioHistoryBridgeCallbacks {
 
 export interface StudioBridgeProps extends StudioHistoryBridgeCallbacks {
   connected?: boolean;
-  connectionRecoveryStatus?: 'reconnecting' | 'offline' | null;
   chats?: Chat[];
-  selectedChat?: Chat | null;
-  onSelectChat?: Dispatch<SetStateAction<Chat | null>>;
   scheduler?: StudioSchedulerRuntime;
   activeAccountId?: 'account-1' | 'account-2';
 }

@@ -2,36 +2,13 @@
 
 ## Unreleased
 
-### Added
-
-- No changes yet.
-
-### Changed
-
-- No changes yet.
-
 ## 1.3.6 - 2026-10-28
 
 ### Improvements
 
-- Include the current Planner, Studio, and Posts changes from the project.
 - Highlight the selected post while its full details are open in Posts.
 - Use a version-free Windows download name: `XMSGi Studio.exe`.
 - Refresh the website gallery and repository screenshots.
-
-## 1.3.5 - 2026-10-27
-
-### Improvements
-
-- Added quick hashtag filters to Posts and adjustable text size in the post details view.
-- Fixed the light-theme full-post message card width to match the compact dark-theme layout.
-- Refined Planner, Studio, and Posts workflows and visual consistency.
-
-## 1.3.1 - 2026-10-24
-
-### Improvements
-
-- Improved the visibility of the time picker scrollbar in light theme.
 
 ## 1.3.0 - 2026-10-24
 
@@ -61,7 +38,7 @@
 
 - Fixed Telegram message direction when rebuilding chat history after restart.
 - Fixed Live Preview scrolling so loaded history reaches the true bottom.
-- Fixed composer placeholder and emoji layout and removed stray markers from loaded message bubbles.
+- Fixed the composer placeholder and emoji layout, and removed stray markers from loaded message bubbles.
 
 ## 1.1.0 - 2026-10-07
 

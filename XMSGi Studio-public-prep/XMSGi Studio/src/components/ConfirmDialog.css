@@ -1,0 +1,179 @@
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(31, 42, 50, 0.24);
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  padding: 24px;
+  border: 1px solid var(--line, #e2e6ea);
+  border-radius: 8px;
+  background: var(--surface-raised, #ffffff);
+  color: var(--text, #242a31);
+  box-shadow: var(--shadow-soft, 0 8px 28px rgba(34, 47, 58, 0.12));
+  font-family: var(--sans, sans-serif);
+}
+
+.confirm-dialog h2 {
+  margin: 0;
+  color: var(--text, #242a31);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.confirm-dialog p {
+  margin: 10px 0 0;
+  color: var(--dim, #737d88);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.confirm-dialog-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line, #e2e6ea);
+  border-radius: 6px;
+  background: var(--surface-raised, #ffffff);
+  color: var(--text, #242a31);
+  font: inherit;
+  cursor: pointer;
+}
+
+.confirm-dialog-actions button:focus-visible {
+  outline: 2px solid var(--accent, #477c9e);
+  outline-offset: 2px;
+}
+
+.confirm-dialog-actions .confirm-dialog-confirm {
+  border-color: var(--accent, #477c9e);
+  background: var(--accent, #477c9e);
+  color: #ffffff;
+}
+
+.confirm-dialog-actions .confirm-dialog-confirm.is-destructive {
+  border-color: #b74747;
+  background: #b74747;
+}
+
+.history-drawer .history-confirmation-backdrop {
+  background: rgba(31, 42, 50, 0.24);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.history-drawer .history-confirmation-modal {
+  padding: 24px;
+  border-color: var(--line, #e2e6ea);
+  border-radius: 8px;
+  background: var(--surface-raised, #ffffff);
+  box-shadow: var(--shadow-soft, 0 8px 28px rgba(34, 47, 58, 0.12));
+}
+
+.history-drawer .history-confirmation-close {
+  color: var(--dim, #737d88);
+}
+
+.history-drawer .history-confirmation-close:hover,
+.history-drawer .history-confirmation-close:focus-visible {
+  color: var(--text, #242a31);
+}
+
+.history-drawer .history-confirmation-icon {
+  background: var(--accent-soft, #e7f0f5);
+  color: var(--accent, #477c9e);
+}
+
+.history-drawer .history-confirmation-title {
+  color: var(--text, #242a31);
+}
+
+.history-drawer .history-bulk-delete-error {
+  color: #b74747 !important;
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop)::before {
+  background: rgba(31, 42, 50, 0.24);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal {
+  padding: 24px;
+  border-color: var(--line, #e2e6ea);
+  border-radius: 8px;
+  background: var(--surface-raised, #ffffff);
+  box-shadow: var(--shadow-soft, 0 8px 28px rgba(34, 47, 58, 0.12));
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-close,
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-description {
+  color: var(--dim, #737d88);
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-close:hover,
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-close:focus-visible,
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-title {
+  color: var(--text, #242a31);
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-icon {
+  background: var(--accent-soft, #e7f0f5);
+  color: var(--accent, #477c9e);
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-action {
+  border: 1px solid var(--line, #e2e6ea);
+  border-radius: 6px;
+  background: var(--surface-raised, #ffffff);
+  color: var(--text, #242a31);
+  letter-spacing: 0;
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-action--confirm {
+  border-color: #b74747;
+  background: #b74747;
+  color: #ffffff;
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-action--cancel {
+  color: var(--dim, #737d88);
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-action--confirm:hover {
+  border-color: #a83e3e;
+  background: #a83e3e;
+  color: #ffffff;
+}
+
+.topbar-logout-modal-backdrop:not(.telegram-manager-backdrop) .topbar-logout-modal-action--cancel:hover {
+  border-color: #c9d7df;
+  background: #edf2f5;
+  color: #29343d;
+}
+
+@media (max-width: 420px) {
+  .confirm-dialog {
+    padding: 20px;
+  }
+
+  .confirm-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-dialog-actions button {
+    width: 100%;
+  }
+}

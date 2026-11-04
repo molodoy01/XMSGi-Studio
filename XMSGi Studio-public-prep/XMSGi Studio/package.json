@@ -1,0 +1,154 @@
+{
+  "name": "xmsgi-studio",
+  "private": true,
+  "version": "1.3.1",
+  "description": "A local desktop workspace for writing, scheduling, and reviewing Telegram messages.",
+  "author": "XMSGi Studio",
+  "license": "MIT",
+  "repository": "https://github.com/molodoy01/XMSGi-Studio",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --strictPort",
+    "dev:electron": "concurrently --kill-others \"npm:dev\" \"wait-on http://127.0.0.1:5173 && npm run electron:dev\"",
+    "electron:dev": "cross-env ELECTRON_DEV_SERVER=1 XMSGI_STUDIO_REMOTE_DEBUGGING_PORT=9223 electron . --no-sandbox",
+    "build": "vite build",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "electron": "electron . --no-sandbox",
+    "start": "npm run electron",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "lucide-react": "^0.446.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "teleproto": "^1.229.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.9.1",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "jsdom": "^30.1.0",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.3.0",
+    "vite": "^5.4.2",
+    "vitest": "^2.1.9",
+    "wait-on": "^9.5.1"
+  },
+  "overrides": {
+    "socks": {
+      "ip-address": "10.7.3"
+    }
+  },
+  "main": "main.cjs",
+  "xmsgiApi": {
+    "apiId": "32410711",
+    "apiHash": "0ff4fb84d6816badda23acdb9dd78705"
+  },
+  "build": {
+    "appId": "com.xmsgi.app",
+    "productName": "XMSGi Studio",
+    "icon": "build/icon.ico",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "build/icon.ico",
+      "src/studio/assets/logo.png",
+      "main.cjs",
+      "preload.cjs",
+      "chat-storage.cjs",
+      "app-data-path.cjs",
+      "draft-store.cjs",
+      "telegram.cjs",
+      "telegram-config.cjs",
+      "telegram-publish-diagnostics.cjs",
+      "telegram-send.cjs",
+      "telegram-send-recovery.cjs",
+      "telegram-scheduling.cjs",
+      "telegram-chat-resolution.cjs",
+      "telegram-chat-data.cjs",
+      "telegram-reconnect.cjs",
+      "telegram-message-direction.cjs",
+      "telegram-message-entities.cjs",
+      "telegram-dialogs.cjs",
+      "telegram-media-preview.cjs",
+      "telegram-inline-keyboard.cjs",
+      "telegram-errors.cjs",
+      "telegram-account-storage.cjs",
+      "telegram-lifecycle.cjs",
+      "telegram-search.cjs",
+      "telegram-dialog-search.cjs",
+      "telegram-permissions.cjs",
+      "telegram-idempotency.cjs",
+      "telegram-send-history-warning.cjs",
+      "schedule-history.cjs",
+      "ipc-security.cjs",
+      "packages/shared/telegramText.cjs",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraFiles": [],
+    "extraResources": [],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "maintainer": "XMSGi Studio",
+      "icon": "src/studio/assets/logo.png",
+      "category": "Utility",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "src/studio/assets/logo.png",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "asar": true
+  }
+}

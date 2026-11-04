@@ -1,0 +1,10 @@
+# Root ignores — nested project + standalone website clone
+.vite/
+website XMSGi Studio/
+XMSGi Studio/node_modules/
+XMSGi Studio/dist/
+XMSGi Studio/release/
+XMSGi Studio/release-working-*/
+*.tsbuildinfo
+Studio/Studio module/node_modules/
+Studio/Studio module/dist/

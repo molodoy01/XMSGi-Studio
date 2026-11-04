@@ -2764,8 +2764,9 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(logo).toBeTruthy();
     expect(window.getSelection()?.anchorNode).toBe(editor);
     expect(window.getSelection()?.anchorOffset).toBe(0);
-    expect(editor.classList.contains('is-empty')).toBe(true);
-    expect(editor.getAttribute('data-placeholder')).toBe('What shall we share?');
+    expect(editor.classList.contains('has-content')).toBe(true);
+    expect(editor.classList.contains('is-empty')).toBe(false);
+    expect(editor.getAttribute('data-placeholder')).toBe('Start writing your post…');
     expect(logo?.querySelector('img')?.getAttribute('src')).toContain('logo.png');
     expect(editor.contains(logo)).toBe(false);
     expect(animate).toHaveBeenCalledTimes(1);

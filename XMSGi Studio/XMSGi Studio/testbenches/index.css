@@ -1,0 +1,116 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", sans-serif;
+  background: #f7f8fa;
+  color: #242a31;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+.testbench-hub {
+  width: min(760px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: clamp(48px, 12vh, 110px) 0;
+}
+
+.testbench-hub-navigation {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 28px;
+}
+
+.testbench-hub-navigation .testbench-navigation-pages {
+  min-width: 152px;
+  padding: 8px 12px;
+  border: 1px solid #dce2e7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.testbench-hub header p {
+  margin: 0 0 12px;
+  color: #66727d;
+  font: 700 11px/1.4 "Cascadia Code", Consolas, monospace;
+  letter-spacing: 0.12em;
+}
+
+.testbench-hub h1 {
+  margin: 0 0 30px;
+  font-size: clamp(25px, 5vw, 38px);
+  font-weight: 500;
+}
+
+.testbench-hub-pages {
+  display: grid;
+  gap: 10px;
+}
+
+.testbench-hub-pages a {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 14px;
+  padding: 17px 20px;
+  border: 1px solid #dce2e7;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.testbench-hub-pages a:hover,
+.testbench-hub-pages a:focus-visible {
+  border-color: #7894a5;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.testbench-hub-pages a > span {
+  grid-row: span 2;
+  color: #6d8797;
+  font: 600 12px/1 "Cascadia Code", Consolas, monospace;
+}
+
+.testbench-hub-pages strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.testbench-hub-pages small {
+  color: #66727d;
+  font-size: 12px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  background: #10151a;
+  color: #e2e7eb;
+}
+
+:root[data-theme='dark'] .testbench-hub-pages a {
+  border-color: #303a42;
+  background: #171d22;
+}
+
+:root[data-theme='dark'] .testbench-hub-pages a:hover,
+:root[data-theme='dark'] .testbench-hub-pages a:focus-visible {
+  border-color: #718b9b;
+}
+
+:root[data-theme='dark'] .testbench-hub-pages small {
+  color: #a5afb8;
+}
+
+:root[data-theme='dark'] .testbench-hub-navigation .testbench-navigation-pages {
+  border-color: #303a42;
+  background: #171d22;
+}

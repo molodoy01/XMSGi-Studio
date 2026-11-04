@@ -1035,7 +1035,6 @@ img.chat-preview-avatar,
 .chat-preview-draft-bubble {
   width: fit-content;
   max-width: min(78%, 340px);
-  min-width: 120px;
   font-size: 13px;
 }
 

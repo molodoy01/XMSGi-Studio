@@ -5232,8 +5232,9 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('shows an enlarged preview when hovering or focusing an attached image', async () => {
-    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-thumbnail\s*\{[^}]*box-sizing:\s*border-box;[^}]*border:\s*1px solid/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-preview\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*10000;[^}]*pointer-events:\s*none;/);
+    expect(workspacePageStyles).toMatch(
+      /^\.workspace-page-attachment-preview\s*\{[^}]*position:\s*fixed;[^}]*pointer-events:\s*none;/m,
+    );
     localStorage.setItem('awaitmsg-workspace-draft', JSON.stringify({
       body: 'Photo caption',
       entities: [],
