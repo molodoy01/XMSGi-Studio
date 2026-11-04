@@ -1,0 +1,13 @@
+:root {
+  --void: #0a0b0d;
+  --ink: #111316;
+  --text: #e2e6eb;
+  --dim: #7a828c;
+  --faint: #3a4048;
+  --line: #1c2026;
+  --signal: #9aa8b8;
+  --ok: #6f9b7c;
+
+  --mono: "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  --sans: "Century Gothic", "Trebuchet MS", sans-serif;
+}
