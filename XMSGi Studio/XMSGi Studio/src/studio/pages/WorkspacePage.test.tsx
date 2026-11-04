@@ -1424,7 +1424,10 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*100%;[^}]*max-width:\s*640px;[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto;[^}]*gap:\s*0;[^}]*padding:\s*0 0 0 12px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*align-items:\s*center;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray\s*\{[^}]*flex:\s*0 0 56px;[^}]*height:\s*56px;[^}]*min-height:\s*56px;/);
-    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*130px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*min\(320px, 100%\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-card\s*\{[^}]*flex:\s*0 0 min\(220px, calc\(100vw - 40px\)\);[^}]*width:\s*min\(220px, calc\(100vw - 40px\)\);[^}]*min-width:\s*156px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-thumbnail,\s*\.workspace-page-attachment-file-mark\s*\{\s*flex:\s*0 0 26px;\s*width:\s*26px;\s*height:\s*26px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-copy\s*\{\s*display:\s*grid;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\s*\{[^}]*position:\s*relative;[^}]*height:\s*8px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\.is-visible\s*\{\s*visibility:\s*visible;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar-thumb\s*\{[^}]*position:\s*absolute;[^}]*border-radius:\s*999px;/);
@@ -1752,6 +1755,46 @@ describe('WorkspacePage main-screen flows', () => {
       });
     } finally {
       unmount();
+    }
+  });
+
+  it('auto-hides the Electron preview at compact widths without changing the saved preference', async () => {
+    const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const hadElectronRuntime = document.documentElement.classList.contains('electron-runtime');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    document.documentElement.classList.add('electron-runtime');
+    const { unmount } = await renderWorkspacePage();
+
+    try {
+      const preview = document.querySelector<HTMLElement>('.workspace-page-preview-panel');
+      const toggle = document.querySelector<HTMLButtonElement>('button[aria-label="Show preview"]');
+      expect(preview?.dataset.visible).toBe('false');
+      expect(toggle).toBeInTheDocument();
+
+      await act(async () => {
+        toggle?.click();
+      });
+
+      expect(preview?.dataset.visible).toBe('true');
+      expect(JSON.parse(localStorage.getItem('xmsgi-preview-layout') ?? '{}').visible).toBe(true);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      expect(preview?.dataset.visible).toBe('true');
+    } finally {
+      unmount();
+      if (hadElectronRuntime) {
+        document.documentElement.classList.add('electron-runtime');
+      } else {
+        document.documentElement.classList.remove('electron-runtime');
+      }
+      if (originalInnerWidth) {
+        Object.defineProperty(window, 'innerWidth', originalInnerWidth);
+      } else {
+        Reflect.deleteProperty(window, 'innerWidth');
+      }
     }
   });
 

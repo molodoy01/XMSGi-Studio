@@ -9960,23 +9960,24 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
     height: 100%;
     min-height: 0;
     gap: 0;
-    max-width: 130px;
+    max-width: min(320px, 100%);
     padding: 0 8px;
     scroll-padding-right: 8px;
     scroll-padding-left: 8px;
   }
 
   .workspace-page-attachment-tray .workspace-page-attachment-scrollbar {
-    max-width: 130px;
+    max-width: min(320px, 100%);
   }
 
   .workspace-page-attachment-card {
-    flex: 0 0 38px;
-    width: 38px;
+    flex: 0 0 min(220px, calc(100vw - 40px));
+    width: min(220px, calc(100vw - 40px));
+    min-width: 156px;
     height: 38px;
     min-height: 38px;
-    gap: 0;
-    padding: 0;
+    gap: 7px;
+    padding: 0 26px 0 4px;
   }
 
   .workspace-page-attachment-card.workspace-page-photo-album-card {
@@ -9995,13 +9996,13 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
 
   .workspace-page-attachment-thumbnail,
   .workspace-page-attachment-file-mark {
-    flex-basis: 100%;
-    width: 100%;
-    height: 100%;
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
   }
 
   .workspace-page-attachment-copy {
-    display: none;
+    display: grid;
   }
 
   .workspace-page-attachment-remove {

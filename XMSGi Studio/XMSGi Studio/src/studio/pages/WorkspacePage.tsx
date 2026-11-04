@@ -360,8 +360,27 @@ export function WorkspacePage({
       visible: layout.visible ?? true,
     };
   });
+  const [compactPreviewState, setCompactPreviewState] = useState(() => ({
+    active: document.documentElement.classList.contains('electron-runtime') && window.innerWidth <= 1100,
+    visible: null as boolean | null,
+  }));
+  const previewVisible = compactPreviewState.active
+    ? compactPreviewState.visible ?? false
+    : previewLayout.visible !== false;
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
+
+  useEffect(() => {
+    const updateCompactPreviewState = () => {
+      const active = document.documentElement.classList.contains('electron-runtime') && window.innerWidth <= 1100;
+      setCompactPreviewState((current) => current.active === active
+        ? current
+        : { active, visible: null });
+    };
+
+    window.addEventListener('resize', updateCompactPreviewState);
+    return () => window.removeEventListener('resize', updateCompactPreviewState);
+  }, []);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -421,7 +440,7 @@ export function WorkspacePage({
       window.removeEventListener('resize', scheduleAlignment);
       previewPanel.style.removeProperty(offsetProperty);
     };
-  }, [previewLayout.collapsed, previewLayout.visible]);
+  }, [previewLayout.collapsed, previewVisible]);
 
   const applyWorkspaceDraft = (workspaceDraft: Partial<WorkspaceDraft> | null) => {
     if (rescheduleSourceRef.current) return;
@@ -755,6 +774,14 @@ export function WorkspacePage({
 
   const togglePreviewVisibility = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (compactPreviewState.active) {
+      setCompactPreviewState((current) => ({
+        ...current,
+        visible: !(current.visible ?? false),
+      }));
+      return;
+    }
+
     setPreviewLayout((current) => {
       const nextVisible = current.visible ?? true;
       return {
@@ -2657,7 +2684,7 @@ export function WorkspacePage({
                 albumFileInputRef={albumFileInputRef}
                 onFileSelection={handleFileSelection}
                 onAlbumFileSelection={handleAlbumFileSelection}
-                previewVisible={previewLayout.visible !== false}
+                previewVisible={previewVisible}
                 onTogglePreview={togglePreviewVisibility}
                 stageMode={stageMode}
                 setStageMode={setStageMode}
@@ -2703,7 +2730,7 @@ export function WorkspacePage({
           <section
             className="workspace-page-panel workspace-page-preview-panel"
             data-collapsed={previewCollapsed ? 'true' : 'false'}
-            data-visible={previewLayout.visible === false ? 'false' : 'true'}
+            data-visible={previewVisible ? 'true' : 'false'}
           >
             <MemoizedChatPreviewStand
               chats={chats}
