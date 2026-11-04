@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Создавайте посты для Telegram со своего аккаунта и отправляйте их точно в срок — даже если компьютер выключен. Черновики, очередь и статусы доставки. Без ботов, всё локально." />
+  <meta name="google-site-verification" content="zIfUT777dJkjXOqgry0vpuZJUXKJChisbAGXvZJASpE" />
+  <meta name="theme-color" content="#000000" />
+  <title>XMSGi Studio — отложенные посты в Telegram с вашего аккаунта</title>
+  <link href="assets/fonts.css" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #000;
+      --near: #050506;
+      --line: rgba(255,255,255,0.06);
+      --line-glow: rgba(168,144,255,0.35);
+      --text: #eeeef2;
+      --dim: #6e6e7a;
+      --faint: #3e3e48;
+      --neon: #b8a4ff;
+      --neon-soft: rgba(184,164,255,0.5);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      min-width: 0;
+      width: 100%;
+    }
+    a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+    img { display: block; max-width: 100%; height: auto; }
+
+    .wrap {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+
+    /* ——— top bar ——— */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      height: 56px;
+      display: flex; align-items: center;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+    }
+    header .wrap {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo {
+      font-size: 14px; font-weight: 700; letter-spacing: -0.03em;
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .logo i {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--neon);
+      box-shadow: 0 0 10px var(--neon-soft);
+      flex-shrink: 0;
+    }
+    .top-right {
+      display: flex; align-items: center; gap: 16px;
+      flex-shrink: 0;
+    }
+    .top-right a { font-size: 13px; color: var(--dim); transition: color .15s; }
+    .top-right a:hover { color: var(--text); }
+    .lang { display: flex; gap: 2px; }
+    .lang button {
+      background: none; border: none; color: var(--faint);
+      padding: 4px 6px; cursor: pointer;
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      border-radius: 4px; transition: color .15s;
+      min-height: 28px;
+    }
+    .lang button.on, .lang button:hover { color: var(--text); }
+
+    /* ——— hero ——— */
+    .hero {
+      padding: 120px 0 48px;
+      text-align: center;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: min(600px, 100%); height: 360px;
+      background: radial-gradient(ellipse, rgba(140,120,255,0.07), transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 7vw, 56px);
+      font-weight: 800; letter-spacing: -0.045em; line-height: 1.1;
+      margin-bottom: 16px;
+      word-wrap: break-word;
+    }
+    .hero .hero-year {
+      margin: 0 auto 12px;
+      color: var(--neon);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(105deg, #fff 20%, var(--neon) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero p {
+      font-size: 15px; color: var(--dim); max-width: 420px;
+      margin: 28px auto 0; line-height: 1.6;
+    }
+    .hero-cta {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 44px; padding: 0 20px;
+      background: #fff; color: #000;
+      font-size: 13px; font-weight: 700;
+      border-radius: 8px;
+      transition: opacity .15s;
+    }
+    .hero-cta:hover { opacity: 0.9; }
+    .hero-cta svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .release-version {
+      margin: 10px auto 0;
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    /* ——— shot ——— */
+    .shot {
+      margin: 0 auto;
+      max-width: 880px;
+    }
+    .shot-frame {
+      border-radius: 12px;
+      border: 1px solid rgba(168,144,255,0.18);
+      overflow: hidden;
+      background: var(--near);
+      box-shadow:
+        0 0 60px -20px rgba(140,120,255,0.2),
+        0 32px 64px -24px rgba(0,0,0,0.9);
+    }
+    .shot-frame img { width: 100%; display: block; }
+    .shot-frame picture,
+    .gallery-item picture { display: block; width: 100%; }
+
+    /* ——— neon divider ——— */
+    .line {
+      height: 1px; border: none; width: 100%; margin: 20px 0 0;
+      background: linear-gradient(90deg, transparent, var(--neon-soft) 15%, var(--neon) 50%, var(--neon-soft) 85%, transparent);
+      box-shadow: 0 0 12px rgba(168,144,255,0.35);
+    }
+
+    /* ——— grid ——— */
+    .points-wrap { padding: 56px 0 0; }
+    .section-head { text-align: center; margin-bottom: 34px; }
+    .section-head .kicker {
+      display: inline-block; margin-bottom: 12px;
+      color: var(--neon); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .section-head h2 {
+      font-size: clamp(22px, 4.5vw, 34px);
+      font-weight: 800; letter-spacing: -0.035em; line-height: 1.15;
+      max-width: 620px; margin: 0 auto;
+    }
+    .section-head h2 em {
+      font-style: normal;
+      background: linear-gradient(105deg, #fff 20%, var(--neon) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .section-head--management h2 {
+      max-width: 900px;
+      font-size: clamp(34px, 7vw, 64px);
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+    .section-head p {
+      margin: 12px auto 0; max-width: 460px;
+      font-size: 14px; color: var(--dim); line-height: 1.6;
+    }
+    .points {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .point {
+      background: var(--black);
+      padding: 24px 20px;
+      transition: background .2s;
+      min-width: 0;
+    }
+    .point:hover { background: var(--near); }
+    .point strong {
+      display: block;
+      font-size: 14px; font-weight: 600; letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .point span {
+      font-size: 13px; color: var(--dim); line-height: 1.5;
+    }
+
+    /* ——— gallery ——— */
+    .gallery { padding: 56px 0 0; }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: center;
+    }
+    .gallery-item {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      background: var(--near);
+      transition: border-color .25s, box-shadow .25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gallery-item img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform .4s ease;
+    }
+    .gallery-item:hover {
+      border-color: rgba(168,144,255,0.3);
+      box-shadow: 0 12px 40px -16px rgba(140,120,255,0.35);
+    }
+    .gallery-item:hover img { transform: scale(1.03); }
+
+    /* ——— ending ——— */
+    .ending {
+      padding: 56px 0 80px;
+      text-align: center;
+    }
+    .ending h2 {
+      font-size: clamp(24px, 5vw, 40px);
+      font-weight: 800; letter-spacing: -0.04em; line-height: 1.12;
+      margin-bottom: 12px;
+      background: linear-gradient(105deg, #fff 30%, #cfc6ff 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .ending p {
+      font-size: 15px; color: var(--dim);
+      margin-bottom: 30px;
+      max-width: 400px;
+      margin-left: auto; margin-right: auto; line-height: 1.6;
+    }
+    .ending-actions {
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 26px;
+    }
+    .dl-row {
+      display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .btn-w {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 46px; padding: 0 24px;
+      background: #e8e8ef; color: #000;
+      font-size: 14px; font-weight: 700;
+      border-radius: 10px;
+      transition: transform .18s, opacity .18s, box-shadow .18s;
+    }
+    .btn-w svg { width: 16px; height: 16px; }
+    .btn-w:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -12px rgba(140,120,255,0.5); }
+    .btn-g {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 46px; padding: 0 24px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 14px; font-weight: 600; color: var(--text);
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: border-color .15s, color .15s, background .15s, transform .15s;
+    }
+    .btn-g svg { width: 16px; height: 16px; }
+    .btn-g:hover { border-color: rgba(168,144,255,0.4); background: rgba(255,255,255,0.07); transform: translateY(-2px); box-shadow: 0 10px 28px -12px rgba(140,120,255,0.5); }
+    .btn-dl {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 44px; padding: 0 18px;
+      border: 1px solid rgba(255,255,255,0.09);
+      font-size: 13px; font-weight: 600; color: var(--text);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: border-color .18s, background .18s, transform .18s, box-shadow .18s;
+      white-space: nowrap;
+    }
+    .btn-dl svg { width: 15px; height: 15px; color: var(--neon); flex-shrink: 0; }
+    .btn-dl:hover {
+      border-color: rgba(168,144,255,0.4);
+      background: rgba(168,144,255,0.08);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px -12px rgba(140,120,255,0.5);
+    }
+    .plats {
+      position: relative;
+      margin-top: 20px;
+      font-size: 12px; color: var(--faint);
+      letter-spacing: 0.04em;
+    }
+
+    /* ——— footer ——— */
+    footer {
+      padding: 20px 0 32px;
+      border-top: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--faint);
+      flex-wrap: wrap; gap: 10px;
+    }
+    footer a:hover { color: var(--dim); }
+    footer .links { display: flex; gap: 16px; }
+
+    /* ——— mobile ——— */
+    @media (max-width: 720px) {
+      .wrap { padding-left: 16px; padding-right: 16px; }
+      .hero { padding: 100px 0 36px; }
+      .hero p { font-size: 14px; }
+      .shot { margin-bottom: 48px; }
+      .points {
+        grid-template-columns: 1fr 1fr;
+      }
+      .points--management .point:last-child { grid-column: 1 / -1; }
+      .points-wrap { padding-top: 48px; }
+      .gallery { padding-top: 48px; }
+      .ending { padding: 48px 0 56px; }
+      .top-right a:not(.dl) { display: none; }
+      .top-right { gap: 12px; }
+    }
+
+    @media (max-width: 400px) {
+      .points { grid-template-columns: 1fr; }
+      .points--management .point:last-child { grid-column: auto; }
+      .hero h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#"><i></i> XMSGi Studio</a>
+    <div class="top-right">
+      <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">GitHub</a>
+      <div class="lang">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="ru" class="on">RU</button>
+      </div>
+      <a class="dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest" style="color:var(--text);font-weight:600" data-i18n="dl">Загрузки</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="hero-year">XMSGi Studio · <span data-current-year>2026</span></p>
+    <h1 data-i18n="h1">Посты в Telegram<br><em>по расписанию.</em></h1>
+    <a class="hero-cta" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span data-i18n="latest">Скачать последнюю версию</span>
+    </a>
+    <p class="release-version" data-i18n="currentRelease">Актуальный релиз: v1.3.6</p>
+    <p data-i18n="sub">Составляйте пост в удобное время — XMSGi Studio отправит его по расписанию, даже если компьютер выключен. Без ботов и облака — только ваш аккаунт.</p>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="shot">
+    <div class="shot-frame">
+      <picture>
+        <source srcset="screenshots/01.webp" type="image/webp" />
+        <img src="screenshots/01.webp" alt="Рабочее пространство XMSGi Studio" data-i18n-alt="altMain" width="880" height="auto" />
+      </picture>
+    </div>
+    <hr class="line" />
+  </div>
+</div>
+
+<div class="wrap points-wrap">
+  <div class="points">
+    <div class="point">
+      <strong data-i18n="p1t">Быстрый планировщик</strong>
+      <span data-i18n="p1d">Отправляйте сообщения сейчас, планируйте отправку или сохраняйте черновики — в одном месте.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="p2t">Полные посты</strong>
+      <span data-i18n="p2d">Добавляйте медиа, форматируйте текст и проверяйте результат в предварительном просмотре.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="p3t">Одна история публикаций</strong>
+      <span data-i18n="p3d">Черновики, очередь отправки и статусы доставки собраны в одном месте.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="p4t">Ваш аккаунт Telegram</strong>
+      <span data-i18n="p4d">Выбирайте нужные чаты, группы и каналы и публикуйте от своего имени.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="p5t">Статистика отправок</strong>
+      <span data-i18n="p5d">Посмотрите диаграмму публикаций за последние 7 или 30 дней.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="p6t">Светлая и тёмная темы</strong>
+      <span data-i18n="p6d">Выберите оформление, которое комфортно для работы.</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap points-wrap">
+  <div class="section-head section-head--management">
+    <span class="kicker" data-i18n="mgmtKicker">Запланировали — а что дальше?</span>
+    <h2 data-i18n="mgmtTitle">Контроль<br><em>остаётся у вас.</em></h2>
+    <p data-i18n="mgmtSub">Правьте, переносите и отслеживайте публикации — вплоть до самой отправки.</p>
+  </div>
+  <div class="points points--management">
+    <div class="point">
+      <strong data-i18n="c1t">Обновите пост без пересоздания</strong>
+      <span data-i18n="c1d">Измените текст или медиа запланированной публикации — она уйдёт в обновлённом виде.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="c2t">Вся история публикаций</strong>
+      <span data-i18n="c2d">Очередь, отправленные посты и черновики — в одной истории. Сохраняйте идеи, чтобы вернуться и превратить их в публикации.</span>
+    </div>
+    <div class="point">
+      <strong data-i18n="c3t">Activity — ваш ритм публикаций</strong>
+      <span data-i18n="c3d">Смотрите, сколько сообщений отправили за неделю или месяц, и планируйте следующие публикации с учётом своей активности.</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap gallery">
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="screenshots/02.png" alt="Быстрый планировщик XMSGi Studio" data-i18n-alt="altQuickPlanner" loading="lazy" />
+    </div>
+    <div class="gallery-item">
+      <img src="screenshots/03.png" alt="Выбранное сообщение в Posts" data-i18n-alt="altPosts" loading="lazy" />
+    </div>
+    <div class="gallery-item">
+      <img src="screenshots/04.png" alt="Экран входа XMSGi Studio с продолжением через Telegram" data-i18n-alt="altLogin" loading="lazy" />
+    </div>
+  </div>
+</div>
+
+<section class="ending">
+  <div class="wrap">
+    <h2 data-i18n="end">Просто. Локально. Надёжно.</h2>
+    <p data-i18n="endd">Скачайте и запустите — без установки и облака.</p>
+      <div class="ending-actions">
+        <a class="btn-w" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span data-i18n="cta">Скачать последнюю версию</span>
+        </a>
+        <a class="btn-g" href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 015.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0023.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <div class="dl-row">
+        <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span data-i18n="win">Windows</span> · .exe
+        </a>
+        <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span data-i18n="lin">Linux</span> · AppImage
+        </a>
+        <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span data-i18n="lin">Linux</span> · .deb
+        </a>
+        <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.73 1.13-4.73 2.87-2.02 3.5-.52 8.68 1.45 11.52.96 1.39 2.1 2.95 3.6 2.89 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.03-.01-3.03-1.16-3.08-4.63zM14.16 4.06c.8-.97 1.34-2.32 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.86-1.39 2.23-1.22 3.55 1.29.1 2.6-.65 3.41-1.63z"/></svg>
+          <span data-i18n="mac">macOS</span> · .dmg (Intel)
+        </a>
+        <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.73 1.13-4.73 2.87-2.02 3.5-.52 8.68 1.45 11.52.96 1.39 2.1 2.95 3.6 2.89 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.03-.01-3.03-1.16-3.08-4.63zM14.16 4.06c.8-.97 1.34-2.32 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.86-1.39 2.23-1.22 3.55 1.29.1 2.6-.65 3.41-1.63z"/></svg>
+          <span data-i18n="mac">macOS</span> · .dmg (ARM)
+        </a>
+      </div>
+      <p class="macos-note" data-i18n="macosNote">Сборки для macOS не подписаны и не notarized. При первом запуске в Finder нажмите Control и кликните по приложению, выберите «Открыть» и подтвердите запуск.</p>
+      <div class="plats" data-i18n="plats">Windows · Linux · macOS</div>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>© <span data-current-year>2026</span> XMSGi Studio</span>
+    <div class="links">
+      <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/molodoy01/XMSGi-Studio/releases" target="_blank" rel="noopener" data-i18n="rel">Релизы</a>
+      <a href="ru/telegram-post-scheduler/">Планировщик постов</a>
+      <a href="en/telegram-post-scheduler/">Telegram post scheduler</a>
+      <a href="ru/telegram-content-plan/">Контент-план для Telegram</a>
+      <a href="en/telegram-content-plan/">Telegram content plan</a>
+      <a href="ru/telegram-recurring-messages/">Повторяющиеся сообщения в Telegram</a>
+      <a href="en/telegram-recurring-messages/">Recurring Telegram messages</a>
+      <a href="ru/telegram-post-drafts/">Черновики постов для Telegram</a>
+      <a href="en/telegram-post-drafts/">Telegram post drafts</a>
+      <a href="ru/about-xmsgi-studio/">О проекте XMSGi Studio</a>
+      <a href="en/about-xmsgi-studio/">About XMSGi Studio</a>
+      <a href="https://github.com/molodoy01/XMSGi-Studio/blob/main/XMSGi%20Studio/LICENSE" target="_blank" rel="noopener">MIT</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const T = {
+    ru: {
+      title: "XMSGi Studio — рабочее пространство для публикаций в Telegram",
+      desc: "Готовьте публикации в Studio, управляйте черновиками и отправляйте их в Telegram со своего аккаунта. Quick Planner — для быстрых сообщений и напоминаний.",
+      dl: "Загрузки",
+      latest: "Скачать последнюю версию",
+      currentRelease: "Актуальный релиз: v1.3.6",
+      h1: "XMSGi Studio<br><em>рабочее пространство для Telegram.</em>",
+      sub: "Готовьте посты и черновики в Studio. Для быстрого отправления, планирования или сохранения черновика используйте Quick Planner.",
+      cta: "Скачать последнюю версию",
+      macosNote: "Сборки для macOS не подписаны и не notarized. При первом запуске в Finder нажмите Control и кликните по приложению, выберите «Открыть» и подтвердите запуск.",
+      p1t: "Быстрый планировщик", p1d: "Отправляйте сообщения сейчас, планируйте отправку или сохраняйте черновики — в одном месте.",
+      p2t: "Полные посты", p2d: "Добавляйте медиа, форматируйте текст и проверяйте результат в предварительном просмотре.",
+      p3t: "Одна история публикаций", p3d: "Черновики, очередь отправки и статусы доставки собраны в одном месте.",
+      p4t: "Ваш аккаунт Telegram", p4d: "Выбирайте нужные чаты, группы и каналы и публикуйте от своего имени.",
+      p5t: "Статистика отправок", p5d: "Посмотрите диаграмму публикаций за последние 7 или 30 дней.",
+      p6t: "Светлая и тёмная темы", p6d: "Выберите оформление, которое комфортно для работы.",
+      end: "Просто. Локально. Надёжно.",
+      endd: "Скачайте и запустите — без установки и облака.",
+      rel: "Релизы",
+      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows · Linux · macOS",
+      altMain: "Рабочее пространство XMSGi Studio",
+      altQuickPlanner: "Быстрый планировщик XMSGi Studio",
+      altPosts: "Выбранное сообщение в Posts",
+      altLogin: "Экран входа XMSGi Studio с продолжением через Telegram",
+      mgmtKicker: "Запланировали — а что дальше?",
+      mgmtTitle: "Контроль<br><em>остаётся у вас.</em>",
+      mgmtSub: "Правьте, переносите и отслеживайте публикации — вплоть до самой отправки.",
+      c1t: "Обновите пост без пересоздания", c1d: "Измените текст или медиа запланированной публикации — она уйдёт в обновлённом виде.",
+      c2t: "Вся история публикаций", c2d: "Очередь, отправленные посты и черновики — в одной истории. Сохраняйте идеи, чтобы вернуться и превратить их в публикации.",
+      c3t: "Activity — ваш ритм публикаций", c3d: "Смотрите, сколько сообщений отправили за неделю или месяц, и планируйте следующие публикации с учётом своей активности."
+    },
+    en: {
+      title: "XMSGi Studio — your Telegram publishing workspace",
+      desc: "Create posts in Studio, manage drafts and publish to Telegram from your account. Quick Planner is the fast path for messages and reminders.",
+      dl: "Downloads",
+      latest: "Download latest release",
+      currentRelease: "Latest release: v1.3.6",
+      h1: "XMSGi Studio<br><em>your Telegram publishing workspace.</em>",
+      sub: "Create posts and drafts in Studio. Use Quick Planner when you need to send, schedule or save a message quickly.",
+      cta: "Download latest release",
+      macosNote: "macOS builds are unsigned and not notarized. On first launch in Finder, Control-click the app, choose Open, then confirm Open.",
+      p1t: "Quick Planner", p1d: "Send messages now, schedule them, or save drafts — all in one place.",
+      p2t: "Full-featured posts", p2d: "Add media, format your text, and check the result in the live preview.",
+      p3t: "One publishing history", p3d: "Drafts, the send queue, and delivery statuses in one place.",
+      p4t: "Your Telegram account", p4d: "Choose chats, groups, and channels, and publish as yourself.",
+      p5t: "Sending activity", p5d: "View a chart of your posts over the last 7 or 30 days.",
+      p6t: "Light and dark themes", p6d: "Choose the appearance that feels right for your workflow.",
+      end: "Simple. Local. Reliable.",
+      endd: "Download and run — no installation, no cloud.",
+      rel: "Releases",
+      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows · Linux · macOS",
+      altMain: "XMSGi Studio workspace",
+      altQuickPlanner: "XMSGi Studio Quick Planner",
+      altPosts: "Selected message in Posts",
+      altLogin: "XMSGi Studio sign-in screen with Continue to Telegram",
+      mgmtKicker: "Scheduled — what now?",
+      mgmtTitle: "Control<br><em>stays in your hands.</em>",
+      mgmtSub: "Edit, reschedule and track your posts — right up to the moment they're sent.",
+      c1t: "Update without recreating", c1d: "Change the text or media of a scheduled post and it will go out with your updates.",
+      c2t: "Your publishing history", c2d: "Your queue, sent posts and drafts — all in one history. Save ideas and return when you're ready to turn them into posts.",
+      c3t: "Activity — your publishing rhythm", c3d: "See how many messages you sent this week or month, then plan your next posts based on your activity."
+    }
+  };
+
+  function setLang(l) {
+    const t = T[l] || T.ru;
+    document.documentElement.lang = l;
+    document.title = t.title;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc && t.desc) metaDesc.setAttribute("content", t.desc);
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const k = el.dataset.i18n;
+      if (t[k] != null) el.innerHTML = t[k];
+    });
+    document.querySelectorAll("[data-i18n-alt]").forEach(el => {
+      const k = el.dataset.i18nAlt;
+      if (t[k] != null) el.setAttribute("alt", t[k]);
+    });
+    document.querySelectorAll(".lang button").forEach(b => {
+      b.classList.toggle("on", b.dataset.lang === l);
+    });
+    localStorage.setItem("xmsgi-lang", l);
+  }
+
+  document.querySelectorAll("[data-current-year]").forEach(el => {
+    el.textContent = new Date().getFullYear();
+  });
+
+  document.querySelectorAll(".lang button").forEach(b => {
+    b.addEventListener("click", () => setLang(b.dataset.lang));
+  });
+
+  const saved = localStorage.getItem("xmsgi-lang");
+  const browserIsRu = (navigator.language || "ru").toLowerCase().indexOf("ru") === 0;
+  setLang(saved || (browserIsRu ? "ru" : "en"));
+</script>
+</body>
+</html>
