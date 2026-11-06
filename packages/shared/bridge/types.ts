@@ -24,9 +24,9 @@ export interface StudioSchedulePayload {
   time: string;
   attachments?: string[];
   entities?: RichTextEntity[];
-  replyMarkup?: InlineKeyboardMarkup;
   silent?: boolean;
   effect?: string;
+  waitForConfirmation?: boolean;
   replaceMessage?: ScheduledMessage;
 }
 

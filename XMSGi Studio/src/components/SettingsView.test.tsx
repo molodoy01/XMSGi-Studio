@@ -76,7 +76,7 @@ describe('SettingsView Telegram integration', () => {
   it('shows the Studio tagline and requested Settings version', () => {
     renderSettings();
 
-    expect(screen.getByText('XMSGi Studio — Create messages, save ideas, schedule posts, and keep everything under control in one convenient workspace.')).toBeInTheDocument();
+    expect(screen.getByText('XMSGi Studio — Create and schedule Telegram posts in one workspace.')).toBeInTheDocument();
     expect(screen.getByText('Version 1.3.6')).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe('SettingsView Telegram integration', () => {
 
     try {
       renderSettings();
-      expect(screen.getByText('XMSGi Studio — Создавайте сообщения, храните идеи, планируйте отправку и держите всё под контролем — в одном удобном рабочем пространстве.')).toBeInTheDocument();
+      expect(screen.getByText('XMSGi Studio — Создавайте и планируйте публикации в Telegram в одном рабочем пространстве.')).toBeInTheDocument();
     } finally {
       if (originalLocale === null) window.localStorage.removeItem('awaitmsg_locale');
       else window.localStorage.setItem('awaitmsg_locale', originalLocale);
@@ -204,13 +204,13 @@ describe('SettingsView Telegram integration', () => {
       /\.settings-telegram-summary-main\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;/,
     );
     expect(settingsStyles).toMatch(
-      /\.settings-telegram-summary-main > strong\s*\{[^}]*order:\s*1;/,
+      /\.settings-telegram-summary-account\s*\{[^}]*order:\s*1;/,
     );
     expect(settingsStyles).toMatch(
-      /\.settings-telegram-summary-account\s*\{[^}]*order:\s*2;/,
+      /\.settings-telegram-summary-main > \.settings-telegram-status-dot\s*\{[^}]*order:\s*2;/,
     );
     expect(settingsStyles).toMatch(
-      /\.settings-telegram-summary-state\s*\{[^}]*order:\s*3;[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;[^}]*white-space:\s*nowrap;/,
+      /\.settings-telegram-summary-state\s*\{[^}]*order:\s*4;[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;[^}]*white-space:\s*nowrap;/,
     );
     expect(settingsStyles).toMatch(
       /\.settings-telegram-summary-account\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/,
@@ -246,12 +246,37 @@ describe('SettingsView Telegram integration', () => {
   it('keeps API fields out of the main settings screen', () => {
     const { container } = renderSettings();
 
+    expect(within(container).getByRole('heading', { name: 'Telegram' })).toBeInTheDocument();
+    expect(settingsStyles).toMatch(/\.settings-telegram-section\s*\{\s*padding-bottom:\s*64px;/);
+    expect(settingsStyles).toMatch(/\.settings-telegram-entry\s*\{[^}]*width:\s*calc\(100% \+ 34px\);[^}]*margin-left:\s*-17px;/);
     const summary = screen.getByRole('button', { name: /alex_example/ });
+    const statusDot = summary.querySelector('.settings-telegram-status-dot');
+    const summaryMain = summary.querySelector('.settings-telegram-summary-main');
+    expect(summaryMain?.firstElementChild).toHaveTextContent('@alex_example');
+    expect(summaryMain?.children[1]).toBe(statusDot);
+    expect(statusDot).toHaveClass('is-connected');
+    expect(summary).not.toHaveTextContent('Telegram');
     expect(summary).toHaveTextContent('Manage');
+    expect(summary).not.toHaveTextContent('Connected');
     expect(summary.querySelector('.settings-telegram-mark')).not.toBeInTheDocument();
     expect(container.querySelector('.settings-telegram-mark')).not.toBeInTheDocument();
     expect(container.querySelector('.telegram-credentials-form')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API_ID')).not.toBeInTheDocument();
+  });
+
+  it('shows a non-green status dot and not-connected label when Telegram is disconnected', () => {
+    const { container } = renderSettings({
+      telegramConnected: false,
+      telegramCredentials: { hasCredentials: true, hasSession: true, connected: false, signedOut: false },
+    });
+    const summary = container.querySelector('.settings-telegram-summary')!;
+    const statusDot = summary.querySelector('.settings-telegram-status-dot');
+    const summaryMain = summary.querySelector('.settings-telegram-summary-main');
+
+    expect(summaryMain?.firstElementChild).toHaveTextContent('Not connected');
+    expect(summaryMain?.children[1]).toBe(statusDot);
+    expect(statusDot).not.toHaveClass('is-connected');
+    expect(summary).toHaveTextContent('Not connected');
   });
 
   it('does not open Telegram setup automatically for an empty profile', () => {
@@ -267,9 +292,20 @@ describe('SettingsView Telegram integration', () => {
   it('opens connection controls and reveals API fields only on demand', () => {
     const { onTelegramDisconnect } = renderSettings();
 
-    fireEvent.click(screen.getByRole('button', { name: /alex_example/ }));
+    const summary = screen.getByRole('button', { name: /alex_example/ });
+    expect(summary).not.toHaveTextContent('Connected');
+
+    fireEvent.click(summary);
 
     const dialog = screen.getByRole('dialog', { name: 'Manage connection' });
+    expect(within(dialog).getByText('Connected')).toBeInTheDocument();
+    const dialogStatus = dialog.querySelector('.telegram-manager-status')!;
+    const statusLabel = dialogStatus.querySelector('.telegram-manager-status-label')!;
+    const dialogStatusDot = statusLabel.querySelector('.settings-telegram-status-dot');
+    expect(statusLabel).toContainElement(dialogStatusDot as HTMLElement);
+    expect(statusLabel).toContainElement(within(dialog).getByText('Connected'));
+    expect(dialogStatusDot).toHaveClass('is-connected');
+    expect(settingsStyles).toMatch(/\.telegram-manager-status-label\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;[^}]*gap:\s*8px;/);
     expect(dialog.parentElement?.parentElement).toBe(document.body);
     expect(Array.from(dialog.querySelectorAll('.telegram-manager-actions > button')).map((button) => button.textContent?.trim()))
       .toEqual(['Disconnect account', 'Cancel']);

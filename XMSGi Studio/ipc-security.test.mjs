@@ -159,6 +159,23 @@ describe('IPC security validation', () => {
     expect(() => validateHistoryPayload({ chatId: '123456789', offsetId: -1 })).toThrow('offset');
   });
 
+  it('accepts a bounded image data URL as the cached chat avatar for history', () => {
+    const cachedAvatarDataUrl = 'data:image/jpeg;base64,YXZhdGFy';
+    expect(validateHistoryPayload({ chatId: '123456789', cachedAvatarDataUrl })).toEqual({
+      chatId: '123456789',
+      limit: 50,
+      cachedAvatarDataUrl,
+    });
+    expect(() => validateHistoryPayload({
+      chatId: '123456789',
+      cachedAvatarDataUrl: 'https://example.com/avatar.jpg',
+    })).toThrow('cached avatar');
+    expect(() => validateHistoryPayload({
+      chatId: '123456789',
+      cachedAvatarDataUrl: `data:image/jpeg;base64,${'a'.repeat(1_500_001)}`,
+    })).toThrow('cached avatar');
+  });
+
   it('allows attachment-only sends but rejects fully empty sends', () => {
     expect(validateSendPayload({
       chatId: 'me',

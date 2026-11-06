@@ -163,7 +163,7 @@ export function TemplatesStage({
                   <Download size={14} strokeWidth={1.8} aria-hidden="true" /> {t('studio.exportTemplatesCompact')}
                 </button>
               )}
-              <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
+              <button type="button" className="workspace-page-stage-primary workspace-page-template-stage-add" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
             </>
           )}
         </div>

@@ -8,7 +8,8 @@
 
 ### Changed
 
-- No changes yet.
+- Remove obsolete AES-CBC Telegram secret migration; retain plaintext-to-safeStorage migration.
+- Reduce Telegram connectivity-check frequency and prevent overlapping checks.
 
 ## 1.3.6 - 2026-10-28
 

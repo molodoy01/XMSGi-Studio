@@ -174,7 +174,7 @@ declare global {
         telegramMessageIds?: Array<string | number>;
         error?: string;
       }>;
-      getChatHistory: (data: { chatId: string; limit?: number; offsetId?: number }) => Promise<{
+      getChatHistory: (data: { chatId: string; limit?: number; offsetId?: number; cachedAvatarDataUrl?: string }) => Promise<{
         success: boolean;
         history?: {
           chat: {

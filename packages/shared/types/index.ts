@@ -21,6 +21,7 @@ export interface Template {
   name: string;
   body: string;
   entities?: RichTextEntity[];
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -57,7 +58,6 @@ export interface SavedDraft {
   entities?: RichTextEntity[];
   attachments?: SavedDraftAttachment[];
   selectedChat?: Pick<Chat, 'id' | 'name' | 'username' | 'type' | 'avatarDataUrl'> | null;
-  inlineButtons?: InlineButtonRow[];
   date?: string;
   time?: string;
   repeatMode?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
@@ -89,28 +89,6 @@ export interface RichTextEntity {
   url?: string;
 }
 
-export interface InlineButton {
-  id: string;
-  label: string;
-  action: {
-    type: InlineButtonActionType;
-    value: string;
-  };
-}
-
-export type InlineButtonActionType = 'url' | 'callback';
-export type InlineButtonRow = InlineButton[];
-
-export interface InlineKeyboardButton {
-  text: string;
-  url?: string;
-  callback_data?: string;
-}
-
-export interface InlineKeyboardMarkup {
-  inline_keyboard: InlineKeyboardButton[][];
-}
-
 export interface ScheduledMessage {
   id: string;
   accountId?: string;
@@ -127,7 +105,6 @@ export interface ScheduledMessage {
   sendAttemptId?: string;
   attachments?: string[];
   entities?: RichTextEntity[];
-  replyMarkup?: InlineKeyboardMarkup;
   silent?: boolean;
   effect?: string;
   operationId?: string;
@@ -136,6 +113,9 @@ export interface ScheduledMessage {
   sentAt?: string;
   telegramMessageId?: string | number;
   telegramMessageIds?: Array<string | number>;
+  repeatMode?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  repeatDays?: string[];
+  repeatOccurrences?: number;
 }
 
 export interface PreviewHistoryMessage {
@@ -148,7 +128,6 @@ export interface PreviewHistoryMessage {
   mediaType?: string;
   mediaName?: string;
   media?: PreviewHistoryMedia;
-  replyMarkup?: InlineKeyboardMarkup;
   groupId?: string;
 }
 

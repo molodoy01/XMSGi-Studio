@@ -148,6 +148,79 @@ describe('draft store reliability', () => {
     expect(fs.readdirSync(directory).filter((name) => name.endsWith('.tmp'))).toEqual([]);
   });
 
+  it('uses asynchronous filesystem operations for regular saves', async () => {
+    const directory = createDirectory();
+    const synchronousFileMethods = new Set([
+      'readFileSync',
+      'mkdirSync',
+      'openSync',
+      'writeFileSync',
+      'fsyncSync',
+      'closeSync',
+      'renameSync',
+      'unlinkSync',
+    ]);
+    const fileSystem = new Proxy(fs, {
+      get(target, property) {
+        if (synchronousFileMethods.has(property)) {
+          return () => { throw new Error(`Unexpected synchronous filesystem call: ${property}`); };
+        }
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const store = createDraftStore({ directory, fileSystem });
+    const data = { version: 1, drafts: [{ id: 'async-save' }], backups: [] };
+
+    await expect(store.save(data)).resolves.toEqual(data);
+    expect(createDraftStore({ directory }).load()).toEqual(data);
+    expect(JSON.parse(fs.readFileSync(path.join(directory, 'drafts.json.bak'), 'utf8'))).toEqual(data);
+  });
+
+  it('keeps the synchronous close flush when an asynchronous save is finishing', async () => {
+    const directory = createDirectory();
+    const filePath = path.join(directory, 'drafts.json');
+    let notifyRenameStarted;
+    let releaseRename;
+    const renameStarted = new Promise((resolve) => { notifyRenameStarted = resolve; });
+    const renameGate = new Promise((resolve) => { releaseRename = resolve; });
+    let shouldPauseRename = true;
+    const asyncFileSystem = new Proxy(fs.promises, {
+      get(target, property) {
+        if (property === 'rename') {
+          return async (source, destination) => {
+            if (shouldPauseRename && destination === filePath) {
+              shouldPauseRename = false;
+              notifyRenameStarted();
+              await renameGate;
+            }
+            return target.rename(source, destination);
+          };
+        }
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const fileSystem = new Proxy(fs, {
+      get(target, property) {
+        if (property === 'promises') return asyncFileSystem;
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const store = createDraftStore({ directory, fileSystem });
+    const inFlight = { version: 1, drafts: [{ id: 'autosave' }], backups: [] };
+    const flushed = { version: 1, drafts: [{ id: 'close-flush' }], backups: [] };
+    const savePromise = store.save(inFlight);
+
+    await renameStarted;
+    store.saveSync(flushed);
+    releaseRename();
+    await savePromise;
+
+    expect(createDraftStore({ directory }).load()).toEqual(flushed);
+  });
+
   it('keeps the current store intact when replacing the primary file fails', () => {
     const directory = createDirectory();
     const filePath = path.join(directory, 'drafts.json');

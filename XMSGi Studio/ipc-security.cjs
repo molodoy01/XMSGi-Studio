@@ -161,10 +161,19 @@ function validateHistoryPayload(value) {
     invalidInput('history offset has an invalid range');
   }
 
+  const cachedAvatarDataUrl = value.cachedAvatarDataUrl;
+  if (cachedAvatarDataUrl !== undefined
+    && (typeof cachedAvatarDataUrl !== 'string'
+      || cachedAvatarDataUrl.length > 1_500_000
+      || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(cachedAvatarDataUrl))) {
+    invalidInput('cached avatar has an invalid format');
+  }
+
   return {
     chatId: validateChatId(value.chatId),
     limit,
-    ...(offsetId === undefined ? {} : { offsetId })
+    ...(offsetId === undefined ? {} : { offsetId }),
+    ...(cachedAvatarDataUrl === undefined ? {} : { cachedAvatarDataUrl })
   };
 }
 

@@ -12,7 +12,9 @@
   justify-content: center;
   padding: 30px clamp(20px, 4vw, 60px) 136px;
   color: var(--planner-ink);
-  background-color: var(--void);
+  background:
+    radial-gradient(ellipse 72% 62% at 45% 42%, rgba(71, 124, 158, 0.035) 0%, rgba(71, 124, 158, 0.012) 42%, transparent 78%),
+    var(--void);
 }
 
 .quick-planner-inner {
@@ -81,10 +83,8 @@ html[data-theme='light'] .quick-planner-heading h1 {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(var(--planner-accent-rgb), 0.22);
-  border-radius: 11px;
-  background:
-    radial-gradient(ellipse 88% 48% at 50% 0%, rgba(var(--planner-accent-rgb), 0.028), transparent 74%),
-    linear-gradient(155deg, rgba(250, 251, 252, 0.94), rgba(243, 246, 248, 0.9));
+  border-radius: 12px;
+  background: #f7f8fa;
   box-shadow: 0 14px 36px rgba(34, 47, 58, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.74);
   backdrop-filter: blur(12px) saturate(120%);
   -webkit-backdrop-filter: blur(12px) saturate(120%);
@@ -549,7 +549,7 @@ html[data-theme='light'] .quick-planner-workbench::before {
   min-width: 0;
   min-height: 0;
   flex: 1 1 0;
-  margin-top: 28px;
+  margin: 13px 0 -10px;
   padding: 14px 34px 14px 16px;
   color: var(--planner-ink);
   border: 1px solid #c8d0d6;
@@ -687,6 +687,13 @@ html[data-theme='light'] .quick-planner-workbench::before {
   color: #3e4a54;
   font-size: 11px;
   box-shadow: 0 1px 2px rgba(37, 55, 68, 0.06);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.quick-planner-attachment:has(button:hover),
+.quick-planner-attachment:has(button:focus-visible) {
+  border-color: #e8c9c5;
+  background-color: #fbefed;
 }
 
 .quick-planner-attachment-name {
@@ -713,8 +720,8 @@ html[data-theme='light'] .quick-planner-workbench::before {
 
 .quick-planner-attachment button:hover,
 .quick-planner-attachment button:focus-visible {
-  background: #e9edf0;
-  color: #26333d;
+  background: transparent;
+  color: #a5362c;
   outline: none;
 }
 
@@ -736,6 +743,7 @@ html[data-theme='light'] .quick-planner-workbench::before {
   align-items: center;
   gap: 12px;
   padding: 0 26px;
+  transform: translateY(7px);
 }
 
 .quick-planner-tools {
@@ -747,10 +755,18 @@ html[data-theme='light'] .quick-planner-workbench::before {
   gap: 7px;
 }
 
+.quick-planner-tools > .quick-planner-tool-anchor {
+  flex: 0 0 48px;
+}
+
+.quick-planner-tools > .quick-planner-tool-anchor + .quick-planner-tool-anchor {
+  margin-left: 5px;
+}
+
 .quick-planner-tools button {
   display: grid;
   width: 48px;
-  height: 48px;
+  height: 40px;
   place-items: center;
   padding: 0;
   color: #586975;
@@ -1240,7 +1256,7 @@ html[data-theme='light'] .quick-planner-workbench::before {
   height: 44px;
   width: 100%;
   min-width: 0;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 9px;
   padding: 0 12px;
   font-size: 13px;
@@ -1260,13 +1276,17 @@ html[data-theme='light'] .quick-planner-workbench::before {
 }
 
 .quick-planner-schedule-row > .quick-planner-schedule-field > button > span {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   text-align: left;
 }
 
 .quick-planner-schedule-row > .quick-planner-schedule-field > button > svg:last-child,
 .quick-planner-time-value > .quick-planner-schedule-field > button > svg:last-child {
-  margin-left: auto;
+  margin-left: 0;
+}
+
+.quick-planner-schedule-row .quick-planner-schedule-field > button.is-readonly > svg:last-child {
+  visibility: hidden;
 }
 
 .quick-planner-schedule-popover {
@@ -1726,11 +1746,11 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
   }
 
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-message {
-    margin-bottom: 18px;
+    margin-bottom: 8px;
   }
 
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-tools-row {
-    transform: translateY(-25px);
+    transform: translateY(-18px);
   }
 
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-schedule-row {
@@ -1746,12 +1766,21 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
       grid-template-columns: minmax(0, 1fr);
       justify-items: center;
       align-self: center;
+      align-content: safe center;
       width: min(calc(100% + 12px), 760px);
       margin-left: 0;
     }
 
+    html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-activity {
+      display: none;
+    }
+
+    html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading {
+      min-height: 0;
+      margin-bottom: 0;
+    }
+
     html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-workbench {
-      top: -68px;
       left: 0;
       width: min(100%, 760px);
     }
@@ -1794,9 +1823,17 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
 }
 
 @media (max-width: 780px) {
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-layout {
+    align-content: safe center;
+  }
+
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-workbench {
-    height: auto;
-    min-height: 676px;
+    box-sizing: border-box;
+    height: 510px;
+    min-height: 510px;
+    flex: 0 0 510px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-toolbar,
@@ -2084,7 +2121,8 @@ html[data-theme='light'] .quick-planner .quick-planner-mode-switch button.is-act
   }
 
   .quick-planner-message {
-    margin-top: 26px;
+    margin-top: 11px;
+    margin-bottom: -10px;
     font-size: 16px;
   }
 
@@ -2390,23 +2428,19 @@ html[data-theme='light'] .quick-planner .quick-planner-mode-switch button.is-act
 html[data-theme='light'] .quick-planner .quick-planner-message {
   color-scheme: light;
   background-color: #ffffff;
-  border-color: rgba(var(--planner-accent-rgb), 0.52);
-  box-shadow:
-    0 0 0 1px rgba(var(--planner-accent-rgb), 0.13),
-    0 0 6px rgba(var(--planner-accent-rgb), 0.1);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 html[data-theme='light'] .quick-planner .quick-planner-message:not(:focus),
 html[data-theme='light'] .quick-planner .quick-planner-message:not(:focus):hover {
-  border-color: rgba(var(--planner-accent-rgb), 0.52);
-  box-shadow:
-    0 0 0 1px rgba(var(--planner-accent-rgb), 0.13),
-    0 0 6px rgba(var(--planner-accent-rgb), 0.1);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 html[data-theme='light'] .quick-planner .quick-planner-message:focus {
-  border-color: var(--planner-accent);
-  box-shadow: 0 0 0 2px rgba(var(--planner-accent-rgb), 0.18);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 html[data-theme='light'] .quick-planner .quick-planner-message.is-file-drag-over {
@@ -2416,17 +2450,22 @@ html[data-theme='light'] .quick-planner .quick-planner-message.is-file-drag-over
 
 html[data-theme='dark'] .quick-planner .quick-planner-message {
   color-scheme: dark;
-  border-color: #28b8f4;
+  border-color: transparent;
+  border-radius: 0;
   background-color: #151b20;
 }
 
+html[data-theme='light'] .quick-planner .quick-planner-message {
+  border-radius: 0;
+}
+
 html[data-theme='dark'] .quick-planner .quick-planner-message:not(:focus):not(:hover) {
-  border-color: #59636b;
+  border-color: transparent;
   box-shadow: none;
 }
 
 html[data-theme='dark'] .quick-planner .quick-planner-message:not(:focus):hover {
-  border-color: #46545e;
+  border-color: transparent;
   box-shadow: none;
 }
 
@@ -2437,7 +2476,7 @@ html[data-theme='dark'] .quick-planner .quick-planner-message::selection {
 
 html[data-theme='dark'] .quick-planner .quick-planner-message:focus,
 html[data-theme='dark'] .quick-planner .quick-planner-message:focus-visible {
-  border-color: #46545e;
+  border-color: transparent;
   box-shadow: none;
   outline: none;
 }

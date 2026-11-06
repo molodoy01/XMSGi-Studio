@@ -4,6 +4,29 @@ import type { WorkspaceDraft } from './draftStore';
 
 export const MAX_WORKSPACE_DOCUMENT_VERSIONS = 30;
 
+function withoutSelectedChatAvatar(snapshot: Record<string, unknown>): Record<string, unknown> {
+  const selectedChat = snapshot.selectedChat;
+  if (!selectedChat || typeof selectedChat !== 'object' || Array.isArray(selectedChat)) return snapshot;
+  const chat = { ...selectedChat as Record<string, unknown> };
+  delete chat.avatarDataUrl;
+  return { ...snapshot, selectedChat: chat };
+}
+
+export function hasEmbeddedWorkspaceHistoryAvatars(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).some((rawVersions) => (
+    Array.isArray(rawVersions) && rawVersions.some((rawVersion) => {
+      if (!rawVersion || typeof rawVersion !== 'object' || Array.isArray(rawVersion)) return false;
+      const snapshot = (rawVersion as Record<string, unknown>).snapshot;
+      if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return false;
+      const selectedChat = (snapshot as Record<string, unknown>).selectedChat;
+      if (!selectedChat || typeof selectedChat !== 'object' || Array.isArray(selectedChat)) return false;
+      const avatarDataUrl = (selectedChat as Record<string, unknown>).avatarDataUrl;
+      return typeof avatarDataUrl === 'string' && avatarDataUrl.startsWith('data:');
+    })
+  ));
+}
+
 const VERSION_REASONS = new Set<PersistedWorkspaceDocumentVersion['reason']>([
   'edit',
   'before-clear',
@@ -39,7 +62,9 @@ export function areWorkspaceSnapshotsEqual(left: WorkspaceDraft | null, right: W
       path: attachment.path,
       position: attachment.position,
     })),
-    selectedChat: snapshot.selectedChat ?? null,
+    selectedChat: snapshot.selectedChat
+      ? withoutSelectedChatAvatar(snapshot as unknown as Record<string, unknown>).selectedChat
+      : null,
     date: snapshot.date ?? '',
     time: snapshot.time ?? '',
     repeatMode: snapshot.repeatMode ?? 'none',
@@ -80,7 +105,9 @@ export function normalizeWorkspaceDocumentHistories(value: unknown): PersistedWo
         documentId,
         createdAt: candidate.createdAt,
         reason: candidate.reason,
-        snapshot: JSON.parse(JSON.stringify(snapshot)) as Record<string, unknown>,
+        snapshot: withoutSelectedChatAvatar(
+          JSON.parse(JSON.stringify(snapshot)) as Record<string, unknown>,
+        ),
       }];
     });
 
@@ -100,10 +127,12 @@ export function appendWorkspaceDocumentVersion(
 
   const previousVersions = histories[documentId] ?? [];
   const lastVersion = previousVersions[previousVersions.length - 1];
-  const normalizedSnapshot: WorkspaceDraft = {
-    ...JSON.parse(JSON.stringify(snapshot)) as WorkspaceDraft,
+  const normalizedSnapshot = {
+    ...withoutSelectedChatAvatar(
+      JSON.parse(JSON.stringify(snapshot)) as Record<string, unknown>,
+    ),
     documentId,
-  };
+  } as unknown as WorkspaceDraft;
   if (lastVersion && areWorkspaceSnapshotsEqual(lastVersion.snapshot as WorkspaceDraft, normalizedSnapshot)) {
     return histories;
   }

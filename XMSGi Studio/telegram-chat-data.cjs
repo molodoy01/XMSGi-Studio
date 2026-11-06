@@ -7,11 +7,12 @@ const {
 const { deriveChatPermissions, isPermissionError } = require('./telegram-permissions.cjs');
 const { getPreviewMedia, getPreviewMediaDataBytes, toPreviewNumber } = require('./telegram-media-preview.cjs');
 const { getTelegramEntityType } = require('./telegram-message-entities.cjs');
-const { normalizeHistoryMessage, resolveMessageDirection } = require('./telegram-message-direction.cjs');
+const { normalizeHistoryMessage } = require('./telegram-message-direction.cjs');
 
 const REQUEST_TIMEOUT = 15000;
 const MAX_HISTORY_PREVIEW_MEDIA_BYTES = 8 * 1024 * 1024;
 const MAX_PREVIEW_MEDIA_ITEM_BYTES = 4 * 1024 * 1024;
+const MAX_HISTORY_PREVIEW_IMAGE_COUNT = 8;
 const PREVIEW_MEDIA_CONCURRENCY = 3;
 
 function createTelegramChatData({ Api, connectTelegram, getClient, telegramRequest, withTimeout }) {
@@ -112,7 +113,7 @@ function createTelegramChatData({ Api, connectTelegram, getClient, telegramReque
     }
   }
 
-  async function getChatHistoryInternal(chatId, limit = 50, offsetId) {
+  async function getChatHistoryInternal(chatId, limit = 50, offsetId, cachedAvatarDataUrl = '') {
     if (!getClient()) await connectTelegram();
     const currentUser = await telegramRequest(() => withTimeout(getClient().getMe(), REQUEST_TIMEOUT, 'Loading current Telegram account'));
     const currentUserId = currentUser?.id != null ? String(currentUser.id) : '';
@@ -121,24 +122,25 @@ function createTelegramChatData({ Api, connectTelegram, getClient, telegramReque
       ? currentUser
       : await telegramRequest(() => withTimeout(getClient().getEntity(chatId), REQUEST_TIMEOUT, 'Resolving Telegram chat for history'));
     const historyPeer = isSavedMessages ? 'me' : entity;
-    const messages = await telegramRequest(() => withTimeout(
+    const loadMessages = () => telegramRequest(() => withTimeout(
       getClient().getMessages(historyPeer, { limit, ...(offsetId ? { offsetId } : {}) }),
       REQUEST_TIMEOUT,
       'Loading Telegram chat history',
     ));
-    let avatarDataUrl = '';
-    try {
-      const avatar = await telegramRequest(() => withTimeout(getClient().downloadProfilePhoto(entity), REQUEST_TIMEOUT, 'Loading Telegram chat avatar'));
-      if (avatar && (Buffer.isBuffer(avatar) || avatar instanceof Uint8Array)) {
-        avatarDataUrl = `data:image/jpeg;base64,${Buffer.from(avatar).toString('base64')}`;
-      }
-    } catch (error) {
-      console.error('Telegram chat avatar unavailable:', error?.code || error?.name || 'unknown');
+    let messages = await loadMessages();
+    if (
+      (entity instanceof Api.Channel || entity?.className === 'Channel')
+      && messages?.length === 0
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      messages = await loadMessages();
     }
+    const avatarDataUrl = cachedAvatarDataUrl || await getChatAvatarDataUrl(entity);
 
     const historyMessages = [...(messages || [])].filter((message) => message && message.id !== undefined);
     const normalizedMessages = [];
     let remainingPreviewMediaBytes = MAX_HISTORY_PREVIEW_MEDIA_BYTES;
+    let remainingPreviewImages = MAX_HISTORY_PREVIEW_IMAGE_COUNT;
     for (let index = 0; index < historyMessages.length; index += PREVIEW_MEDIA_CONCURRENCY) {
       const batch = historyMessages.slice(index, index + PREVIEW_MEDIA_CONCURRENCY);
       const previewBytesPerMessage = Math.min(
@@ -147,38 +149,51 @@ function createTelegramChatData({ Api, connectTelegram, getClient, telegramReque
       );
       const normalizedBatch = await Promise.all(batch.map(async (message) => {
         const normalizedMessage = normalizeHistoryMessage(message, currentUserId);
-        const photoSize = toPreviewNumber(message.file?.size);
-        const includeOriginalPhoto = Boolean(message.photo && photoSize !== undefined && photoSize > 0
-          && photoSize <= 8 * 1024 * 1024 && photoSize <= previewBytesPerMessage);
-        const media = await getPreviewMedia(
-          message,
-          includeOriginalPhoto,
-          previewBytesPerMessage,
-          (request) => telegramRequest(() => withTimeout(request, REQUEST_TIMEOUT, 'Loading Telegram media preview')),
-        );
-        return {
+        const isImagePreview = Boolean(message.photo || message.video);
+        const imagePreviewBudget = isImagePreview && remainingPreviewImages > 0;
+        if (imagePreviewBudget) remainingPreviewImages -= 1;
+        const baseMessage = {
           id: String(normalizedMessage.id),
           text: String(normalizedMessage.text || ''),
           date: normalizedMessage.date,
-          outgoing: resolveMessageDirection(message, currentUserId),
-          senderName: getEntityDisplayName(message.sender) || normalizedMessage.senderName,
-          entities: (message.entities || []).flatMap((messageEntity) => {
-            const type = getTelegramEntityType(messageEntity);
-            return type && Number.isInteger(messageEntity.offset) && Number.isInteger(messageEntity.length)
-              ? [{
-                type,
-                offset: messageEntity.offset,
-                length: messageEntity.length,
-                ...(type === 'text_url' && messageEntity.url ? { url: messageEntity.url } : {}),
-                ...(type === 'pre' && messageEntity.language ? { language: messageEntity.language } : {}),
-              }]
-              : [];
-          }),
-          mediaType: message.media?.className || '',
-          mediaName: message.file?.name || '',
-          media,
-          groupId: message.groupedId ? String(message.groupedId) : '',
+          outgoing: normalizedMessage.outgoing,
+          senderName: normalizedMessage.senderName,
         };
+
+        try {
+          const photoSize = toPreviewNumber(message.file?.size);
+          const includeOriginalPhoto = Boolean(message.photo && photoSize !== undefined && photoSize > 0
+            && photoSize <= 8 * 1024 * 1024 && photoSize <= previewBytesPerMessage);
+          const media = await getPreviewMedia(
+            message,
+            includeOriginalPhoto,
+            isImagePreview && !imagePreviewBudget ? 0 : previewBytesPerMessage,
+            (request) => telegramRequest(() => withTimeout(request, REQUEST_TIMEOUT, 'Loading Telegram media preview')),
+          );
+          return {
+            ...baseMessage,
+            senderName: getEntityDisplayName(message.sender) || normalizedMessage.senderName,
+            entities: (message.entities || []).flatMap((messageEntity) => {
+              const type = getTelegramEntityType(messageEntity);
+              return type && Number.isInteger(messageEntity.offset) && Number.isInteger(messageEntity.length)
+                ? [{
+                  type,
+                  offset: messageEntity.offset,
+                  length: messageEntity.length,
+                  ...(type === 'text_url' && messageEntity.url ? { url: messageEntity.url } : {}),
+                  ...(type === 'pre' && messageEntity.language ? { language: messageEntity.language } : {}),
+                }]
+                : [];
+            }),
+            mediaType: message.media?.className || '',
+            mediaName: message.file?.name || '',
+            media,
+            groupId: message.groupedId ? String(message.groupedId) : '',
+          };
+        } catch (error) {
+          console.error('Telegram chat message preview unavailable:', error?.code || error?.name || 'unknown');
+          return { ...baseMessage, entities: [], mediaType: '', mediaName: '', groupId: '' };
+        }
       }));
       remainingPreviewMediaBytes = Math.max(
         0,

@@ -156,6 +156,7 @@ export function AppShell({
   const desktop = window.desktop;
   const hasCustomWindowControls = desktop?.hasCustomWindowControls === true;
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+  const [isWindowFullScreen, setIsWindowFullScreen] = useState(false);
 
   useEffect(() => {
     if (!hasCustomWindowControls || !desktop) return undefined;
@@ -166,6 +167,21 @@ export function AppShell({
         if (active) setIsWindowMaximized(isMaximized);
       })
       .catch((error: unknown) => console.error('Could not read the application window state:', error));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [desktop, hasCustomWindowControls]);
+
+  useEffect(() => {
+    if (!hasCustomWindowControls || !desktop) return undefined;
+    let active = true;
+    const unsubscribe = desktop.onWindowFullScreenChange(setIsWindowFullScreen);
+    desktop.isWindowFullScreen()
+      .then((isFullScreen) => {
+        if (active) setIsWindowFullScreen(isFullScreen);
+      })
+      .catch((error: unknown) => console.error('Could not read the application full-screen state:', error));
     return () => {
       active = false;
       unsubscribe();
@@ -273,8 +289,8 @@ export function AppShell({
   };
 
   return (
-    <div className={`product-shell ${activeProductView === 'planner' ? 'planner-shell' : 'studio-shell'}`} style={{ position: 'relative' }}>
-      {hasCustomWindowControls && desktop && (
+    <div className={`product-shell ${activeProductView === 'planner' ? 'planner-shell' : 'studio-shell'}${isWindowFullScreen ? ' is-window-full-screen' : ''}`} style={{ position: 'relative' }}>
+      {hasCustomWindowControls && desktop && !isWindowFullScreen && (
         <div
           className="electron-titlebar"
           onDoubleClick={(event) => {

@@ -754,15 +754,12 @@ export function ChatPreviewStand({
         {!collapsed && (
           <div className="chat-preview-wallpaper">
             <div className="chat-preview-feed" id="chat-preview-feed" ref={previewFeedRef}>
-              <button
-                type="button"
+              <div
                 className="chat-preview-service-date"
-                onClick={onToggleChatList}
-                aria-label={chatListOpen ? 'Close chat list' : 'Open chat list'}
-                title={chatListOpen ? 'Close chat list' : 'Open chat list'}
+                aria-label={t('studio.today')}
               >
                 {t('studio.today')}
-              </button>
+              </div>
               {previewHistoryLoading && <div className="chat-preview-state">{t('studio.loadingHistory')}</div>}
               <ChatPreviewHistory
                 groups={historyGroups}

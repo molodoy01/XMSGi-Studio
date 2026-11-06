@@ -97,6 +97,8 @@ const PREVIEW_HISTORY_LIMIT = 50;
 const PREVIEW_HISTORY_CACHE_TTL_MS = 20_000;
 const PREVIEW_HISTORY_CACHE_SIZE = 2;
 const PREVIEW_HISTORY_CACHE_MAX_MEDIA_DATA_URL_CHARS = 4 * 1024 * 1024;
+const MAX_CACHED_AVATAR_DATA_URL_CHARS = 1_500_000;
+const CACHED_AVATAR_DATA_URL_PATTERN = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 export function WorkspacePage({
   connected,
@@ -185,6 +187,8 @@ export function WorkspacePage({
   useEffect(() => {
     draftBodyRef.current = draftBody;
   }, [draftBody]);
+  const [savingCurrentDraft, setSavingCurrentDraft] = useState(false);
+  const savingCurrentDraftRef = useRef(false);
   const [draftEntities, setDraftEntities] = useState<RichTextEntity[]>(
     () => initialDraftRef.current?.entities ?? [],
   );
@@ -192,6 +196,8 @@ export function WorkspacePage({
   const [attachments, setAttachments] = useState<WorkspaceAttachment[]>(
     () => normalizeAttachments(initialDraftRef.current?.attachments),
   );
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
   const attachmentUsageRef = useRef({
     count: attachments.length,
     standaloneCount: attachments.filter((attachment) => !attachment.albumId).length,
@@ -200,6 +206,7 @@ export function WorkspacePage({
   });
   const attachmentSelectionGenerationRef = useRef(0);
   const replaceAttachments = (nextAttachments: WorkspaceAttachment[]) => {
+    attachmentsRef.current = nextAttachments;
     attachmentUsageRef.current = {
       count: nextAttachments.length,
       standaloneCount: nextAttachments.filter((attachment) => !attachment.albumId).length,
@@ -254,6 +261,7 @@ export function WorkspacePage({
   const [templateDraftBody, setTemplateDraftBody] = useState('');
   const [draftEditingId, setDraftEditingId] = useState<string | null>(null);
   const draftEditingSourceRef = useRef<SavedDraft | null>(null);
+  const draftMutationInProgressRef = useRef(false);
   const [draftColor, setDraftColor] = useState<DraftColor>('gray');
   const [draftEditorColor, setDraftEditorColor] = useState<DraftColor>('gray');
   const [draftName, setDraftName] = useState('');
@@ -279,7 +287,7 @@ export function WorkspacePage({
   const pendingDraftReplacementRef = useRef<PendingDraftReplacement | null>(null);
   const suppressDraftReplacementSuccessClearRef = useRef(false);
   const draftReplacementCompletionRef = useRef<Promise<boolean> | null>(null);
-  const completeDraftReplacementRef = useRef<() => Promise<boolean>>(async () => false);
+  const completeDraftReplacementRef = useRef<(showRestoreFeedback?: boolean) => Promise<boolean>>(async () => false);
   const [retriggeredPublishFeedback, setRetriggeredPublishFeedback] = useState<{ message: string; kind: string } | null>(null);
   const lastPublishFeedbackRef = useRef<{ message: string; kind: string } | null>(null);
   const [telegramConnectionState, setTelegramConnectionState] = useState<TelegramConnectionState>(
@@ -360,8 +368,27 @@ export function WorkspacePage({
       visible: layout.visible ?? true,
     };
   });
+  const [compactPreviewState, setCompactPreviewState] = useState(() => ({
+    active: document.documentElement.classList.contains('electron-runtime') && window.innerWidth <= 1100,
+    visible: null as boolean | null,
+  }));
+  const previewVisible = compactPreviewState.active
+    ? compactPreviewState.visible ?? false
+    : previewLayout.visible !== false;
   const previewCollapsed = previewLayout.collapsed === true;
   const maxDraftLength = getMessageMaxLength(attachments.length > 0);
+
+  useEffect(() => {
+    const updateCompactPreviewState = () => {
+      const active = document.documentElement.classList.contains('electron-runtime') && window.innerWidth <= 1100;
+      setCompactPreviewState((current) => current.active === active
+        ? current
+        : { active, visible: null });
+    };
+
+    window.addEventListener('resize', updateCompactPreviewState);
+    return () => window.removeEventListener('resize', updateCompactPreviewState);
+  }, []);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -413,7 +440,7 @@ export function WorkspacePage({
     resizeObserver.observe(previewPanel);
     resizeObserver.observe(previewWindow);
     window.addEventListener('resize', scheduleAlignment);
-    scheduleAlignment();
+    alignPreview();
 
     return () => {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
@@ -421,7 +448,7 @@ export function WorkspacePage({
       window.removeEventListener('resize', scheduleAlignment);
       previewPanel.style.removeProperty(offsetProperty);
     };
-  }, [previewLayout.collapsed, previewLayout.visible]);
+  }, [previewLayout.collapsed, previewVisible]);
 
   const applyWorkspaceDraft = (workspaceDraft: Partial<WorkspaceDraft> | null) => {
     if (rescheduleSourceRef.current) return;
@@ -486,6 +513,7 @@ export function WorkspacePage({
     savedDrafts,
     savedDraftsRef,
     replaceSavedDrafts,
+    previewSavedDrafts,
     documentHistories,
     draftStoreReady,
     draftStateHydrated,
@@ -499,6 +527,7 @@ export function WorkspacePage({
     cancelPendingAutosave,
     flushWorkspaceDraftNow,
     createWorkspaceDraftSnapshot,
+    markWorkspaceDraftPersisted,
     prepareWorkspaceVersionSnapshot,
     recordWorkspaceVersion,
     handleRestoreDraftBackup: restoreDraftBackup,
@@ -755,6 +784,14 @@ export function WorkspacePage({
 
   const togglePreviewVisibility = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (compactPreviewState.active) {
+      setCompactPreviewState((current) => ({
+        ...current,
+        visible: !(current.visible ?? false),
+      }));
+      return;
+    }
+
     setPreviewLayout((current) => {
       const nextVisible = current.visible ?? true;
       return {
@@ -982,14 +1019,34 @@ export function WorkspacePage({
     setPreviewHistoryLoading(true);
     setPreviewHistoryError('');
     setPreviewHistoryErrorRetryable(false);
-    telegramGetChatHistory({ chatId: selectedChatId, limit: PREVIEW_HISTORY_LIMIT })
+    const cachedAvatarDataUrl = selectedChat?.avatarDataUrl;
+    telegramGetChatHistory({
+      chatId: selectedChatId,
+      limit: PREVIEW_HISTORY_LIMIT,
+      ...(cachedAvatarDataUrl
+        && cachedAvatarDataUrl.length <= MAX_CACHED_AVATAR_DATA_URL_CHARS
+        && CACHED_AVATAR_DATA_URL_PATTERN.test(cachedAvatarDataUrl)
+        ? { cachedAvatarDataUrl }
+        : {}),
+    })
       .then((result) => {
         if (cancelled) return;
 
         if (result.success) {
-          const history = result.history ?? null;
+          const history = result.history
+            ? {
+              ...result.history,
+              chat: {
+                ...result.history.chat,
+                avatarDataUrl: result.history.chat.avatarDataUrl || selectedChat?.avatarDataUrl || '',
+              },
+            }
+            : null;
           setPreviewHistory(history);
-          if (history && getPreviewHistoryMediaDataUrlChars(history) <= PREVIEW_HISTORY_CACHE_MAX_MEDIA_DATA_URL_CHARS) {
+          if (
+            history?.messages.length
+            && getPreviewHistoryMediaDataUrlChars(history) <= PREVIEW_HISTORY_CACHE_MAX_MEDIA_DATA_URL_CHARS
+          ) {
             const cache = previewHistoryCacheRef.current;
             cache.delete(selectedChatId);
             cache.set(selectedChatId, { history, cachedAt: Date.now() });
@@ -1087,7 +1144,7 @@ export function WorkspacePage({
     Boolean(attachment.albumId) && !isTelegramPhotoAlbumImage(attachment.name)
   ));
   const canSendNow = hasSelectedTarget && hasDraftContentState && !attachmentError && !hasUnsupportedPhotoAlbumImage && !publishingDraft && !sendInFlight && !scheduling;
-  const canSaveDraft = hasDraftContentState && !publishingDraft;
+  const canSaveDraft = hasDraftContentState && !publishingDraft && !savingCurrentDraft;
   const canSchedule = hasSelectedTarget && hasDraftContentState && !hasUnsupportedPhotoAlbumImage && !scheduling && hasValidScheduleDate && hasValidScheduleTime && hasValidRepeatConfig && hasFutureSchedule;
 
   let publishActionBlocker = '';
@@ -1332,15 +1389,12 @@ export function WorkspacePage({
         return nextHistory;
       });
       if (isDraftReplacementSend && pendingDraftReplacementRef.current) {
-        await new Promise<void>((resolve) => {
-          window.setTimeout(
-            resolve,
-            sent === 'sent-history-failed'
-              ? FOOTER_STATUS_DURATION_MS.publishWarning
-              : FOOTER_STATUS_DURATION_MS.publishSuccess,
-          );
-        });
-        await completePendingDraftReplacement();
+        if (sent === 'sent-history-failed') {
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, FOOTER_STATUS_DURATION_MS.publishWarning);
+          });
+        }
+        await completePendingDraftReplacement(sent !== true);
       }
     } catch {
       suppressDraftReplacementSuccessClearRef.current = false;
@@ -1395,7 +1449,7 @@ export function WorkspacePage({
   };
 
   const saveCurrentDraft = async () => {
-    if (!hasDraftContentState) return;
+    if (!hasDraftContentState || savingCurrentDraftRef.current) return;
 
     const nextDraft = createWorkspaceDraftSnapshot();
     if (!nextDraft) return;
@@ -1406,35 +1460,76 @@ export function WorkspacePage({
       color: draftColor,
     });
     const nextSavedDrafts = [savedDraft, ...savedDraftsRef.current];
-    if (!await persistDraftStore(nextSavedDrafts, nextDraft, () => {
-      replaceSavedDrafts(nextSavedDrafts);
-      setSavedAt(nextDraft.savedAt);
-    })) return;
-    showPublishFeedback(t('studio.draftSavedNotice'), 'success');
-    setScheduleSelectionConfirmed(false);
-    setPublishAction('draft');
-    setPublishMenuOpen(false);
-    if (plannerRestoreRef.current?.draft) {
-      const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'publish');
-      if (!checkpoint.success) {
-        showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+    const restoringPlannerDraft = Boolean(plannerRestoreRef.current?.draft);
+    const previousDocumentId = workspaceDocumentId;
+    const emptyDocumentId = uid();
+    const previewUrlsToRevoke = [...attachmentPreviewUrlsRef.current];
+    savingCurrentDraftRef.current = true;
+    setSavingCurrentDraft(true);
+
+    if (!restoringPlannerDraft) {
+      cancelPendingAutosave();
+      previewSavedDrafts(nextSavedDrafts);
+      attachmentSelectionGenerationRef.current += 1;
+      if (bodyInputRef.current) {
+        bodyInputRef.current.innerHTML = '';
+        bodyInputRef.current.dataset.selectionStart = '0';
+        bodyInputRef.current.dataset.selectionEnd = '0';
+      }
+      draftBodyRef.current = '';
+      setDraftBody('');
+      setDraftEntities([]);
+      replaceAttachments([]);
+      setWorkspaceDocumentId(emptyDocumentId);
+    }
+
+    try {
+      const persistedWorkspaceDraft = restoringPlannerDraft ? nextDraft : null;
+      const persisted = await persistDraftStore(nextSavedDrafts, persistedWorkspaceDraft, () => {
+        replaceSavedDrafts(nextSavedDrafts);
+        setSavedAt(nextDraft.savedAt);
+        markWorkspaceDraftPersisted(persistedWorkspaceDraft);
+      });
+      if (!persisted) {
+        if (!restoringPlannerDraft) {
+          previewSavedDrafts(savedDraftsRef.current);
+          if (workspaceDocumentIdRef.current === emptyDocumentId
+            && !hasDraftContent(draftBodyRef.current, attachmentsRef.current)) {
+            if (bodyInputRef.current) {
+              bodyInputRef.current.innerHTML = richTextToHtml(nextDraft.body, nextDraft.entities ?? []);
+              bodyInputRef.current.dataset.selectionStart = '0';
+              bodyInputRef.current.dataset.selectionEnd = '0';
+            }
+            draftBodyRef.current = nextDraft.body;
+            setDraftBody(nextDraft.body);
+            setDraftEntities(nextDraft.entities ?? []);
+            replaceAttachments(normalizeAttachments(nextDraft.attachments));
+            setWorkspaceDocumentId(previousDocumentId);
+          }
+        }
         return;
       }
-      await restorePlannerDocumentRef.current();
-      return;
+
+      showPublishFeedback(t('studio.draftSavedNotice'), 'success');
+      setScheduleSelectionConfirmed(false);
+      setPublishMenuOpen(false);
+      if (restoringPlannerDraft) {
+        const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'publish');
+        if (!checkpoint.success) {
+          showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+          return;
+        }
+        await restorePlannerDocumentRef.current();
+        return;
+      }
+      previewUrlsToRevoke.forEach((url) => {
+        URL.revokeObjectURL(url);
+        attachmentPreviewUrlsRef.current.delete(url);
+      });
+    } finally {
+      savingCurrentDraftRef.current = false;
+      setSavingCurrentDraft(false);
     }
-    attachmentSelectionGenerationRef.current += 1;
-    attachmentPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    attachmentPreviewUrlsRef.current.clear();
-    if (bodyInputRef.current) {
-      bodyInputRef.current.innerHTML = '';
-      bodyInputRef.current.dataset.selectionStart = '0';
-      bodyInputRef.current.dataset.selectionEnd = '0';
-    }
-    setDraftBody('');
-    setDraftEntities([]);
-    replaceAttachments([]);
-    setWorkspaceDocumentId(uid());
   };
 
   const choosePublishAction = (action: PublishAction) => {
@@ -1652,7 +1747,7 @@ export function WorkspacePage({
     return true;
   };
 
-  const restorePreviousDraftAfterReplacement = async () => {
+  const restorePreviousDraftAfterReplacement = async (showRestoreFeedback = true) => {
     const pending = pendingDraftReplacementRef.current;
     if (!pending) return false;
     cancelPendingAutosave();
@@ -1694,18 +1789,18 @@ export function WorkspacePage({
     setPublishAction('send');
     focusRescheduledEditorAtEndRef.current = true;
     changeStageMode('editor');
-    showPublishFeedback(t('studio.previousTextRestored'), 'success');
+    if (showRestoreFeedback) showPublishFeedback(t('studio.previousTextRestored'), 'success');
     return true;
   };
 
-  const completePendingDraftReplacement = () => {
+  const completePendingDraftReplacement = (showRestoreFeedback = true) => {
     if (draftReplacementCompletionRef.current) return draftReplacementCompletionRef.current;
     if (!pendingDraftReplacementRef.current) return Promise.resolve(false);
 
     suppressDraftReplacementSuccessClearRef.current = true;
     const completion = (async () => {
       const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'publish');
-      const restored = await restorePreviousDraftAfterReplacement();
+      const restored = await restorePreviousDraftAfterReplacement(showRestoreFeedback);
       if (!checkpoint.success) showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
       return restored;
     })();
@@ -1807,16 +1902,29 @@ export function WorkspacePage({
       destructive: true,
     })) return;
 
-    const checkpoint = await recordWorkspaceVersion(savedDraftToWorkspaceSnapshot(draft), 'before-delete', false);
-    if (!checkpoint.success) {
-      showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
-      return;
-    }
+    if (draftMutationInProgressRef.current) return;
+    draftMutationInProgressRef.current = true;
     const nextSavedDrafts = deleteSavedDraft(savedDraftsRef.current, draft.id);
-    const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      replaceSavedDrafts(nextSavedDrafts);
-    });
-    if (deleted) showPublishFeedback(checkpoint.error || t('studio.draftDeleted'), checkpoint.error ? 'warning' : 'success');
+    previewSavedDrafts(nextSavedDrafts);
+    try {
+      const checkpoint = await recordWorkspaceVersion(
+        savedDraftToWorkspaceSnapshot(draft),
+        'before-delete',
+        false,
+        nextSavedDrafts,
+      );
+      if (!checkpoint.success) {
+        previewSavedDrafts(savedDraftsRef.current);
+        showPublishFeedback(checkpoint.error || t('studio.historyCouldNotSave'), 'warning');
+        return;
+      }
+      showPublishFeedback(checkpoint.error || t('studio.draftDeleted'), checkpoint.error ? 'warning' : 'success');
+    } catch (error) {
+      previewSavedDrafts(savedDraftsRef.current);
+      showPublishFeedback(error instanceof Error ? error.message : t('studio.draftsCouldNotSave'), 'warning');
+    } finally {
+      draftMutationInProgressRef.current = false;
+    }
   };
 
   historyDraftClearerRef.current = async () => {
@@ -1835,33 +1943,49 @@ export function WorkspacePage({
   };
 
   historyDraftDeleterRef.current = async (draftId) => {
+    if (draftMutationInProgressRef.current) return false;
     const currentSavedDrafts = savedDraftsRef.current;
     const targetDraft = currentSavedDrafts.find((draft) => draft.id === draftId);
     if (!targetDraft) return false;
-    const checkpoint = await recordWorkspaceVersion(savedDraftToWorkspaceSnapshot(targetDraft), 'before-delete', false);
-    if (!checkpoint.success) return false;
     const nextSavedDrafts = deleteSavedDraft(currentSavedDrafts, draftId);
     if (nextSavedDrafts.length === currentSavedDrafts.length) return false;
 
-    const deleted = await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      replaceSavedDrafts(nextSavedDrafts);
-    });
-    if (!deleted) return false;
+    draftMutationInProgressRef.current = true;
+    previewSavedDrafts(nextSavedDrafts);
+    try {
+      const checkpoint = await recordWorkspaceVersion(
+        savedDraftToWorkspaceSnapshot(targetDraft),
+        'before-delete',
+        false,
+        nextSavedDrafts,
+      );
+      if (!checkpoint.success) {
+        previewSavedDrafts(savedDraftsRef.current);
+        return false;
+      }
 
-    if (draftEditingId === draftId) {
-      setDraftEditingId(null);
-      setDraftEditorColor('gray');
-      setDraftName('');
-      setDraftBodyText('');
-      setDraftBodyEntities([]);
+      if (draftEditingId === draftId) {
+        setDraftEditingId(null);
+        setDraftEditorColor('gray');
+        setDraftName('');
+        setDraftBodyText('');
+        setDraftBodyEntities([]);
+      }
+      showPublishFeedback(checkpoint.error || t('studio.draftDeleted'), checkpoint.error ? 'warning' : 'success');
+      return true;
+    } catch (error) {
+      previewSavedDrafts(savedDraftsRef.current);
+      showPublishFeedback(error instanceof Error ? error.message : t('studio.draftsCouldNotSave'), 'warning');
+      return false;
+    } finally {
+      draftMutationInProgressRef.current = false;
     }
-    showPublishFeedback(checkpoint.error || t('studio.draftDeleted'), checkpoint.error ? 'warning' : 'success');
-    return true;
   };
 
   const saveDraftStage = async () => {
-    if (!draftName.trim() || !draftBodyText.trim()) return;
+    if (draftMutationInProgressRef.current || !draftName.trim() || !draftBodyText.trim()) return;
 
+    const editingId = draftEditingId;
     const existingDraft = draftEditingSourceRef.current;
     const input = {
       name: draftName,
@@ -1877,11 +2001,32 @@ export function WorkspacePage({
       repeatDays: existingDraft?.repeatDays ?? [],
       repeatOccurrences: existingDraft?.repeatOccurrences ?? 1,
     };
+    if (!editingId) return;
+
     let nextSavedDrafts: SavedDraft[];
-    if (draftEditingId === 'new') {
+    if (editingId === 'new') {
       nextSavedDrafts = [createSavedDraft(input), ...savedDraftsRef.current];
-    } else if (draftEditingId) {
-      if (existingDraft) {
+    } else {
+      nextSavedDrafts = savedDraftsRef.current.map((draft) => (
+        draft.id === editingId ? updateSavedDraft(draft, input) : draft
+      ));
+    }
+
+    draftMutationInProgressRef.current = true;
+    previewSavedDrafts(nextSavedDrafts);
+    closeDraftEditor();
+    const restoreEditor = () => {
+      draftEditingSourceRef.current = existingDraft;
+      setDraftEditingId(editingId);
+      setDraftEditorColor(input.color);
+      setDraftName(input.name);
+      setDraftBodyText(input.body);
+      setDraftBodyEntities(input.entities);
+      previewSavedDrafts(savedDraftsRef.current);
+    };
+
+    try {
+      if (existingDraft && editingId !== 'new') {
         const previousDraftSnapshot: WorkspaceDraft = {
           documentId: existingDraft.documentId ?? existingDraft.id,
           body: existingDraft.body,
@@ -1895,24 +2040,26 @@ export function WorkspacePage({
           repeatOccurrences: existingDraft.repeatOccurrences ?? 1,
           savedAt: existingDraft.updatedAt,
         };
-        const checkpoint = await recordWorkspaceVersion(previousDraftSnapshot, 'before-replacement');
+        const checkpoint = await recordWorkspaceVersion(previousDraftSnapshot, 'before-replacement', true, nextSavedDrafts);
         if (!checkpoint.success) {
-          showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+          restoreEditor();
+          showPublishFeedback(checkpoint.error || t('studio.historyCouldNotSave'), 'warning');
           return;
         }
+      } else if (!await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
+        replaceSavedDrafts(nextSavedDrafts);
+      })) {
+        restoreEditor();
+        showPublishFeedback(draftStoreError || t('studio.draftsCouldNotSave'), 'warning');
+        return;
       }
-      nextSavedDrafts = savedDraftsRef.current.map((draft) => (
-        draft.id === draftEditingId ? updateSavedDraft(draft, input) : draft
-      ));
-    } else {
-      return;
+      showPublishFeedback(t('studio.draftSavedNotice'), 'success');
+    } catch (error) {
+      restoreEditor();
+      showPublishFeedback(error instanceof Error ? error.message : t('studio.draftsCouldNotSave'), 'warning');
+    } finally {
+      draftMutationInProgressRef.current = false;
     }
-
-    if (!await persistDraftStore(nextSavedDrafts, createWorkspaceDraftSnapshot(), () => {
-      replaceSavedDrafts(nextSavedDrafts);
-    })) return;
-    showPublishFeedback(t('studio.draftSavedNotice'), 'success');
-    closeDraftEditor();
   };
 
   const useSavedDraft = async (draft: SavedDraft) => {
@@ -2331,50 +2478,62 @@ export function WorkspacePage({
     closeTemplateEditor();
   };
 
-  const handleBeforeClearEditorText = async () => {
+  const handleBeforeClearEditorText = () => {
     if (pendingDraftReplacementRef.current) {
-      await restorePreviousDraftAfterReplacement();
+      void restorePreviousDraftAfterReplacement().catch(() => {
+        showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+      });
       return false;
     }
-    const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-clear');
-    if (!checkpoint.success) {
-      showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
-      return false;
-    }
-    return true;
+    return recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-clear')
+      .then((checkpoint) => {
+        if (!checkpoint.success) showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+        return checkpoint.success;
+      })
+      .catch(() => {
+        showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+        return false;
+      });
   };
 
   const handleRemoveAttachment = async (attachmentId: string) => {
-    const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-attachment-removal');
-    if (!checkpoint.success) {
-      showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
-      return;
-    }
-    const currentAttachments = checkpoint.snapshot?.attachments ?? attachments;
-    const removedAttachment = currentAttachments.find((attachment) => attachment.id === attachmentId);
-    const previewUrl = removedAttachment?.previewUrl;
+    const removedAttachment = attachments.find((attachment) => attachment.id === attachmentId);
+    if (!removedAttachment) return;
+    const snapshot = createWorkspaceDraftSnapshot();
+    const checkpointPromise = recordWorkspaceVersion(snapshot, 'before-attachment-removal');
+
+    const previewUrl = removedAttachment.previewUrl;
     if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
       URL.revokeObjectURL(previewUrl);
     }
-    replaceAttachments(currentAttachments.filter((attachment) => attachment.id !== attachmentId));
-  };
+    replaceAttachments(attachments.filter((attachment) => attachment.id !== attachmentId));
 
-  const handleRemoveAlbum = async (albumId: string) => {
-    const checkpoint = await recordWorkspaceVersion(createWorkspaceDraftSnapshot(), 'before-attachment-removal');
+    const checkpoint = await checkpointPromise;
     if (!checkpoint.success) {
       showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
       return;
     }
-    const currentAttachments = checkpoint.snapshot?.attachments ?? attachments;
-    currentAttachments
-      .filter((attachment) => attachment.albumId === albumId)
-      .forEach((attachment) => {
-        const previewUrl = attachment.previewUrl;
-        if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
-          URL.revokeObjectURL(previewUrl);
-        }
-      });
-    replaceAttachments(currentAttachments.filter((attachment) => attachment.albumId !== albumId));
+  };
+
+  const handleRemoveAlbum = async (albumId: string) => {
+    const removedAttachments = attachments.filter((attachment) => attachment.albumId === albumId);
+    if (removedAttachments.length === 0) return;
+    const snapshot = createWorkspaceDraftSnapshot();
+    const checkpointPromise = recordWorkspaceVersion(snapshot, 'before-attachment-removal');
+
+    removedAttachments.forEach((attachment) => {
+      const previewUrl = attachment.previewUrl;
+      if (previewUrl && attachmentPreviewUrlsRef.current.delete(previewUrl)) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    });
+    replaceAttachments(attachments.filter((attachment) => attachment.albumId !== albumId));
+
+    const checkpoint = await checkpointPromise;
+    if (!checkpoint.success) {
+      showPublishFeedback(t('studio.historyCouldNotSave'), 'warning');
+      return;
+    }
   };
 
   const showAttachmentPreview = (image: HTMLImageElement, name: string, src: string) => {
@@ -2633,7 +2792,7 @@ export function WorkspacePage({
                 albumFileInputRef={albumFileInputRef}
                 onFileSelection={handleFileSelection}
                 onAlbumFileSelection={handleAlbumFileSelection}
-                previewVisible={previewLayout.visible !== false}
+                previewVisible={previewVisible}
                 onTogglePreview={togglePreviewVisibility}
                 stageMode={stageMode}
                 setStageMode={setStageMode}
@@ -2649,9 +2808,9 @@ export function WorkspacePage({
                 onPrimaryPublish={handlePrimaryPublish}
                 onChoosePublishAction={choosePublishAction}
                 sendInFlight={sendInFlight}
+                savingCurrentDraft={savingCurrentDraft}
                 publishingDraft={publishingDraft}
                 scheduling={scheduling}
-                draftStoreSaving={draftStoreSaving}
                 successPulse={successPulse}
                 lastAction={lastAction}
                 reconnectingForSend={reconnectingForSend}
@@ -2679,7 +2838,7 @@ export function WorkspacePage({
           <section
             className="workspace-page-panel workspace-page-preview-panel"
             data-collapsed={previewCollapsed ? 'true' : 'false'}
-            data-visible={previewLayout.visible === false ? 'false' : 'true'}
+            data-visible={previewVisible ? 'true' : 'false'}
           >
             <MemoizedChatPreviewStand
               chats={chats}

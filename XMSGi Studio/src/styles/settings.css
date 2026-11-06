@@ -99,6 +99,10 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
   border-bottom: 0;
 }
 
+.settings-telegram-section {
+  padding-bottom: 64px;
+}
+
 .settings-view-section h2 {
   margin: 0;
   color: var(--text);
@@ -112,7 +116,8 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
 .settings-telegram-entry {
   display: flex;
   align-items: center;
-  width: 100%;
+  width: calc(100% + 34px);
+  margin-left: -17px;
   margin-top: 20px;
 }
 
@@ -177,17 +182,26 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
   gap: 12px;
 }
 
-.settings-telegram-summary-main > strong {
+.settings-telegram-summary-account {
   order: 1;
-  flex: 0 0 auto;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.settings-telegram-summary-main > .settings-telegram-status-dot {
+  order: 2;
 }
 
 .settings-telegram-summary-state {
   display: inline-flex;
-  order: 3;
+  order: 4;
   flex: 0 0 auto;
   align-items: center;
   margin-left: auto;
@@ -221,19 +235,6 @@ html.electron-runtime .settings-view-content::-webkit-scrollbar {
 .settings-telegram-summary-state.is-connected .settings-telegram-status-dot {
   border-color: var(--ok);
   background: var(--ok);
-}
-
-.settings-telegram-summary-account {
-  order: 2;
-  min-width: 0;
-  overflow: hidden;
-  flex: 0 1 auto;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--dim);
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.35;
 }
 
 .telegram-manager-backdrop {
@@ -351,15 +352,18 @@ html.electron-runtime .telegram-manager-backdrop::before {
   background: transparent;
 }
 
-.telegram-manager-status > .settings-telegram-status-dot {
-  margin: 0;
-}
-
 .telegram-manager-status > div {
   min-width: 0;
   display: grid;
   gap: 5px;
   justify-items: center;
+}
+
+.telegram-manager-status-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .telegram-manager-status strong {

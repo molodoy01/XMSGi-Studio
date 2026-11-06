@@ -442,9 +442,10 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
   flex: 1 1 auto;
   min-width: 0;
   color: var(--text);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   line-height: 1.4;
   text-align: left;
   overflow: hidden;
@@ -466,9 +467,7 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
   min-height: 0;
   border: 1px solid rgba(112, 130, 143, 0.24);
   border-radius: 12px;
-  background:
-    radial-gradient(ellipse 88% 48% at 50% 0%, rgba(var(--editor-outline), 0.025), transparent 74%),
-    linear-gradient(155deg, #ffffff, #fbfcfd);
+  background: linear-gradient(155deg, #ffffff, #fbfcfd);
   box-shadow:
     inset 0 0 0 1px rgba(var(--editor-outline), 0.08),
     0 0 0 1px rgba(var(--editor-outline), 0.04),
@@ -763,7 +762,7 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
 
 .workspace-page-schedule-summary strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -1152,6 +1151,14 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
 .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active) {
   box-sizing: border-box;
   padding-left: 10px;
+  --workspace-active-editor-edge-fill: #f7f8fa;
+  --workspace-active-editor-edge-fade-left: 3.5%;
+  --workspace-active-editor-edge-fade-right: 3.5%;
+}
+
+.workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active:focus),
+.workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active:focus-visible) {
+  --workspace-active-editor-edge-fill: #f5f7f8;
 }
 
 .workspace-page-rich-text-stage-shell {
@@ -1176,6 +1183,7 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
   z-index: 4;
   inset: 8px;
   display: grid;
+  height: auto;
   border: 2px dashed rgba(198, 250, 255, 0.78);
   border-radius: 8px;
   background: rgba(16, 28, 32, 0.76);
@@ -1202,18 +1210,60 @@ html.electron-runtime .workspace-page-rich-text-stage > .workspace-page-textarea
   filter: var(--workspace-rich-text-underline-shadow);
 }
 
-html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage::after {
+.workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active)::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 10px;
+  z-index: 0;
+  background-image:
+    linear-gradient(90deg, transparent, var(--workspace-active-editor-edge-fill) var(--workspace-active-editor-edge-fade-left), var(--workspace-active-editor-edge-fill) calc(100% - var(--workspace-active-editor-edge-fade-right)), transparent),
+    linear-gradient(90deg, transparent, var(--workspace-active-editor-edge-fill) var(--workspace-active-editor-edge-fade-left), var(--workspace-active-editor-edge-fill) calc(100% - var(--workspace-active-editor-edge-fade-right)), transparent);
+  background-position: top, bottom;
+  background-size: 100% 8px, 100% 8px;
+  background-repeat: no-repeat;
+  content: '';
+  pointer-events: none;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage::after {
+  height: 3px;
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(var(--editor-outline-secondary), 0.3) 12%,
-    rgba(var(--editor-outline), 0.5) 30%,
-    rgba(var(--editor-outline-bright), 0.78) 50%,
-    rgba(var(--editor-outline), 0.5) 70%,
-    rgba(var(--editor-outline-secondary), 0.3) 88%,
+    rgba(var(--editor-outline-secondary), 0.36) 12%,
+    rgba(var(--editor-outline), 0.56) 30%,
+    rgba(var(--editor-outline-bright), 0.82) 50%,
+    rgba(var(--editor-outline), 0.56) 70%,
+    rgba(var(--editor-outline-secondary), 0.36) 88%,
     transparent
   );
-  filter: drop-shadow(0 0 4px rgba(var(--editor-outline), 0.3));
+  filter: drop-shadow(0 0 5px rgba(var(--editor-outline), 0.38));
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage::after {
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--editor-outline-secondary), 0.48) 12%,
+    rgba(var(--editor-outline), 0.72) 30%,
+    rgba(var(--editor-outline-bright), 0.96) 50%,
+    rgba(var(--editor-outline), 0.72) 70%,
+    rgba(var(--editor-outline-secondary), 0.48) 88%,
+    transparent
+  );
+  filter: drop-shadow(0 0 5px rgba(var(--editor-outline), 0.46));
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active) {
+  --workspace-active-editor-edge-fill: #ffffff;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active:focus),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active:focus-visible) {
+  --workspace-active-editor-edge-fill: #ffffff;
 }
 
 .workspace-page-rich-text-meta-row {
@@ -1235,18 +1285,18 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage::after 
   border-radius: 0;
   background: transparent;
   color: rgba(199, 214, 222, 0.6);
-  font-size: 12px;
+  font-size: 14px;
   opacity: 1;
   text-align: left;
 }
 
 .workspace-page-rich-text-clear {
   display: grid;
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  min-height: 24px;
-  flex: 0 0 24px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  flex: 0 0 28px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -1287,6 +1337,7 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-stage::after 
   height: auto;
   min-height: 0;
   max-height: 100%;
+  margin-top: 8px;
   margin-bottom: 8px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1512,10 +1563,10 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
 
 .workspace-page-draft-color-filter .workspace-page-draft-color-dot {
   box-sizing: border-box;
-  width: 15px;
-  min-width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   border: 1px solid rgba(245, 247, 250, 0.42);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--draft-swatch-color) 72%, transparent);
   transition: transform 120ms ease, box-shadow 160ms ease, filter 120ms ease;
@@ -1691,6 +1742,10 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   font-size: 12px;
 }
 
+.workspace-page-rich-text-template-stage .workspace-page-template-stage-footer .workspace-page-template-stage-add {
+  border-radius: 999px;
+}
+
 .workspace-page-rich-text-template-stage > .workspace-page-template-stage-footer,
 .workspace-page-rich-text-chat-stage > .workspace-page-chat-stage-footer {
   position: sticky;
@@ -1749,6 +1804,11 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   padding: 0 6px;
   font-size: 12px;
   transform: none;
+}
+
+.workspace-page-rich-text-chat-stage > .workspace-page-chat-stage-footer button,
+.workspace-page-rich-text-template-stage > .workspace-page-template-stage-footer button:not(.workspace-page-editor-export-option) {
+  translate: 0 3px;
 }
 
 .workspace-page-rich-text-buttons-stage {
@@ -4512,7 +4572,7 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   min-height: 32px;
 }
 
-.workspace-page-rich-text-toolbar.is-airy button:nth-child(n) {
+.workspace-page-rich-text-toolbar.is-airy > button:nth-child(n) {
   min-width: 32px;
 }
 
@@ -4666,7 +4726,8 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   box-shadow: none;
 }
 
-.workspace-page-editor-export .workspace-page-editor-export-option {
+.workspace-page-editor-export .workspace-page-editor-export-option,
+.workspace-page-draft-import-menu .workspace-page-editor-export-option {
   display: flex;
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -4691,7 +4752,9 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
 }
 
 .workspace-page-editor-export .workspace-page-editor-export-option:hover,
-.workspace-page-editor-export .workspace-page-editor-export-option:focus-visible {
+.workspace-page-editor-export .workspace-page-editor-export-option:focus-visible,
+.workspace-page-draft-import-menu .workspace-page-editor-export-option:hover,
+.workspace-page-draft-import-menu .workspace-page-editor-export-option:focus-visible {
   outline: none;
   background: rgba(154, 168, 184, 0.12);
   color: var(--text);
@@ -4976,6 +5039,7 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   border: 1px solid rgba(154, 168, 184, 0.1);
   border-radius: 6px;
   background: rgba(17, 19, 22, 0.24);
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .workspace-page-attachment-thumbnail,
@@ -5156,14 +5220,16 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
   border-radius: 4px;
   background: transparent;
   color: rgba(226, 230, 235, 0.7);
+  font-size: 17px;
+  line-height: 1;
   cursor: pointer;
   transform: translateY(-50%);
 }
 
 .workspace-page-attachment-remove:hover,
 .workspace-page-attachment-remove:focus-visible {
-  background: rgba(255, 94, 94, 0.12);
-  color: #fff;
+  background: transparent;
+  color: #ff9a90;
 }
 
 .workspace-page-media-label {
@@ -5522,6 +5588,14 @@ html[data-theme='light'] .workspace-page-rich-text-scrollbar-track:focus-visible
 .workspace-page-schedule-row > .workspace-page-submit-actions {
   align-self: center;
   transform: none;
+}
+
+.workspace-page-schedule-row > .workspace-page-media-row > .workspace-page-attachment-toggle {
+  margin-left: 5px;
+}
+
+.workspace-page-schedule-row > .workspace-page-submit-actions {
+  margin-right: 5px;
 }
 
 @media (min-width: 761px) {
@@ -6469,11 +6543,11 @@ html[data-theme='light'] .workspace-page-publish-transient-feedback.is-success {
 .draft-color-picker .draft-color-swatch {
   appearance: none;
   box-sizing: border-box;
-  width: 15px;
-  min-width: 15px;
-  height: 15px;
-  min-height: 15px;
-  flex: 0 0 15px;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
   padding: 0;
   border: 1px solid rgba(245, 247, 250, 0.42);
   border-radius: 50%;
@@ -6634,25 +6708,12 @@ html[data-theme='light'] .workspace-page-publish-transient-feedback.is-success {
 }
 
 .workspace-page-draft-import-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
   right: auto;
   left: 0;
   width: max-content;
   min-width: 176px;
-}
-
-.workspace-page-draft-import-menu .workspace-page-publish-option {
-  justify-content: flex-start;
-  text-align: left;
-}
-
-html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .workspace-page-publish-option,
-html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .workspace-page-publish-option > span {
-  color: #e2e7eb !important;
-}
-
-html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .workspace-page-publish-option:is(:hover, :focus-visible),
-html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .workspace-page-publish-option:is(:hover, :focus-visible) > span {
-  color: #ffffff !important;
 }
 
 .workspace-page-draft-stage-tools .workspace-page-stage-secondary {
@@ -6670,35 +6731,19 @@ html[data-theme='dark'] .workspace-page .workspace-page-draft-import-menu .works
   justify-self: end;
 }
 
-@container draft-stage (max-width: 530px) {
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) > .workspace-page-draft-stage-footer {
-    grid-template-columns: minmax(0, 1fr) max-content;
-    grid-template-rows: auto auto;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-tools {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    justify-self: end;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-footer-left {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .workspace-page-rich-text-draft-stage:not(.has-draft-editor) .workspace-page-draft-stage-add {
-    grid-column: 2;
-    grid-row: 2;
-  }
-}
-
 .workspace-page-draft-stage-footer .workspace-page-stage-secondary,
 .workspace-page-draft-stage-footer .workspace-page-stage-primary {
   min-height: 34px;
   padding: 0 13px;
   border-radius: 7px;
   font-size: 12px;
+}
+
+.workspace-page-rich-text-draft-stage .workspace-page-draft-stage-footer .workspace-page-stage-secondary,
+.workspace-page-rich-text-draft-stage .workspace-page-draft-stage-footer .workspace-page-stage-primary {
+  height: 22px;
+  min-height: 22px !important;
+  padding: 0 11px;
 }
 
 .workspace-page-draft-stage-footer-left {
@@ -7177,30 +7222,6 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .workspace-page-attachment-remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    display: grid;
-    width: 18px;
-    height: 18px;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: rgba(226, 230, 235, 0.55);
-    cursor: pointer;
-    font: inherit;
-    font-size: 15px;
-    line-height: 1;
-    transition: background 120ms ease, color 120ms ease;
-  }
-
-  .workspace-page-attachment-remove:hover {
-    background: rgba(226, 230, 235, 0.06);
-    color: rgba(226, 230, 235, 0.82);
   }
 
   .workspace-page-action-row.workspace-page-schedule-row {
@@ -9960,23 +9981,24 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
     height: 100%;
     min-height: 0;
     gap: 0;
-    max-width: 130px;
+    max-width: min(640px, 100%);
     padding: 0 8px;
     scroll-padding-right: 8px;
     scroll-padding-left: 8px;
   }
 
   .workspace-page-attachment-tray .workspace-page-attachment-scrollbar {
-    max-width: 130px;
+    max-width: min(640px, 100%);
   }
 
   .workspace-page-attachment-card {
-    flex: 0 0 38px;
-    width: 38px;
+    flex: 0 0 min(220px, calc(100vw - 40px));
+    width: min(220px, calc(100vw - 40px));
+    min-width: 156px;
     height: 38px;
     min-height: 38px;
-    gap: 0;
-    padding: 0;
+    gap: 7px;
+    padding: 0 26px 0 4px;
   }
 
   .workspace-page-attachment-card.workspace-page-photo-album-card {
@@ -9995,28 +10017,15 @@ html[data-theme='light'] .workspace-page-send-feedback.is-error {
 
   .workspace-page-attachment-thumbnail,
   .workspace-page-attachment-file-mark {
-    flex-basis: 100%;
-    width: 100%;
-    height: 100%;
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
   }
 
   .workspace-page-attachment-copy {
-    display: none;
+    display: grid;
   }
 
-  .workspace-page-attachment-remove {
-    top: 2px;
-    right: 2px;
-    z-index: 1;
-    width: 15px;
-    height: 15px;
-    border-radius: 0 4px 0 4px;
-    background: rgba(3, 4, 5, 0.78);
-    color: #fff;
-    font-size: 13px;
-    line-height: 1;
-    transform: none;
-  }
 }
 
 @media (max-width: 480px) {
@@ -10512,7 +10521,7 @@ html.electron-runtime .workspace-page-version-history-backdrop {
     padding-bottom: 20px;
   }
 
-  html.electron-runtime .workspace-page-rich-text-toolbar.is-airy button {
+  html.electron-runtime .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option) {
     width: 26px;
     min-width: 26px;
     height: 26px;
@@ -10583,6 +10592,12 @@ html.electron-runtime .workspace-page .workspace-page-form-row-body .workspace-p
   outline: none;
   background: transparent;
   box-shadow: none;
+}
+
+html.electron-runtime[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage > .workspace-page-textarea.workspace-page-rich-text-input.workspace-page-rich-text-stage-view.is-active,
+html.electron-runtime[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage > .workspace-page-textarea.workspace-page-rich-text-input.workspace-page-rich-text-stage-view.is-active:focus,
+html.electron-runtime[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage > .workspace-page-textarea.workspace-page-rich-text-input.workspace-page-rich-text-stage-view.is-active:focus-visible {
+  border-radius: 0 !important;
 }
 
 @media (max-height: 720px) {
@@ -10695,6 +10710,12 @@ html.electron-runtime .workspace-page .workspace-page-form-row-body .workspace-p
 
 .workspace-page-attachment-card.is-unavailable {
   border-color: rgba(234, 184, 117, 0.5);
+}
+
+.workspace-page-attachment-card:has(.workspace-page-attachment-remove:hover),
+.workspace-page-attachment-card:has(.workspace-page-attachment-remove:focus-visible) {
+  border-color: rgba(235, 137, 128, 0.42);
+  background-color: rgba(120, 48, 44, 0.28);
 }
 
 .workspace-page-attachment-file-mark.is-unavailable {
@@ -11421,17 +11442,23 @@ html.electron-runtime .workspace-page-rich-text-link-controls.is-open .workspace
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-editor-shell {
-  border-color: rgba(var(--editor-outline), 0.48) !important;
+  background: #f7f8fa !important;
+  border-color: rgba(var(--editor-outline), 0.3) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(var(--editor-outline), 0.14),
-    0 0 0 1px rgba(var(--editor-outline), 0.1),
+    0 0 0 1px rgba(var(--editor-outline), 0.08),
     0 10px 28px rgba(34, 47, 58, 0.08) !important;
 }
 
-html[data-theme='light'] .workspace-page .workspace-page-editor-shell::after {
-  opacity: 1 !important;
-  border-color: rgba(var(--editor-outline), 0.64) !important;
-  box-shadow: inset 0 0 0 1px rgba(var(--editor-outline), 0.2), 0 0 9px rgba(var(--editor-outline), 0.14) !important;
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-editor.is-toolbar-active) {
+  border-color: rgba(var(--editor-outline), 0.3) !important;
+  box-shadow:
+    0 0 0 1px rgba(var(--editor-outline), 0.08),
+    0 10px 28px rgba(34, 47, 58, 0.08) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline'])::after {
+  opacity: 0 !important;
+  box-shadow: none !important;
 }
 
 .workspace-page .workspace-page-publish-menu {
@@ -11589,12 +11616,36 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stag
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-input {
-  background: #f3f5f6 !important;
+  background: #ffffff !important;
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-input:focus,
 html[data-theme='light'] .workspace-page .workspace-page-rich-text-input:focus-visible {
-  background: #f1f3f5 !important;
+  background: #ffffff !important;
+}
+
+.workspace-page .workspace-page-rich-text-input.is-active {
+  box-shadow: none;
+}
+
+.workspace-page .workspace-page-rich-text-input.is-active {
+  background: linear-gradient(90deg, transparent, #f7f8fa 3.5%, #f7f8fa 96.5%, transparent) !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+}
+
+.workspace-page .workspace-page-rich-text-input.is-active:focus,
+.workspace-page .workspace-page-rich-text-input.is-active:focus-visible {
+  background: linear-gradient(90deg, transparent, #f5f7f8 3.5%, #f5f7f8 92%, transparent) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-input.is-active {
+  background: linear-gradient(90deg, transparent, #ffffff 3.5%, #ffffff 96.5%, transparent) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-input.is-active:focus,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-input.is-active:focus-visible {
+  background: linear-gradient(90deg, transparent, #ffffff 3.5%, #ffffff 96.5%, transparent) !important;
 }
 
 .workspace-page-version-history-dialog {
@@ -12316,16 +12367,17 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-character-count {
     position: absolute;
-    right: 49px;
-    bottom: -22px;
+    right: 48px;
+    bottom: -32px;
     display: inline-flex;
-    width: 68px;
-    min-width: 68px;
+    width: 56px;
+    min-width: 56px;
     padding: 4px 7px;
     border: 0;
     border-radius: 7px;
     background: transparent;
     color: rgba(199, 214, 222, 0.72);
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     text-align: center;
@@ -12333,14 +12385,14 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-rich-text-clear {
     position: absolute;
-    right: 35px;
-    bottom: -22px;
+    right: 20px;
+    bottom: -32px;
     z-index: 4;
     display: grid;
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
     place-items: center;
     padding: 0;
     border: 0;
@@ -12369,8 +12421,8 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
   }
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-rich-text-clear svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-editor .workspace-page-rich-text-toolbar.is-airy {
@@ -12417,8 +12469,8 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
     transform: translateY(-1px);
   }
 
-  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button:hover:not(:disabled),
-  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button:focus-visible:not(:disabled) {
+  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option):hover:not(:disabled),
+  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option):focus-visible:not(:disabled) {
     border-color: transparent !important;
     border-radius: 7px !important;
     background: rgba(154, 168, 184, 0.14) !important;
@@ -12427,8 +12479,8 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
     box-shadow: none !important;
   }
 
-  html.electron-runtime[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button:hover:not(:disabled),
-  html.electron-runtime[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button:focus-visible:not(:disabled) {
+  html.electron-runtime[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option):hover:not(:disabled),
+  html.electron-runtime[data-theme='light'] .workspace-page .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option):focus-visible:not(:disabled) {
     background: rgba(154, 168, 184, 0.11) !important;
   }
 
@@ -12437,29 +12489,42 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
     margin-inline: auto;
   }
 
-  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active) {
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active, .workspace-page-rich-text-schedule-stage.is-active) {
     max-height: none;
     margin-bottom: 0;
   }
 
-  html.electron-runtime .workspace-page .workspace-page-editor-shell:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active) .workspace-page-rich-text-editor {
+  html.electron-runtime .workspace-page .workspace-page-editor-shell:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active, .workspace-page-rich-text-schedule-stage.is-active) .workspace-page-rich-text-editor {
     width: 100%;
     max-width: none;
   }
 
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active) {
+    overflow: visible;
+  }
+
   html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-stage-view.is-active:not(.workspace-page-textarea) {
     justify-self: center;
-    width: min(calc(92% + 24px), 720px);
-    max-width: 720px;
+    width: calc(100% + 20px);
+    max-width: none;
     margin-bottom: 8px;
     margin-inline: auto;
   }
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-chat-stage.is-active {
     justify-self: stretch;
-    width: 100%;
+    width: calc(100% + 20px);
     max-width: none;
-    margin-inline: 0;
+    margin-inline: auto;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-chat-stage.is-active,
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-template-stage.is-active {
+    justify-self: stretch;
+    width: calc(100% + 13px);
+    max-width: none;
+    margin-right: -13px;
+    margin-left: 0;
   }
 
   html.electron-runtime[data-theme='light'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active)::after {
@@ -12507,6 +12572,42 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
 }
 
 @media (max-width: 1100px) {
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active) {
+    overflow: visible;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-editor-shell:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active, .workspace-page-rich-text-schedule-stage.is-active) .workspace-page-rich-text-editor {
+    width: 100%;
+    max-width: none;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-stage-view.is-active:not(.workspace-page-textarea) {
+    justify-self: center;
+    width: calc(100% + 20px);
+    max-width: none;
+    margin-inline: auto;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-chat-stage.is-active {
+    justify-self: stretch;
+    width: calc(100% + 20px);
+    max-width: none;
+    margin-inline: auto;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-chat-stage.is-active, .workspace-page-rich-text-template-stage.is-active) {
+    overflow: visible;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-chat-stage.is-active,
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-rich-text-template-stage.is-active {
+    justify-self: stretch;
+    width: calc(100% + 12px);
+    max-width: none;
+    margin-right: -12px;
+    margin-left: 0;
+  }
+
   html.electron-runtime .workspace-page .workspace-page-rich-text-editor:not(.is-toolbar-active) .workspace-page-rich-text-meta-row,
   html.electron-runtime .workspace-page .workspace-page-rich-text-editor:has(.workspace-page-rich-text-input.is-empty) .workspace-page-rich-text-meta-row {
     opacity: 0.45;
@@ -12527,16 +12628,17 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-character-count {
     position: absolute;
-    right: 49px;
-    bottom: -22px;
+    right: 48px;
+    bottom: -44px;
     display: inline-flex;
-    width: 68px;
-    min-width: 68px;
+    width: 56px;
+    min-width: 56px;
     padding: 4px 7px;
     border: 0;
     border-radius: 7px;
     background: transparent;
     color: rgba(199, 214, 222, 0.72);
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     text-align: center;
@@ -12544,14 +12646,14 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-rich-text-clear {
     position: absolute;
-    right: 35px;
-    bottom: -22px;
+    right: 20px;
+    bottom: -44px;
     z-index: 4;
     display: grid;
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
     place-items: center;
     padding: 0;
     border: 0;
@@ -12580,8 +12682,8 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
   }
 
   html.electron-runtime .workspace-page .workspace-page-rich-text-meta-row > .workspace-page-rich-text-clear svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   html.electron-runtime .workspace-page .workspace-page-editor-shell:has(.workspace-page-rich-text-input.is-active) .workspace-page-rich-text-editor,
@@ -12591,14 +12693,25 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
   }
 
   html.electron-runtime .workspace-page .workspace-page-editor-shell:has(.workspace-page-rich-text-input.is-active) .workspace-page-rich-text-input {
-    justify-self: center;
-    width: min(calc(100% + 20px), 720px);
-    max-width: 720px;
+    justify-self: start;
+    width: calc(100% + 20px);
+    max-width: none;
+    margin-left: -10px;
   }
 
-  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-textarea.workspace-page-rich-text-stage-view.is-active {
-    width: min(calc(100% + 20px), 720px);
-    max-width: 720px;
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active)::before {
+    right: -10px;
+    left: 0;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active)::after {
+    right: -10px;
+    left: -10px;
+  }
+
+  html.electron-runtime .workspace-page .workspace-page-rich-text-stage > .workspace-page-textarea.workspace-page-rich-text-stage-view.is-active:not(.workspace-page-rich-text-input) {
+    width: calc(100% + 20px);
+    max-width: none;
     margin-inline: auto;
   }
 
@@ -12648,7 +12761,7 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
     transform: translate(-3px, -9px);
   }
 
-  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button,
+  html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy button:not(.workspace-page-editor-export-option),
   html.electron-runtime .workspace-page .workspace-page-rich-text-toolbar.is-airy .workspace-page-rich-text-tool-icon-trigger {
     width: 32px;
     min-width: 32px;
@@ -12661,6 +12774,7 @@ html[data-theme] .workspace-page .workspace-page-rich-text-template-stage.worksp
     width: 32px;
     height: 32px;
   }
+
 }
 
 html[data-theme='dark'] .workspace-page .workspace-page-schedule-time-menu,
@@ -12680,4 +12794,11 @@ html[data-theme='dark'] .workspace-page-rich-text-emoji-picker--floating {
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(230, 240, 246, 0.08) !important;
   -webkit-backdrop-filter: blur(16px) saturate(135%) !important;
   backdrop-filter: blur(16px) saturate(135%) !important;
+}
+
+@media (max-width: 1100px) {
+  html.electron-runtime .workspace-page-main:has(.workspace-page-preview-panel[data-visible='true']) .workspace-page-attachment-tray .workspace-page-media-items,
+  html.electron-runtime .workspace-page-main:has(.workspace-page-preview-panel[data-visible='true']) .workspace-page-attachment-tray .workspace-page-attachment-scrollbar {
+    max-width: min(456px, 100%);
+  }
 }

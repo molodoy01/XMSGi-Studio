@@ -150,17 +150,20 @@ export function DraftsStage({
       <header className={`workspace-page-stage-header workspace-page-template-stage-header${!draftEditingId ? ' workspace-page-draft-list-header' : ''}`}>
         <div className="workspace-page-draft-header-info">
           <strong>{draftEditingId ? t('studio.draft') : t('studio.savedDrafts')}</strong>
-          <span>{draftEditingId ? t('studio.editSavedContent') : (() => {
-            const savedCountLabel = t('studio.savedCount', { count: savedDrafts.length });
-            const statusLabel = draftStoreSaving
-              ? t('studio.saving')
-              : !draftStoreReady
-                ? t('studio.loading')
-                : '';
-            return statusLabel ? `${savedCountLabel} · ${statusLabel}` : savedCountLabel;
-          })()}</span>
+          {draftEditingId ? (
+            <span>{t('studio.editSavedContent')}</span>
+          ) : (
+            <span>
+              {t('studio.savedCount', { count: savedDrafts.length })}
+              {draftStoreSaving
+                ? ` · ${t('studio.saving')}`
+                : !draftStoreReady
+                  ? ` · ${t('studio.loading')}`
+                  : ''}
+            </span>
+          )}
         </div>
-        {!draftEditingId && savedDrafts.length > 0 && (
+        {!draftEditingId && (
           <div className="workspace-page-draft-color-filters" role="group" aria-label={t('studio.savedDraftColor')}>
             {displayedDraftColor && (
               <span className="workspace-page-draft-selected-color" data-color={displayedDraftColor}>
@@ -226,7 +229,7 @@ export function DraftsStage({
               const draftColor = draft.color ?? 'gray';
               return (
                 <div className="workspace-page-template-stage-item" key={draft.id}>
-                  <button type="button" onClick={() => onInsertDraft(draft)}>
+                  <button type="button" onClick={() => onInsertDraft(draft)} disabled={draftStoreSaving}>
                     <strong>
                       <span
                         className="workspace-page-draft-color-indicator"
@@ -243,8 +246,8 @@ export function DraftsStage({
                     </span>
                   </button>
                   <div>
-                    <button type="button" onClick={() => openDraftEditor(draft)}>{t('studio.edit')}</button>
-                    <button type="button" onClick={() => onDeleteDraft(draft)}>{t('studio.delete')}</button>
+                    <button type="button" onClick={() => openDraftEditor(draft)} disabled={draftStoreSaving}>{t('studio.edit')}</button>
+                    <button type="button" onClick={() => onDeleteDraft(draft)} disabled={draftStoreSaving}>{t('studio.delete')}</button>
                   </div>
                 </div>
               );
@@ -279,11 +282,11 @@ export function DraftsStage({
                   <Upload size={15} strokeWidth={1.8} aria-hidden="true" /> {t('studio.import')} <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" />
                 </button>
                 {importMenuOpen && (
-                  <div className="workspace-page-publish-menu workspace-page-publish-menu-compact workspace-page-draft-import-menu" role="menu" aria-label={t('studio.importOptions')}>
-                    <button type="button" role="menuitem" className="workspace-page-publish-option" onClick={() => { setImportMenuOpen(false); onImportEditorText(); }}>
+                  <div className="workspace-page-editor-export-menu workspace-page-draft-import-menu" role="menu" aria-label={t('studio.importOptions')}>
+                    <button type="button" role="menuitem" className="workspace-page-editor-export-option" onClick={() => { setImportMenuOpen(false); onImportEditorText(); }}>
                       <span>{t('studio.importTxt')}</span>
                     </button>
-                    <button type="button" role="menuitem" className="workspace-page-publish-option" onClick={() => { setImportMenuOpen(false); onImportDrafts(); }} disabled={!draftStoreReady || draftStoreSaving} title={t('studio.importDrafts')}>
+                    <button type="button" role="menuitem" className="workspace-page-editor-export-option" onClick={() => { setImportMenuOpen(false); onImportDrafts(); }} disabled={!draftStoreReady || draftStoreSaving} title={t('studio.importDrafts')}>
                       <span>{t('studio.importDraftsCompact')}</span>
                     </button>
                   </div>

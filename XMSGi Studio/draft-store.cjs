@@ -255,6 +255,46 @@ function writeFileAtomically(filePath, contents, fileSystem) {
   }
 }
 
+async function writeFileAtomicallyAsync(filePath, contents, fileSystem, isCurrent = () => true, onStaleCommit = () => {}) {
+  const temporaryPath = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  let fileHandle;
+
+  try {
+    fileHandle = await fileSystem.open(temporaryPath, 'wx', 0o600);
+    await fileHandle.writeFile(contents, 'utf8');
+    await fileHandle.sync();
+    await fileHandle.close();
+    fileHandle = undefined;
+    if (!isCurrent()) {
+      try { await fileSystem.unlink(temporaryPath); } catch { /* The temp file may already be gone. */ }
+      return false;
+    }
+    await fileSystem.rename(temporaryPath, filePath);
+    if (!isCurrent()) {
+      onStaleCommit();
+      return false;
+    }
+
+    try {
+      const directoryHandle = await fileSystem.open(path.dirname(filePath), 'r');
+      try {
+        await directoryHandle.sync();
+      } finally {
+        await directoryHandle.close();
+      }
+    } catch {
+      // Some platforms do not support syncing directory handles.
+    }
+    return true;
+  } catch (error) {
+    if (fileHandle) {
+      try { await fileHandle.close(); } catch { /* Preserve the original write error. */ }
+    }
+    try { await fileSystem.unlink(temporaryPath); } catch { /* The temp file may already have been renamed. */ }
+    throw error;
+  }
+}
+
 function createRecoveryError(mainError, backupError) {
   const error = new Error('Draft store is corrupt or unreadable and no valid backup is available.');
   error.code = 'DRAFT_STORE_CORRUPT';
@@ -326,8 +366,82 @@ function writeStore(directory, payload, fileSystem = fs) {
   return normalized;
 }
 
+async function readStoreFileAsync(filePath, fileSystem) {
+  const raw = await fileSystem.readFile(filePath, 'utf8');
+  const parsed = JSON.parse(raw);
+  validateStore(parsed);
+
+  return { raw, store: normalizeStore(parsed) };
+}
+
+async function readStoreAsync(directory, fileSystem, isCurrent, onStaleCommit) {
+  const filePath = path.join(directory, 'drafts.json');
+  const backupPath = `${filePath}.bak`;
+
+  try {
+    return (await readStoreFileAsync(filePath, fileSystem)).store;
+  } catch (mainError) {
+    if (mainError.code !== 'ENOENT'
+      && mainError.code !== 'DRAFT_STORE_INVALID'
+      && !(mainError instanceof SyntaxError)) {
+      throw createReadError(mainError);
+    }
+
+    let backup;
+    try {
+      backup = await readStoreFileAsync(backupPath, fileSystem);
+    } catch (backupError) {
+      if (mainError.code === 'ENOENT' && backupError.code === 'ENOENT') {
+        return { version: 1, drafts: [], backups: [] };
+      }
+      throw createRecoveryError(mainError, backupError);
+    }
+
+    try {
+      const restored = await writeFileAtomicallyAsync(filePath, backup.raw, fileSystem, isCurrent, onStaleCommit);
+      if (!restored) return null;
+    } catch (error) {
+      const recoveryError = new Error('Draft store backup is valid but could not restore the primary file.');
+      recoveryError.code = 'DRAFT_STORE_RECOVERY_FAILED';
+      recoveryError.cause = error;
+      throw recoveryError;
+    }
+    return backup.store;
+  }
+}
+
+async function writeStoreAsync(directory, payload, fileSystem, isCurrent, onStaleCommit) {
+  const filePath = path.join(directory, 'drafts.json');
+  const backupPath = `${filePath}.bak`;
+  const normalized = normalizeStore(payload);
+  validateStore(normalized);
+  const serialized = JSON.stringify(normalized, null, 2);
+
+  if (!isCurrent()) return normalized;
+  const currentStore = await readStoreAsync(directory, fileSystem, isCurrent, onStaleCommit);
+  if (!currentStore || !isCurrent()) return normalized;
+
+  const primaryWritten = await writeFileAtomicallyAsync(filePath, serialized, fileSystem, isCurrent, onStaleCommit);
+  if (!primaryWritten) return normalized;
+  try {
+    const backupWritten = await writeFileAtomicallyAsync(backupPath, serialized, fileSystem, isCurrent, onStaleCommit);
+    if (!backupWritten) return normalized;
+  } catch (error) {
+    const backupError = new Error('Drafts were saved, but the backup could not be updated.');
+    backupError.code = 'DRAFT_STORE_BACKUP_UPDATE_FAILED';
+    backupError.cause = error;
+    throw backupError;
+  }
+  return normalized;
+}
+
 function createDraftStore({ directory, fileSystem = fs } = {}) {
   const storeDirectory = path.resolve(ensureDirectory(directory));
+  const asyncFileSystem = fileSystem.promises;
+  let saveQueue = Promise.resolve();
+  let saveRevision = 0;
+  let syncFlushRevision = 0;
+  let syncFlushedData;
 
   return {
     load() {
@@ -343,11 +457,34 @@ function createDraftStore({ directory, fileSystem = fs } = {}) {
     },
 
     saveSync(data) {
-      return writeStore(storeDirectory, data ?? {}, fileSystem);
+      const normalized = writeStore(storeDirectory, data ?? {}, fileSystem);
+      syncFlushRevision = ++saveRevision;
+      syncFlushedData = normalized;
+      return normalized;
     },
 
-    async save(data) {
-      return this.saveSync(data);
+    save(data) {
+      if (!asyncFileSystem) {
+        const error = new Error('Draft store saves require asynchronous filesystem operations.');
+        error.code = 'DRAFT_STORE_ASYNC_UNAVAILABLE';
+        return Promise.reject(error);
+      }
+      const revision = ++saveRevision;
+      const isCurrent = () => revision === saveRevision;
+      const onStaleCommit = () => {
+        if (syncFlushRevision > revision && syncFlushedData) {
+          writeStore(storeDirectory, syncFlushedData, fileSystem);
+        }
+      };
+      const operation = saveQueue.then(() => writeStoreAsync(
+        storeDirectory,
+        data ?? {},
+        asyncFileSystem,
+        isCurrent,
+        onStaleCommit,
+      ));
+      saveQueue = operation.then(() => undefined, () => undefined);
+      return operation;
     },
 
     restoreBackup(index) {

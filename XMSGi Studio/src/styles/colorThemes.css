@@ -55,7 +55,7 @@ html[data-theme='dark'] .settings-action:focus-visible {
 
 html[data-theme='dark'] .settings-action:hover,
 html[data-theme='dark'] .settings-action:focus-visible {
-  background: #1b2329;
+  background: var(--surface-hover);
 }
 
 html[data-theme='dark'] .settings-view,
@@ -166,16 +166,16 @@ html[data-theme='dark'] .quick-planner {
   --planner-dim: #a5afb8;
   --planner-line: rgba(151, 168, 181, 0.2);
   color-scheme: dark;
-  background: var(--void);
+  background: radial-gradient(ellipse 72% 62% at 45% 42%, rgba(35, 157, 251, 0.045), transparent 78%), var(--void);
   color: var(--planner-ink);
 }
 
 html[data-theme='dark'] .quick-planner-workbench {
-  border-color: rgba(110, 166, 202, 0.22);
+  border-color: #35434c;
   background:
     radial-gradient(ellipse 88% 48% at 50% 0%, rgba(var(--planner-accent-rgb), 0.035), transparent 74%),
     linear-gradient(155deg, rgba(27, 36, 43, 0.94), rgba(16, 22, 27, 0.92));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(214, 235, 247, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(12px) saturate(115%);
   -webkit-backdrop-filter: blur(12px) saturate(115%);
 }
@@ -229,14 +229,20 @@ html[data-theme='dark'] .quick-planner-attachment {
   color: #d4dde3;
 }
 
+html[data-theme='dark'] .quick-planner-attachment:has(button:hover),
+html[data-theme='dark'] .quick-planner-attachment:has(button:focus-visible) {
+  border-color: rgba(235, 137, 128, 0.42);
+  background-color: rgba(120, 48, 44, 0.28);
+}
+
 html[data-theme='dark'] .quick-planner-attachment button {
   color: #9eabb4;
 }
 
 html[data-theme='dark'] .quick-planner-attachment button:hover,
 html[data-theme='dark'] .quick-planner-attachment button:focus-visible {
-  background: #35434d;
-  color: #f0f5f8;
+  background: transparent;
+  color: #ff9a90;
 }
 
 html[data-theme='dark'] .quick-planner-attachments-scrollbar {
@@ -431,9 +437,18 @@ html[data-theme='light'] .quick-planner-date-picker-grid button:disabled {
 
 html[data-theme='light'] .quick-planner-date-picker-grid button.is-today {
   border-color: var(--planner-accent) !important;
-  background: rgba(35, 157, 251, 0.1) !important;
-  color: #087acb !important;
+  background: #e2f2fc !important;
+  color: #075f9d !important;
   font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(8, 122, 203, 0.16) !important;
+}
+
+html[data-theme='light'] .quick-planner-date-picker-grid button.is-today.is-selected,
+html[data-theme='light'] .quick-planner-date-picker-grid button.is-today.is-selected:hover {
+  border-color: #087acb !important;
+  background: #087acb !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.58) !important;
 }
 
 html[data-theme='light'] .quick-planner-date-picker-grid button.is-selected,
@@ -501,7 +516,7 @@ html[data-theme='dark'] .quick-planner-schedule-row .quick-planner-submit {
 
 html[data-theme='dark'] .workspace-page {
   color-scheme: dark;
-  background: radial-gradient(ellipse 72% 62% at 45% 42%, rgba(35, 157, 251, 0.045), transparent 78%), var(--void);
+  background: var(--void);
   color: var(--text);
 }
 
@@ -532,7 +547,7 @@ html[data-theme='dark'] .workspace-page-publish-transient-feedback.is-success {
 
 html[data-theme='dark'] .workspace-page-editor-shell {
   border-color: rgba(35, 157, 251, 0.32);
-  background: linear-gradient(155deg, #171d22, #101519);
+  background: #19232a;
   box-shadow: inset 0 0 0 1px rgba(35, 157, 251, 0.08), 0 12px 32px rgba(0, 0, 0, 0.24);
 }
 
@@ -613,6 +628,13 @@ html[data-theme='dark'] .workspace-page .workspace-page-action-left-group .works
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
+html[data-theme='dark'] .workspace-page .workspace-page-submit-actions .workspace-page-publish-menu-toggle:is(:hover, :focus-visible, :active, .is-active, [aria-expanded='true'], [aria-pressed='true']) {
+  border-color: #59636b !important;
+  background: #39434a !important;
+  color: #f2f5f7 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
 html[data-theme='dark'] .workspace-page-submit-actions .workspace-page-publish-main:not(:disabled) {
   border-color: #239dfb !important;
   background: #239dfb !important;
@@ -641,6 +663,10 @@ html[data-theme='dark'] .workspace-page-rich-text-link-popover {
   background: #171e23 !important;
   color: #e2e7eb;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38) !important;
+}
+
+html[data-theme='dark'] .workspace-page-editor-export-menu .workspace-page-editor-export-option {
+  color: #d4dde3 !important;
 }
 
 html[data-theme='dark'] .workspace-page-rich-text-schedule-stage .workspace-page-schedule-segment,
@@ -733,6 +759,19 @@ html[data-theme='dark'] .workspace-page-version-history-list,
 html[data-theme='dark'] .workspace-page-version-history-preview,
 html[data-theme='dark'] .workspace-page-version-history-document-menu {
   scrollbar-color: #596974 #20282e;
+}
+
+html[data-theme='light'] .workspace-page-version-history-restore {
+  color: #8f3434;
+}
+
+html[data-theme='light'] .workspace-page-version-history-restore:hover:not(:disabled) {
+  color: #762a2a;
+}
+
+html[data-theme='light'] .workspace-page-version-history-restore:disabled {
+  color: #65717a;
+  opacity: 1;
 }
 
 html[data-theme='dark'] .workspace-page-version-history-list::-webkit-scrollbar-track,
@@ -1005,21 +1044,36 @@ html[data-theme='dark'] .auth-screen .login-divider::before {
   background: rgba(35, 157, 251, 0.45);
 }
 
+html[data-theme='dark'] .login-field-input:hover,
+html[data-theme='dark'] .login-field-input:focus,
+html[data-theme='dark'] .login-field-input:focus-visible {
+  border-bottom-color: rgba(35, 157, 251, 0.45);
+}
+
 html[data-theme='dark'] .login-returning-account,
 html[data-theme='dark'] .login-submit,
 html[data-theme='dark'] .login-field-input,
 html[data-theme='dark'] .login-back-button,
-html[data-theme='dark'] .login-method-action,
 html[data-theme='dark'] .login-returning-start-over {
   color: #e2e7eb;
 }
 
+html[data-theme='dark'] .login-method-action {
+  color: #f0f2f4;
+}
+
 html[data-theme='dark'] .login-returning-account:hover:not(:disabled),
-html[data-theme='dark'] .login-method-action:hover,
-html[data-theme='dark'] .login-back-button:hover:not(:disabled),
 html[data-theme='dark'] .login-returning-start-over:hover:not(:disabled),
 html[data-theme='dark'] .login-submit:hover:not(:disabled) {
   color: #7cc3ff;
+}
+
+html[data-theme='dark'] .login-back-button:hover:not(:disabled) {
+  color: #e2e7eb;
+}
+
+html[data-theme='dark'] .login-method-action:hover {
+  color: var(--login-studio);
 }
 
 html[data-theme='dark'] .login-field-input::placeholder {
@@ -1810,7 +1864,7 @@ html[data-theme='light'] .workspace-page .workspace-page-attachment-tray {
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-attachment-card {
-  border-color: #dce3e8;
+  border-color: #bdc9d0;
   background: #f8fafb;
 }
 
@@ -1848,13 +1902,19 @@ html[data-theme='light'] .workspace-page .workspace-page-attachment-file-mark {
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-attachment-remove {
-  color: #74818a;
+  color: #536a78;
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-attachment-remove:hover,
 html[data-theme='light'] .workspace-page .workspace-page-attachment-remove:focus-visible {
-  background: #fbefed;
+  background: transparent;
   color: #a5362c;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-attachment-card:has(.workspace-page-attachment-remove:hover),
+html[data-theme='light'] .workspace-page .workspace-page-attachment-card:has(.workspace-page-attachment-remove:focus-visible) {
+  border-color: #e8c9c5;
+  background-color: #fbefed;
 }
 
 html[data-theme='light'] .workspace-page .workspace-page-attachment-chip {
@@ -2013,9 +2073,9 @@ html[data-theme='light'] .workspace-page .chat-preview-toolbar-label {
 }
 
 html[data-theme='light'] .workspace-page .chat-preview-stand.is-mobile .chat-preview-window {
-  border-color: #cbd5db;
+  border-color: #b6c3ca;
   background-color: #ffffff;
-  box-shadow: 0 20px 34px rgba(34, 47, 58, 0.20);
+  box-shadow: 0 20px 34px rgba(34, 47, 58, 0.16), inset 0 0 0 1px rgba(65, 88, 104, 0.14);
 }
 
 html[data-theme='light'] .workspace-page .chat-preview-window.theme-graphite {
@@ -4917,6 +4977,14 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stag
   color: #456477 !important;
 }
 
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-schedule-repeat-menu button.is-selected,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage .workspace-page-weekday-list button.is-selected {
+  border-color: #789eaf !important;
+  background: #cbdde6 !important;
+  color: #244b62 !important;
+  box-shadow: inset 0 0 0 1px rgba(36, 75, 98, 0.12) !important;
+}
+
 html[data-theme='light'] .workspace-page .workspace-page-action-row.workspace-page-schedule-row > .workspace-page-media-row > button,
 html[data-theme='light'] .workspace-page .workspace-page-action-row.workspace-page-schedule-row > .workspace-page-action-left-group > button,
 html[data-theme='light'] .workspace-page .workspace-page-action-row.workspace-page-schedule-row > .workspace-page-submit-actions > button {
@@ -5036,7 +5104,7 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-chat-stage > 
   height: 22px !important;
   min-height: 22px !important;
   border: 1px solid #bdcfd8 !important;
-  border-radius: 5px !important;
+  border-radius: 999px !important;
   background: #f1f6f8 !important;
   color: #35566a !important;
   font-weight: 600;
@@ -5066,6 +5134,30 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-chat-stage > 
   border-color: #709db2 !important;
   background: #cfe3ed !important;
   color: #244b62 !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-chat-stage > .workspace-page-chat-stage-footer .workspace-page-stage-primary,
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage > .workspace-page-schedule-footer .workspace-page-stage-primary {
+  border-color: #bdcfd8 !important;
+  background: #f1f6f8 !important;
+  color: #35566a !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-chat-stage > .workspace-page-chat-stage-footer .workspace-page-stage-primary:hover:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-chat-stage > .workspace-page-chat-stage-footer .workspace-page-stage-primary:focus-visible:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage > .workspace-page-schedule-footer .workspace-page-stage-primary:hover:not(:disabled),
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stage > .workspace-page-schedule-footer .workspace-page-stage-primary:focus-visible:not(:disabled) {
+  border-color: #709db2 !important;
+  outline: 1px solid rgba(112, 157, 178, 0.42) !important;
+  outline-offset: 1px !important;
+  background: #f1f6f8 !important;
+  color: #294f65 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-rich-text-template-stage > .workspace-page-template-stage-footer .workspace-page-template-stage-add {
+  border-radius: 999px !important;
 }
 
 html[data-theme] .workspace-page .workspace-page-draft-footer .workspace-page-schedule-summary.has-draft-color-picker .draft-color-control .draft-color-picker button.draft-color-swatch:is(:hover, :focus-visible) {
@@ -5102,11 +5194,11 @@ html[data-theme='dark'] .telegram-manager-login input {
 }
 
 html[data-theme='dark'] .quick-planner-workbench {
-  border-color: var(--line);
+  border-color: #35434c;
   background:
     radial-gradient(ellipse 88% 48% at 50% 0%, rgba(35, 157, 251, 0.035), transparent 74%),
     linear-gradient(155deg, #19232a, #141b20);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24);
 }
 
 html[data-theme='dark'] .quick-planner-toolbar {
@@ -5158,8 +5250,55 @@ html[data-theme='dark'] .quick-planner-activity-section {
 
 html[data-theme='dark'] .workspace-page-editor-shell {
   border-color: #35434c;
-  background: linear-gradient(155deg, #19232a, #141b20);
+  background: #19232a;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme='dark'] .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-editor.is-toolbar-active) {
+  border-color: #35434c;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme='dark'] .workspace-page-editor-shell:not([data-editor-appearance='outline'])::after {
+  opacity: 0;
+  box-shadow: none;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-input:focus) {
+  border-color: #35434c !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24) !important;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-input:focus)::after {
+  opacity: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-input:focus) {
+  border-color: rgba(var(--editor-outline), 0.3) !important;
+  box-shadow: 0 0 0 1px rgba(var(--editor-outline), 0.08), 0 10px 28px rgba(34, 47, 58, 0.08) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell:not([data-editor-appearance='outline']):has(.workspace-page-rich-text-input:focus)::after {
+  opacity: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-editor-shell[data-editor-appearance='outline']:is(:has(.workspace-page-rich-text-input:focus), :has(.workspace-page-rich-text-editor.is-toolbar-active)) {
+  border-color: #35434c !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025), 0 14px 34px rgba(0, 0, 0, 0.24) !important;
+}
+
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell[data-editor-appearance='outline']:is(:has(.workspace-page-rich-text-input:focus), :has(.workspace-page-rich-text-editor.is-toolbar-active)) {
+  border-color: rgba(var(--editor-outline), 0.3) !important;
+  box-shadow: 0 0 0 1px rgba(var(--editor-outline), 0.08), 0 10px 28px rgba(34, 47, 58, 0.08) !important;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-editor-shell[data-editor-appearance='outline']:is(:has(.workspace-page-rich-text-input:focus), :has(.workspace-page-rich-text-editor.is-toolbar-active))::after,
+html[data-theme='light'] .workspace-page .workspace-page-editor-shell[data-editor-appearance='outline']:is(:has(.workspace-page-rich-text-input:focus), :has(.workspace-page-rich-text-editor.is-toolbar-active))::after {
+  opacity: 0.5 !important;
+  border-color: rgba(var(--editor-outline), 0.26) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--editor-outline), 0.06) !important;
 }
 
 html[data-theme='dark'] .workspace-page-rich-text-input,
@@ -5167,6 +5306,28 @@ html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input,
 html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input:focus,
 html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input:focus-visible {
   border-color: #34414a !important;
+  border-radius: 0 !important;
+  background: #151d22 !important;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active) {
+  --workspace-active-editor-edge-fill: #151d22;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-stage:has(.workspace-page-rich-text-input.is-active)::before {
+  border-radius: 0;
+  background-image:
+    linear-gradient(var(--workspace-active-editor-edge-fill), var(--workspace-active-editor-edge-fill)),
+    linear-gradient(var(--workspace-active-editor-edge-fill), var(--workspace-active-editor-edge-fill));
+  background-position: left top, left bottom;
+  background-size: 100% 8px, 100% 8px;
+}
+
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input.is-active,
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input.is-active:focus,
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-input.is-active:focus-visible {
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
   background: #151d22 !important;
 }
 
@@ -5776,6 +5937,7 @@ html[data-theme='dark'] .telegram-manager-dialog.topbar-logout-modal {
   box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(230, 240, 246, 0.06);
 }
 
+
 html[data-theme='dark'] .settings-telegram-summary {
   border-color: rgba(215, 230, 240, 0.24);
   background:
@@ -5856,4 +6018,8 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-schedule-stag
   background: rgba(71, 124, 158, 0.14) !important;
   color: #244b63 !important;
   box-shadow: inset 0 0 0 1px rgba(71, 124, 158, 0.12) !important;
+}
+
+html[data-theme] .workspace-page .workspace-page-rich-text-stage-view button {
+  border-radius: 999px !important;
 }

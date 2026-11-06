@@ -31,6 +31,17 @@ const globalStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import
 const colorThemeStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/colorThemes.css'), 'utf8');
 const themeTokenStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../styles/tokens.css'), 'utf8');
 
+describe('WorkspacePage version history restore colors', () => {
+  it('keeps the restore action readable in the light theme, including when disabled', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page-version-history-restore\s*\{[^}]*color:\s*#8f3434;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page-version-history-restore:disabled\s*\{[^}]*color:\s*#65717a;[^}]*opacity:\s*1;/,
+    );
+  });
+});
+
 describe('WorkspacePage editor line breaks', () => {
   it('keeps contenteditable line breaks inline so Enter advances by one row', () => {
     const lineBreakRule = workspacePageStyles.match(/\.workspace-page-rich-text-input br\s*\{([^}]*)\}/)?.[1] ?? '';
@@ -51,16 +62,16 @@ describe('WorkspacePage publish action colors', () => {
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:not\(\.is-toolbar-active\) \.workspace-page-rich-text-meta-row,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor:has\(\.workspace-page-rich-text-input\.is-empty\) \.workspace-page-rich-text-meta-row\s*\{\s*opacity:\s*0\.45;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*49px;[^}]*bottom:\s*-22px;[^}]*display:\s*inline-flex;[^}]*width:\s*68px;[^}]*min-width:\s*68px;[^}]*border:\s*0;[^}]*border-radius:\s*7px;[^}]*background:\s*transparent;[^}]*font-variant-numeric:\s*tabular-nums;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*48px;[^}]*bottom:\s*-32px;[^}]*display:\s*inline-flex;[^}]*width:\s*56px;[^}]*min-width:\s*56px;[^}]*border:\s*0;[^}]*border-radius:\s*7px;[^}]*background:\s*transparent;[^}]*font-size:\s*13px;[^}]*font-variant-numeric:\s*tabular-nums;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy,\s*html\.electron-runtime \.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*min-height:\s*34px;\s*margin:\s*4px 0 0 auto;\s*transform:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*35px;[^}]*bottom:\s*-22px;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*20px;[^}]*bottom:\s*-32px;[^}]*width:\s*28px;[^}]*height:\s*28px;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear svg\s*\{\s*width:\s*20px;\s*height:\s*20px;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear svg\s*\{\s*width:\s*22px;\s*height:\s*22px;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear:hover:not\(:disabled\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear:focus-visible:not\(:disabled\)\s*\{\s*background:\s*rgba\(var\(--editor-outline\), 0\.06\);\s*color:\s*var\(--editor-outline-bright\);\s*box-shadow:\s*none;\s*transform:\s*none;/,
@@ -81,10 +92,13 @@ describe('WorkspacePage publish action colors', () => {
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button svg\s*\{\s*transform:\s*translateY\(-1px\);/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:hover:not\(:disabled\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:focus-visible:not\(:disabled\)\s*\{\s*border-color:\s*transparent !important;\s*border-radius:\s*7px !important;\s*background:\s*rgba\(154, 168, 184, 0\.14\) !important;\s*color:\s*var\(--text\) !important;\s*transform:\s*none !important;\s*box-shadow:\s*none !important;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\):hover:not\(:disabled\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\):focus-visible:not\(:disabled\)\s*\{\s*border-color:\s*transparent !important;\s*border-radius:\s*7px !important;\s*background:\s*rgba\(154, 168, 184, 0\.14\) !important;\s*color:\s*var\(--text\) !important;\s*transform:\s*none !important;\s*box-shadow:\s*none !important;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:hover:not\(:disabled\),\s*html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:focus-visible:not\(:disabled\)\s*\{\s*background:\s*rgba\(154, 168, 184, 0\.11\) !important;/,
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\):hover:not\(:disabled\),\s*html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\):focus-visible:not\(:disabled\)\s*\{\s*background:\s*rgba\(154, 168, 184, 0\.11\) !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-toolbar\.is-airy > button:nth-child\(n\)\s*\{\s*min-width:\s*32px;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage\s*\{\s*margin-bottom:\s*0;/,
@@ -96,13 +110,43 @@ describe('WorkspacePage publish action colors', () => {
       /workspace-page-rich-text-editor:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)::before/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)\s*\{[^}]*max-height:\s*none;[^}]*margin-bottom:\s*0;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active, \.workspace-page-rich-text-schedule-stage\.is-active\)\s*\{[^}]*max-height:\s*none;[^}]*margin-bottom:\s*0;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\) \.workspace-page-rich-text-editor\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active, \.workspace-page-rich-text-schedule-stage\.is-active\) \.workspace-page-rich-text-editor\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(92% \+ 24px\), 720px\);[^}]*max-width:\s*720px;[^}]*margin-bottom:\s*8px;[^}]*margin-inline:\s*auto;/,
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;[^}]*margin-bottom:\s*8px;[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-chat-stage\.is-active\s*\{[^}]*justify-self:\s*stretch;[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active, \.workspace-page-rich-text-schedule-stage\.is-active\) \.workspace-page-rich-text-editor\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\s*\{[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-chat-stage\.is-active\s*\{[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;[^}]*margin-inline:\s*auto;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{\s*justify-self:\s*start;\s*width:\s*calc\(100% \+ 20px\);\s*max-width:\s*none;\s*margin-left:\s*-10px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)::before\s*\{\s*right:\s*-10px;\s*left:\s*0;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)\s*\{\s*overflow:\s*visible;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(min-width: 1101px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)\s*\{\s*overflow:\s*visible;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(min-width: 1101px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-chat-stage\.is-active,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-template-stage\.is-active\s*\{\s*justify-self:\s*stretch;\s*width:\s*calc\(100% \+ 13px\);\s*max-width:\s*none;\s*margin-right:\s*-13px;\s*margin-left:\s*0;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-chat-stage\.is-active,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-rich-text-template-stage\.is-active\s*\{\s*justify-self:\s*stretch;\s*width:\s*calc\(100% \+ 12px\);\s*max-width:\s*none;\s*margin-right:\s*-12px;\s*margin-left:\s*0;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-chat-stage\.is-active, \.workspace-page-rich-text-template-stage\.is-active\)::after\s*\{\s*bottom:\s*0;\s*z-index:\s*10;/,
@@ -117,16 +161,34 @@ describe('WorkspacePage publish action colors', () => {
       /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell \.workspace-page-action-row\.workspace-page-schedule-row\s*\{\s*padding-top:\s*5px;\s*padding-bottom:\s*5px;/,
     );
     expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*bottom:\s*-44px;[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*bottom:\s*-44px;/,
+    );
+    expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-editor,\s*html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-stage-view\.is-active\s*\{[^}]*width:\s*min\(calc\(100% \+ 20px\), 720px\);[^}]*max-width:\s*720px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-rich-text-input\)\s*\{[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;/,
+    );
+    expect(workspacePageStyles).not.toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*calc\(100% \+ 20px\);[^}]*max-width:\s*none;/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{[^}]*justify-self:\s*center;[^}]*width:\s*min\(calc\(100% \+ 20px\), 720px\);[^}]*max-width:\s*720px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*bottom:\s*-44px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*bottom:\s*-44px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-template-stage \.workspace-page-template-stage-footer \.workspace-page-template-stage-add\s*\{\s*border-radius:\s*999px;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-template-stage > \.workspace-page-template-stage-footer \.workspace-page-template-stage-add\s*\{\s*border-radius:\s*999px !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme\] \.workspace-page \.workspace-page-rich-text-stage-view button\s*\{\s*border-radius:\s*999px !important;/,
     );
     expect(workspacePageStyles).toMatch(
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-scrollbar-track\s*\{\s*flex-basis:\s*12px;\s*width:\s*12px;\s*margin-left:\s*-7px;\s*background:\s*linear-gradient\(to right, transparent 7px, rgba\(255, 255, 255, 0\.035\) 7px\);/,
@@ -138,10 +200,10 @@ describe('WorkspacePage publish action colors', () => {
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*width:\s*max-content;[^}]*max-width:\s*100%;[^}]*transform:\s*translateY\(-4px\);/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*49px;[^}]*bottom:\s*-22px;[^}]*width:\s*68px;[^}]*min-width:\s*68px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-character-count\s*\{[^}]*position:\s*absolute;[^}]*right:\s*48px;[^}]*bottom:\s*-44px;[^}]*width:\s*56px;[^}]*min-width:\s*56px;/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*35px;[^}]*bottom:\s*-22px;[^}]*width:\s*24px;[^}]*height:\s*24px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-meta-row > \.workspace-page-rich-text-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*20px;[^}]*bottom:\s*-44px;[^}]*width:\s*28px;[^}]*height:\s*28px;/,
     );
     expect(workspacePageStyles).toMatch(
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*6px;\s*transform:\s*translateY\(-9px\);/,
@@ -150,7 +212,10 @@ describe('WorkspacePage publish action colors', () => {
       /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*5px;\s*transform:\s*translate\(-3px, -9px\);/,
     );
     expect(workspacePageStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button,\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-tool-icon-trigger\s*\{\s*width:\s*32px;\s*min-width:\s*32px;\s*height:\s*32px;\s*min-height:\s*32px;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-tool-icon-trigger\s*\{\s*width:\s*32px;\s*min-width:\s*32px;\s*height:\s*32px;\s*min-height:\s*32px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\)\s*\{\s*width:\s*26px;\s*min-width:\s*26px;\s*height:\s*26px;\s*min-height:\s*26px;/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-action-row\.workspace-page-schedule-row\s*\{[^}]*display:\s*flex;[^}]*width:\s*100%;[^}]*flex-wrap:\s*nowrap;[^}]*justify-content:\s*space-between;/,
@@ -174,7 +239,7 @@ describe('WorkspacePage publish action colors', () => {
       /\.workspace-page-mode-summary-label\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*0\.14em;/,
     );
     expect(workspacePageStyles).toMatch(
-      /\.workspace-page-mode-summary strong\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*500;[^}]*letter-spacing:\s*0\.04em;/,
+      /\.workspace-page-mode-summary strong\s*\{[^}]*font-family:\s*inherit;[^}]*font-size:\s*12px;[^}]*font-weight:\s*500;[^}]*letter-spacing:\s*0\.14em;/,
     );
   });
 
@@ -218,7 +283,15 @@ describe('WorkspacePage publish action colors', () => {
   it('uses a cohesive dark palette while retaining the blue publishing accent', () => {
     expect(themeTokenStyles).toMatch(/:root\[data-theme='dark'\]\s*\{[\s\S]*?--void:\s*#0e1317;[\s\S]*?--surface-raised:\s*#182127;[\s\S]*?--surface-muted:\s*#202a31;[\s\S]*?--surface-hover:\s*#29363e;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-workbench\s*\{[^}]*linear-gradient\(155deg, #19232a, #141b20\);/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*#35434c;[^}]*linear-gradient\(155deg, #19232a, #141b20\);/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*#35434c;[^}]*background:\s*#19232a;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page\s*\{\s*color-scheme:\s*dark;\s*background:\s*var\(--void\);/);
+    expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page\s*\{[^}]*radial-gradient/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\):has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\s*\{\s*border-color:\s*#35434c;\s*box-shadow:\s*inset 0 0 0 1px rgba\(255, 255, 255, 0\.025\), 0 14px 34px rgba\(0, 0, 0, 0\.24\);/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\)::after\s*\{\s*opacity:\s*0;\s*box-shadow:\s*none;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)\s*\{\s*border-color:\s*#35434c !important;\s*box-shadow:\s*inset 0 0 0 1px rgba\(255, 255, 255, 0\.025\), 0 14px 34px rgba\(0, 0, 0, 0\.24\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)\s*\{\s*border-color:\s*rgba\(var\(--editor-outline\), 0\.3\) !important;\s*box-shadow:\s*0 0 0 1px rgba\(var\(--editor-outline\), 0\.08\), 0 10px 28px rgba\(34, 47, 58, 0\.08\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)::after,\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)::after\s*\{\s*opacity:\s*0\.5 !important;\s*border-color:\s*rgba\(var\(--editor-outline\), 0\.26\) !important;/);
+    expect(colorThemeStyles).not.toMatch(/\.workspace-page-editor-shell\[data-editor-appearance='outline'\]:hover/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.history-drawer\.is-page \.history-list-status-section \.history-status-tab\.is-active\s*\{[^}]*rgba\(35, 157, 251, 0\.14\)/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-submit-actions \.workspace-page-publish-main:not\(:disabled\)\s*\{[^}]*background:\s*#239dfb !important;/);
   });
@@ -361,7 +434,8 @@ describe('WorkspacePage publish action colors', () => {
 
   it('styles draft color filters like the editor swatches with counts', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter \.workspace-page-draft-color-dot\s*\{[^}]*width:\s*15px;[^}]*height:\s*15px;[^}]*border:\s*1px solid rgba\(245, 247, 250, 0\.42\);[^}]*box-shadow:\s*inset 0 0 0 1px color-mix\(in srgb, var\(--draft-swatch-color\) 72%, transparent\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter \.workspace-page-draft-color-dot\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*border:\s*1px solid rgba\(245, 247, 250, 0\.42\);[^}]*box-shadow:\s*inset 0 0 0 1px color-mix\(in srgb, var\(--draft-swatch-color\) 72%, transparent\);/);
+    expect(workspacePageStyles).toMatch(/\.draft-color-picker \.draft-color-swatch\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*flex:\s*0 0 18px;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme\] \.workspace-page \.workspace-page-rich-text-template-stage\.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*transparent !important;[^}]*background-color:\s*transparent !important;[^}]*box-shadow:\s*none !important;[^}]*outline:\s*none !important;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter \.workspace-page-draft-color-dot\.is-selected\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.9\);[^}]*box-shadow:\s*inset 0 0 0 2px color-mix\(in srgb, var\(--draft-swatch-color\) 72%, transparent\), 0 0 6px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter:hover \.workspace-page-draft-color-dot\s*\{[^}]*box-shadow:\s*inset 0 0 0 2px rgba\(255, 255, 255, 0\.9\), 0 0 5px color-mix\(in srgb, var\(--draft-swatch-color\) 68%, transparent\);/);
@@ -370,8 +444,51 @@ describe('WorkspacePage publish action colors', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters\s*\{[^}]*margin-left:\s*auto;/);
   });
 
+  it('keeps attachment remove icons consistent across narrow and wide layouts', () => {
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-remove\s*\{\s*color:\s*#536a78;/);
+    expect(colorThemeStyles).not.toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-remove\s*\{[^}]*text-shadow:/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-remove\s*\{[^}]*top:\s*50%;[^}]*right:\s*3px;[^}]*width:\s*20px;[^}]*height:\s*20px;[^}]*background:\s*transparent;[^}]*transform:\s*translateY\(-50%\);/);
+    expect(workspacePageStyles).not.toMatch(/@media \(max-width: 760px\)\s*\{[^}]*\.workspace-page-attachment-remove\s*\{/);
+    expect(colorThemeStyles).not.toMatch(/@media \(max-width: 760px\)\s*\{[^}]*\.workspace-page-attachment-remove/);
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-attachment-remove\s*\{[^}]*font-size:\s*17px;[^}]*line-height:\s*1;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-attachment-card:has\(\.workspace-page-attachment-remove:hover\),\s*\.workspace-page-attachment-card:has\(\.workspace-page-attachment-remove:focus-visible\)\s*\{[^}]*background-color:\s*rgba\(120, 48, 44, 0\.28\);/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-card:has\(\.workspace-page-attachment-remove:hover\),\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-card:has\(\.workspace-page-attachment-remove:focus-visible\)\s*\{[^}]*background-color:\s*#fbefed;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-attachment-remove:hover,\s*\.workspace-page-attachment-remove:focus-visible\s*\{[^}]*background:\s*transparent;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-remove:hover,[\s\S]*?background:\s*transparent;/,
+    );
+  });
+
+  it('keeps draft footer buttons the same compact height as template stage buttons', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage \.workspace-page-draft-stage-footer \.workspace-page-stage-secondary,\s*\.workspace-page-rich-text-draft-stage \.workspace-page-draft-stage-footer \.workspace-page-stage-primary\s*\{\s*height:\s*22px;\s*min-height:\s*22px !important;\s*padding:\s*0 11px;/,
+    );
+  });
+
+  it('uses the editor export menu option styling for the draft import menu', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-editor-export \.workspace-page-editor-export-option,\s*\.workspace-page-draft-import-menu \.workspace-page-editor-export-option\s*\{[^}]*min-height:\s*40px;[^}]*padding:\s*8px 12px;[^}]*border-radius:\s*8px;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.workspace-page-editor-export-menu \.workspace-page-editor-export-option\s*\{\s*color:\s*#d4dde3 !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-editor-export \.workspace-page-editor-export-option:hover,[\s\S]*?\.workspace-page-draft-import-menu \.workspace-page-editor-export-option:focus-visible\s*\{[^}]*background:\s*rgba\(154, 168, 184, 0\.12\);/,
+    );
+  });
+
   it('aligns the draft import and export actions next to the add-draft button', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*end;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-add\s*\{[^}]*grid-column:\s*3;[^}]*justify-self:\s*end;/);
+    expect(workspacePageStyles).not.toMatch(/@container draft-stage \(max-width: 530px\)[\s\S]*?\.workspace-page-rich-text-draft-stage:not\(\.has-draft-editor\) \.workspace-page-draft-stage-tools\s*\{[^}]*grid-row:\s*1;/);
   });
 
   it('aligns saved draft names at a consistent inset from the left edge', () => {
@@ -1063,6 +1180,7 @@ describe('WorkspacePage main-screen flows', () => {
     const { unmount } = await renderWorkspacePage({
       onRegisterHistoryDraftDeleteHandler: (handler) => { deleteHistoryDraft = handler; },
     });
+    const saveCountBeforeDelete = vi.mocked(window.draftStorage.save).mock.calls.length;
 
     let deleted = false;
     await act(async () => {
@@ -1073,6 +1191,7 @@ describe('WorkspacePage main-screen flows', () => {
     expect(inMemoryDraftStore.savedDrafts.map((draft: { id: string }) => draft.id)).toEqual(['keep-one']);
     expect(inMemoryDraftStore.workspaceDraft).toMatchObject({ body: 'Unsaved editor content' });
     expect(inMemoryDraftStore.documentHistories?.['delete-document']?.[0].snapshot).toMatchObject({ body: 'Selected draft' });
+    expect(vi.mocked(window.draftStorage.save).mock.calls.length - saveCountBeforeDelete).toBe(1);
     unmount();
   });
 
@@ -1223,14 +1342,13 @@ describe('WorkspacePage main-screen flows', () => {
     expect(notify).not.toHaveBeenCalledWith('Message sent.', 'success', 'Studio', undefined, 3360);
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent)
       .toContain('Message sent.');
-    expect(editor.textContent).toBe(savedDraft.body);
-    await act(async () => vi.advanceTimersByTimeAsync(3360));
-    expect(handleSendDraftNow).toHaveBeenCalledTimes(2);
     expect(editor.textContent).toBe('Previous Studio content');
     expect(inMemoryDraftStore.workspaceDraft).toMatchObject({ body: 'Previous Studio content' });
     expect(inMemoryDraftStore.savedDrafts).toEqual([]);
-    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent)
-      .toContain('You had text here before — we put it back in the editor.');
+    expect(document.querySelector('.workspace-page-publish-main')).not.toBeDisabled();
+    await act(async () => vi.advanceTimersByTimeAsync(3360));
+    expect(handleSendDraftNow).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')).toBeNull();
     expect(notify).not.toHaveBeenCalledWith(
       'You had text here before — we put it back in the editor.',
       'success',
@@ -1364,7 +1482,7 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('keeps the editor outline illuminated when toolbar focus is inactive', async () => {
+  it('keeps the editor outline clear without a doubled light-theme contour', async () => {
     const { unmount } = await renderWorkspacePage();
     const editorShell = document.querySelector<HTMLElement>('.workspace-page-editor-shell')!;
     const editor = editorShell.querySelector('.workspace-page-rich-text-editor')!;
@@ -1374,6 +1492,10 @@ describe('WorkspacePage main-screen flows', () => {
     const outlineAfterRule = workspacePageStyles.match(/\.workspace-page-editor-shell\[data-editor-appearance='outline'\]::after\s*\{([^}]*)\}/)?.[1] ?? '';
     const toolbarRule = workspacePageStyles.match(/\.workspace-page-rich-text-toolbar\s*\{([^}]*)\}/)?.[1] ?? '';
     const lightEditorInputRule = workspacePageStyles.match(/\.workspace-page \.workspace-page-rich-text-input\s*\{([^}]*)\}/)?.[1] ?? '';
+    const activeEditorRule = workspacePageStyles.match(/\.workspace-page-rich-text-input\.is-active\s*\{([^}]*)\}/)?.[1] ?? '';
+    const activeEditorFillRule = workspacePageStyles.match(/\.workspace-page \.workspace-page-rich-text-input\.is-active\s*\{([^}]*)\}/)?.[1] ?? '';
+    const activeEditorEdgeFillRule = workspacePageStyles.match(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)::before\s*\{([^}]*)\}/)?.[1] ?? '';
+    const dragOverlayRule = workspacePageStyles.match(/\.workspace-page-rich-text-editor\.is-drag-over \.workspace-page-rich-text-stage::before\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(editor.classList.contains('is-toolbar-active')).toBe(false);
     expect(baseShellRule).toMatch(/border:\s*1px solid rgba\(112, 130, 143, 0\.24\)/);
@@ -1391,6 +1513,32 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*transform:\s*translateY\(11px\);/);
     expect(lightEditorInputRule).toMatch(/background:\s*#f7f8fa !important/);
     expect(lightEditorInputRule).toMatch(/border:\s*1px solid #e5e9ec/);
+    expect(activeEditorFillRule).toMatch(/box-shadow:\s*none/);
+    expect(activeEditorEdgeFillRule).toMatch(/background-position:\s*top, bottom/);
+    expect(activeEditorEdgeFillRule).toMatch(/background-size:\s*100% 8px, 100% 8px/);
+    expect(activeEditorEdgeFillRule).toMatch(/var\(--workspace-active-editor-edge-fill\) var\(--workspace-active-editor-edge-fade-left\), var\(--workspace-active-editor-edge-fill\) calc\(100% - var\(--workspace-active-editor-edge-fade-right\)\), transparent/);
+    expect(activeEditorRule).toMatch(/margin-top:\s*8px/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)\s*\{[^}]*--workspace-active-editor-edge-fill:\s*#f7f8fa;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active:focus\),\s*\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active:focus-visible\)\s*\{\s*--workspace-active-editor-edge-fill:\s*#f5f7f8;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\s*\{\s*background:\s*#f7f8fa !important;[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.3\) !important;[^}]*0 0 0 1px rgba\(var\(--editor-outline\), 0\.08\)/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\):has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\s*\{\s*border-color:\s*rgba\(var\(--editor-outline\), 0\.3\) !important;\s*box-shadow:\s*0 0 0 1px rgba\(var\(--editor-outline\), 0\.08\),\s*0 10px 28px rgba\(34, 47, 58, 0\.08\) !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\)::after\s*\{\s*opacity:\s*0 !important;\s*box-shadow:\s*none !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-input\s*\{\s*background:\s*#ffffff !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.chat-preview-stand\.is-mobile \.chat-preview-window\s*\{\s*border-color:\s*#b6c3ca;[^}]*inset 0 0 0 1px rgba\(65, 88, 104, 0\.14\)/);
+    expect(activeEditorEdgeFillRule).toMatch(/left:\s*10px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell:has\(\.workspace-page-rich-text-input\.is-active\) \.workspace-page-rich-text-input\s*\{\s*justify-self:\s*start;\s*width:\s*calc\(100% \+ 20px\);\s*max-width:\s*none;\s*margin-left:\s*-10px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)::before\s*\{\s*right:\s*-10px;\s*left:\s*0;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)::after\s*\{\s*right:\s*-10px;\s*left:\s*-10px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)\s*\{\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)\s*\{\s*overflow:\s*visible;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)\s*\{\s*--workspace-active-editor-edge-fill:\s*#ffffff;/);
+    expect(workspacePageStyles).toMatch(/--workspace-active-editor-edge-fade-left:\s*3\.5%;[^}]*--workspace-active-editor-edge-fade-right:\s*3\.5%;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)\s*\{\s*--workspace-active-editor-edge-fill:\s*#151d22;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-input\.is-active\)::before\s*\{\s*border-radius:\s*0;[^}]*background-image:\s*linear-gradient\(var\(--workspace-active-editor-edge-fill\), var\(--workspace-active-editor-edge-fill\)\),\s*linear-gradient\(var\(--workspace-active-editor-edge-fill\), var\(--workspace-active-editor-edge-fill\)\);[^}]*background-position:\s*left top, left bottom;\s*background-size:\s*100% 8px, 100% 8px;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page \.workspace-page-rich-text-input\.is-active\s*\{\s*background:\s*linear-gradient\(90deg, transparent, #f7f8fa 3\.5%, #f7f8fa 96\.5%, transparent\) !important;\s*border-left-color:\s*transparent !important;\s*border-right-color:\s*transparent !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-input\.is-active\s*\{\s*background:\s*linear-gradient\(90deg, transparent, #ffffff 3\.5%, #ffffff 96\.5%, transparent\) !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-input\.is-active,[\s\S]*?background:\s*#151d22 !important;/);
+    expect(dragOverlayRule).toMatch(/height:\s*auto/);
+    expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-stage::before\s*\{[^}]*top:\s*0/);
     expect(workspacePageStyles).toMatch(/workspace-page-rich-text-editor\.is-toolbar-active \.workspace-page-rich-text-input\s*\{[^}]*margin-bottom:\s*8px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage-view\s*\{[^}]*transform:\s*none;[^}]*transition:\s*opacity 180ms ease;/);
     expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-stage:has\(\.workspace-page-rich-text-stage-view\.is-active:not\(\.workspace-page-textarea\)\)/);
@@ -1414,6 +1562,12 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('lowers chat, template, draft, import, and export footer buttons by three pixels', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-chat-stage > \.workspace-page-chat-stage-footer button,\s*\.workspace-page-rich-text-template-stage > \.workspace-page-template-stage-footer button:not\(\.workspace-page-editor-export-option\)\s*\{\s*translate:\s*0 3px;/,
+    );
+  });
+
   it('keeps the Schedule Time and Repeat controls fixed-size at compact Electron widths', () => {
     expect(workspacePageStyles).toMatch(/@media \(max-width: 840px\)[\s\S]*?html\.electron-runtime \.workspace-page-action-left-group \.workspace-page-schedule-compact-button\s*\{[^}]*flex:\s*0 0 80px !important;[^}]*width:\s*80px !important;[^}]*min-width:\s*80px !important;[^}]*font-size:\s*14px !important;/);
   });
@@ -1424,10 +1578,29 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*100%;[^}]*max-width:\s*640px;[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto;[^}]*gap:\s*0;[^}]*padding:\s*0 0 0 12px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*align-items:\s*center;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-tray\s*\{[^}]*flex:\s*0 0 56px;[^}]*height:\s*56px;[^}]*min-height:\s*56px;/);
-    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*130px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-media-items\s*\{[^}]*gap:\s*0;[^}]*max-width:\s*min\(640px, 100%\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-tray \.workspace-page-attachment-scrollbar\s*\{[^}]*max-width:\s*min\(640px, 100%\);/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-card\s*\{[^}]*flex:\s*0 0 min\(220px, calc\(100vw - 40px\)\);[^}]*width:\s*min\(220px, calc\(100vw - 40px\)\);[^}]*min-width:\s*156px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-thumbnail,\s*\.workspace-page-attachment-file-mark\s*\{\s*flex:\s*0 0 26px;\s*width:\s*26px;\s*height:\s*26px;/);
+    expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.workspace-page-attachment-copy\s*\{\s*display:\s*grid;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\s*\{[^}]*position:\s*relative;[^}]*height:\s*8px;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar\.is-visible\s*\{\s*visibility:\s*visible;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-attachment-scrollbar-thumb\s*\{[^}]*position:\s*absolute;[^}]*border-radius:\s*999px;/);
+  });
+
+  it('insets the outer attachment and publish controls from the editor edges', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-schedule-row > \.workspace-page-media-row > \.workspace-page-attachment-toggle\s*\{\s*margin-left:\s*5px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-schedule-row > \.workspace-page-submit-actions\s*\{\s*margin-right:\s*5px;/,
+    );
+  });
+
+  it('limits the attachment tray to two chips beside the live preview at narrow Electron widths', () => {
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)\s*\{\s*html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='true'\]\) \.workspace-page-attachment-tray \.workspace-page-media-items,\s*html\.electron-runtime \.workspace-page-main:has\(\.workspace-page-preview-panel\[data-visible='true'\]\) \.workspace-page-attachment-tray \.workspace-page-attachment-scrollbar\s*\{\s*max-width:\s*min\(456px, 100%\);/,
+    );
   });
 
   it('keeps the Electron post input inset and centered inside the editor stage', () => {
@@ -1487,21 +1660,27 @@ describe('WorkspacePage main-screen flows', () => {
     localStorage.removeItem(EDITOR_APPEARANCE_STORAGE_KEY);
   });
 
-  it('keeps the outline divider crisp over the subtle light editor surface', () => {
+  it('keeps the outline divider crisp over the clean light editor surface', () => {
     const pageRule = workspacePageStyles.match(/\.workspace-page\s*\{([^}]*)\}/)?.[1] ?? '';
     const shellRule = workspacePageStyles.match(/\.workspace-page-editor-shell\s*\{([^}]*)\}/)?.[1] ?? '';
     const stageRule = workspacePageStyles.match(/\.workspace-page-rich-text-stage\s*\{([^}]*)\}/)?.[1] ?? '';
     const dividerRule = workspacePageStyles.match(/\.workspace-page-rich-text-stage::after\s*\{([^}]*)\}/)?.[1] ?? '';
+    const darkDividerRule = workspacePageStyles.match(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-stage::after\s*\{([^}]*)\}/)?.[1] ?? '';
     const lightDividerRule = workspacePageStyles.match(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-stage::after\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(pageRule).toMatch(/radial-gradient\(ellipse 72% 62% at 45% 42%/);
     expect(pageRule).toMatch(/var\(--void\)/);
-    expect(shellRule).toMatch(/radial-gradient\(ellipse 88% 48% at 50% 0%/);
+    expect(shellRule).not.toMatch(/radial-gradient/);
+    expect(shellRule).toMatch(/background:\s*linear-gradient\(155deg, #ffffff, #fbfcfd\)/);
     expect(shellRule).toMatch(/0 0 0 1px rgba\(var\(--editor-outline\), 0\.04\)/);
     expect(stageRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.48\)/);
     expect(dividerRule).toMatch(/filter:\s*none/);
-    expect(lightDividerRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.78\)/);
-    expect(lightDividerRule).toMatch(/drop-shadow\(0 0 4px rgba\(var\(--editor-outline\), 0\.3\)\)/);
+    expect(darkDividerRule).toMatch(/height:\s*3px/);
+    expect(darkDividerRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.82\)/);
+    expect(darkDividerRule).toMatch(/drop-shadow\(0 0 5px rgba\(var\(--editor-outline\), 0\.38\)\)/);
+    expect(lightDividerRule).toMatch(/height:\s*3px/);
+    expect(lightDividerRule).toMatch(/rgba\(var\(--editor-outline-bright\), 0\.96\)/);
+    expect(lightDividerRule).toMatch(/drop-shadow\(0 0 5px rgba\(var\(--editor-outline\), 0\.46\)\)/);
   });
 
   it('keeps the editor counter and eraser visible in the light theme', () => {
@@ -1525,8 +1704,8 @@ describe('WorkspacePage main-screen flows', () => {
   it('matches dark-theme toolbar chip and divider geometry in the light theme', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage\s*\{[^}]*editor-outline-bright\), 0\.48/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-stage::after\s*\{[^}]*bottom:\s*0;[^}]*height:\s*2px;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.48\) !important;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell::after\s*\{[^}]*opacity:\s*1 !important;[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.64\) !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*rgba\(var\(--editor-outline\), 0\.3\) !important;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\)::after\s*\{\s*opacity:\s*0 !important;\s*box-shadow:\s*none !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button\[aria-pressed='true'\]:not\(:hover\):not\(:focus-visible\),\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar button\.is-open:not\(:hover\):not\(:focus-visible\)\s*\{[^}]*border-color:\s*#9dc9e5 !important;[^}]*background:\s*#e3f3fc !important;[^}]*color:\s*#176c9c !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-leading-tools > \.workspace-page-rich-text-tool-anchor > button,[\s\S]*? \.workspace-page-rich-text-toolbar-actions > \.workspace-page-rich-text-format-option,[\s\S]*?\{\s*width:\s*32px !important;\s*min-width:\s*32px !important;\s*height:\s*32px !important;\s*min-height:\s*32px !important;/);
   });
@@ -1755,6 +1934,46 @@ describe('WorkspacePage main-screen flows', () => {
     }
   });
 
+  it('auto-hides the Electron preview at compact widths without changing the saved preference', async () => {
+    const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const hadElectronRuntime = document.documentElement.classList.contains('electron-runtime');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    document.documentElement.classList.add('electron-runtime');
+    const { unmount } = await renderWorkspacePage();
+
+    try {
+      const preview = document.querySelector<HTMLElement>('.workspace-page-preview-panel');
+      const toggle = document.querySelector<HTMLButtonElement>('button[aria-label="Show preview"]');
+      expect(preview?.dataset.visible).toBe('false');
+      expect(toggle).toBeInTheDocument();
+
+      await act(async () => {
+        toggle?.click();
+      });
+
+      expect(preview?.dataset.visible).toBe('true');
+      expect(JSON.parse(localStorage.getItem('xmsgi-preview-layout') ?? '{}').visible).toBe(true);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      expect(preview?.dataset.visible).toBe('true');
+    } finally {
+      unmount();
+      if (hadElectronRuntime) {
+        document.documentElement.classList.add('electron-runtime');
+      } else {
+        document.documentElement.classList.remove('electron-runtime');
+      }
+      if (originalInnerWidth) {
+        Object.defineProperty(window, 'innerWidth', originalInnerWidth);
+      } else {
+        Reflect.deleteProperty(window, 'innerWidth');
+      }
+    }
+  });
+
   it('aligns Electron editor and preview panel heights on desktop', () => {
     expect(workspacePageStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page-main\s*\{[^}]*padding:\s*20px clamp\(10px, 1\.5vw, 16px\) 20px;/);
     expect(workspacePageStyles).toMatch(/@media \(min-width: 1101px\)[\s\S]*?html\.electron-runtime \.workspace-page-main\s*\{\s*padding-top:\s*32px;/);
@@ -1773,7 +1992,7 @@ describe('WorkspacePage main-screen flows', () => {
   it('clamps preview drift on the first layout pass', async () => {
     const { unmount } = await renderWorkspacePage();
     const workspace = document.querySelector('.workspace-page') as HTMLElement;
-    const editor = workspace.querySelector('.workspace-page-editor-panel') as HTMLElement;
+    const editor = workspace.querySelector('.workspace-page-editor-shell') as HTMLElement;
     const previewPanel = workspace.querySelector('.workspace-page-preview-panel') as HTMLElement;
     const previewWindow = previewPanel.querySelector('.chat-preview-window') as HTMLElement;
     const workspaceMain = workspace.querySelector('.workspace-page-main') as HTMLElement;
@@ -1806,6 +2025,49 @@ describe('WorkspacePage main-screen flows', () => {
     const offset = Number.parseFloat(previewPanel.style.getPropertyValue('--workspace-page-preview-horizontal-offset') || '0');
     expect(Math.abs(offset)).toBeLessThanOrEqual(12);
     unmount();
+  });
+
+  it('aligns the live preview before it becomes visible again', async () => {
+    localStorage.setItem('xmsgi-preview-layout', JSON.stringify({ visible: true }));
+    const { unmount } = await renderWorkspacePage();
+    const workspace = document.querySelector('.workspace-page') as HTMLElement;
+    const editor = workspace.querySelector('.workspace-page-editor-shell') as HTMLElement;
+    const previewPanel = workspace.querySelector('.workspace-page-preview-panel') as HTMLElement;
+    const previewWindow = previewPanel.querySelector('.chat-preview-window') as HTMLElement;
+    const workspaceMain = workspace.querySelector('.workspace-page-main') as HTMLElement;
+
+    Object.defineProperty(editor, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, right: 400, top: 0, bottom: 260, width: 400, height: 260 }),
+    });
+    Object.defineProperty(previewWindow, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 420, right: 680, top: 0, bottom: 260, width: 260, height: 260 }),
+    });
+    Object.defineProperty(previewPanel, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 420, right: 680, top: 0, bottom: 260, width: 260, height: 260 }),
+    });
+    Object.defineProperty(workspaceMain, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, right: 1100, top: 0, bottom: 260, width: 1100, height: 260 }),
+    });
+    Object.defineProperty(previewPanel, 'offsetWidth', { configurable: true, value: 260 });
+    Object.defineProperty(previewWindow, 'offsetWidth', { configurable: true, value: 260 });
+
+    try {
+      await act(async () => {
+        (document.querySelector('button[aria-label="Hide preview"]') as HTMLButtonElement).click();
+      });
+      await act(async () => {
+        (document.querySelector('button[aria-label="Show preview"]') as HTMLButtonElement).click();
+      });
+
+      const offset = Number.parseFloat(previewPanel.style.getPropertyValue('--workspace-page-preview-horizontal-offset') || '0');
+      expect(offset).toBe(12);
+    } finally {
+      unmount();
+    }
   });
 
   it('registers the existing draft editor for History Drawer draft actions', async () => {
@@ -2616,6 +2878,49 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('clears editor text immediately while the history checkpoint is still saving', async () => {
+    localStorage.removeItem('awaitmsg-workspace-draft');
+    inMemoryDraftStore = {
+      schemaVersion: 3,
+      migrationVersion: 1,
+      savedDrafts: [],
+      documentHistories: {},
+      workspaceDraft: { documentId: 'immediate-clear-document', body: 'Text before clear', entities: [], attachments: [], savedAt: '12:00' },
+    };
+    const { unmount } = await renderWorkspacePage();
+    await waitForWorkspaceAutosave();
+
+    let resolveSave!: (result: { success: boolean; store?: PersistedDraftStore }) => void;
+    vi.mocked(window.draftStorage.save).mockImplementationOnce((store) => new Promise((resolve) => {
+      resolveSave = resolve;
+      void store;
+    }));
+
+    const editor = document.querySelector<HTMLElement>('.workspace-page-rich-text-input.is-active')!;
+    await act(async () => {
+      (document.querySelector('.workspace-page-rich-text-clear') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+
+    expect(editor.textContent).toBe('');
+    expect(editor).toHaveAttribute('contenteditable', 'false');
+    await waitFor(() => expect(window.draftStorage.save).toHaveBeenCalled());
+    const saveCalls = vi.mocked(window.draftStorage.save).mock.calls;
+    const submittedStore = saveCalls[saveCalls.length - 1]?.[0];
+    expect(submittedStore?.documentHistories?.['immediate-clear-document']?.[0]?.snapshot)
+      .toMatchObject({ body: 'Text before clear' });
+
+    await act(async () => {
+      inMemoryDraftStore = submittedStore!;
+      resolveSave({ success: true, store: submittedStore });
+      await Promise.resolve();
+    });
+
+    expect(editor.textContent).toBe('');
+    expect(editor).toHaveAttribute('contenteditable', 'true');
+    unmount();
+  });
+
   it('does not clear editor text when the browser fallback cannot save a checkpoint', async () => {
     const originalDraftStorage = Object.getOwnPropertyDescriptor(window, 'draftStorage');
     const fallbackStore = {
@@ -2689,6 +2994,46 @@ describe('WorkspacePage main-screen flows', () => {
     ]);
     expect(getInMemoryWorkspaceDraft().attachments).toEqual([]);
     expect(window.draftStorage.copyAttachmentPath).toHaveBeenCalledWith('/stored/photo.png');
+    unmount();
+  });
+
+  it('removes an attachment chip without waiting for its history copy', async () => {
+    localStorage.removeItem('awaitmsg-workspace-draft');
+    inMemoryDraftStore = {
+      schemaVersion: 3,
+      migrationVersion: 1,
+      savedDrafts: [],
+      documentHistories: {},
+      workspaceDraft: {
+        documentId: 'immediate-attachment-removal-document',
+        body: 'Keep the image with this post',
+        entities: [],
+        attachments: [{ id: 'history-photo', type: 'image', name: 'photo.png', mimeType: 'image/png', size: 123, path: '/stored/photo.png', position: 4 }],
+        savedAt: '12:00',
+      },
+    };
+    let finishCopy!: (result: { success: boolean; attachment: { name: string; path: string; size: number } }) => void;
+    vi.mocked(window.draftStorage.copyAttachmentPath).mockReturnValueOnce(new Promise((resolve) => {
+      finishCopy = resolve;
+    }));
+    const { unmount } = await renderWorkspacePage();
+
+    await act(async () => {
+      (document.querySelector('button[aria-label="Remove photo.png"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('button[aria-label="Remove photo.png"]')).toBeNull();
+    expect(getInMemoryWorkspaceDraft().attachments).toHaveLength(1);
+
+    await act(async () => {
+      finishCopy({ success: true, attachment: { name: 'photo.png', path: '/stored/photo.png', size: 123 } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(inMemoryDraftStore.documentHistories?.['immediate-attachment-removal-document']).toHaveLength(1);
+    });
     unmount();
   });
 
@@ -3002,6 +3347,30 @@ describe('WorkspacePage main-screen flows', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-chat-stage \.workspace-page-chat-stage-search input::selection,[\s\S]*?html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-chat-stage \.workspace-page-chat-stage-add-form input::selection,[\s\S]*?html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-template-stage \.workspace-page-template-stage-search input::selection,[\s\S]*?html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-input::selection,[\s\S]*?html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-input \*::selection\s*\{\s*background:\s*#d9dde0 !important;\s*color:\s*#26343d !important;/);
   });
 
+  it('darkens attachment chip borders in the light theme without changing the background', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-attachment-card\s*\{\s*border-color:\s*#bdc9d0;\s*background:\s*#f8fafb;/,
+    );
+  });
+
+  it('keeps the light-theme Studio calendar today visible and selected repeat options distinct', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.quick-planner-date-picker-grid button\.is-today\s*\{[^}]*background:\s*#e2f2fc !important;[^}]*color:\s*#075f9d !important;[^}]*box-shadow:\s*inset 0 0 0 1px rgba\(8, 122, 203, 0\.16\) !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.quick-planner-date-picker-grid button\.is-today\.is-selected,[\s\S]*?background:\s*#087acb !important;[^}]*color:\s*#ffffff !important;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-schedule-stage \.workspace-page-schedule-repeat-menu button\.is-selected,[\s\S]*?\.workspace-page-weekday-list button\.is-selected\s*\{[^}]*background:\s*#cbdde6 !important;[^}]*color:\s*#244b62 !important;/,
+    );
+  });
+
+  it('keeps Studio Done buttons light and adds only an outline on hover', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-chat-stage > \.workspace-page-chat-stage-footer \.workspace-page-stage-primary:hover:not\(:disabled\),[\s\S]*?\.workspace-page-rich-text-schedule-stage > \.workspace-page-schedule-footer \.workspace-page-stage-primary:focus-visible:not\(:disabled\)\s*\{[^}]*outline:\s*1px solid rgba\(112, 157, 178, 0\.42\) !important;[^}]*background:\s*#f1f6f8 !important;/,
+    );
+  });
+
   it('keeps light Studio bottom buttons visually consistent across toggle states', () => {
     expect(workspacePageStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):is\(:hover, :focus-visible\):not\(:disabled\)\s*\{[^}]*border-color:\s*#239dfb !important;[^}]*background:\s*#239dfb !important;[^}]*color:\s*#ffffff !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.workspace-page-action-row\.workspace-page-schedule-row > \.workspace-page-submit-actions > \.workspace-page-publish-main:hover:not\(:disabled\),[\s\S]*?\.workspace-page-publish-main:focus-visible:not\(:disabled\)\s*\{\s*border-color:\s*#168de8 !important;\s*background:\s*#168de8 !important;/);
@@ -3040,6 +3409,7 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-toolbar button:hover:not\(:disabled\):not\(\.is-selected\),[\s\S]*?\.workspace-page-rich-text-chat-stage button:focus-visible:not\(:disabled\):not\(\.is-selected\)\s*\{\s*border-color:\s*#59636b !important;\s*background-color:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;\s*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.1\) !important;\s*transform:\s*none;/);
     expect(workspacePageStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-action-left-group \.workspace-page-preview-toggle\[aria-pressed='true'\]/);
     expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-action-left-group \.workspace-page-preview-toggle\[aria-pressed='true'\]/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-menu-toggle:is\(:hover, :focus-visible, :active, \.is-active, \[aria-expanded='true'\], \[aria-pressed='true'\]\)\s*\{\s*border-color:\s*#59636b !important;\s*background:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;\s*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.1\) !important;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-action-row\.workspace-page-schedule-row > \.workspace-page-submit-actions > \.workspace-page-publish-main\s*\{\s*flex:\s*0 0 120px !important;\s*width:\s*120px !important;\s*min-width:\s*120px !important;/);
     expect(colorThemeStyles).toMatch(/@media \(max-width:\s*480px\)\s*\{[\s\S]*?html\[data-theme='dark'\] \.workspace-page[\s\S]*?workspace-page-submit-actions > \.workspace-page-publish-main\s*\{\s*flex-basis:\s*96px !important;\s*width:\s*96px !important;\s*min-width:\s*96px !important;/);
   });
@@ -3090,6 +3460,8 @@ describe('WorkspacePage main-screen flows', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-rich-text-emoji-picker \.quick-planner-emoji-categories button\s*\{[^}]*background:\s*#10161a;[^}]*color:\s*#c5cfd6;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-rich-text-emoji-picker \.quick-planner-emoji-categories button\[aria-selected='true'\]\s*\{[^}]*background:\s*#17364d;[^}]*color:\s*#73c3ff;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-input,[\s\S]*?\.workspace-page-rich-text-input:focus-visible\s*\{[^}]*background:\s*#151b20 !important;[^}]*color:\s*#e2e7eb !important;[^}]*color-scheme:\s*dark;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-input,[\s\S]*?\.workspace-page-rich-text-input:focus-visible\s*\{\s*border-color:\s*#34414a !important;\s*border-radius:\s*0 !important;\s*background:\s*#151d22 !important;/);
+    expect(workspacePageStyles).toMatch(/html\.electron-runtime\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-stage > \.workspace-page-textarea\.workspace-page-rich-text-input\.workspace-page-rich-text-stage-view\.is-active,[\s\S]*?\.workspace-page-rich-text-stage-view\.is-active:focus-visible\s*\{\s*border-radius:\s*0 !important;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-version-history-close,[\s\S]*?\.workspace-page-version-history-copy\s*\{[^}]*background:\s*#1a2228 !important;[^}]*color:\s*#d4dde3 !important;/);
     expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-version-history-document-menu\s*\{[^}]*background:\s*#10161a !important;/);
   });
@@ -3674,6 +4046,7 @@ describe('WorkspacePage main-screen flows', () => {
       await Promise.resolve();
     });
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Message sent.');
+    expect(document.querySelector('.workspace-page-publish-main')).not.toBeDisabled();
     unmount();
   });
 
@@ -3751,6 +4124,8 @@ describe('WorkspacePage main-screen flows', () => {
       repeatMode: 'none',
     });
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Draft saved.');
+    expect(document.querySelector('.workspace-page-publish-main')).toHaveTextContent(/save draft/i);
+    expect(document.querySelector('.workspace-page-publish-main')).not.toBeDisabled();
     expect(document.querySelector('.workspace-page-draft-meta')).toBeNull();
     expect(document.body.textContent).not.toContain('Draft not saved');
 
@@ -3777,7 +4152,7 @@ describe('WorkspacePage main-screen flows', () => {
       (draftToggle as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Saved drafts');
+    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Drafts');
   expect(draftToggle?.classList.contains('is-active')).toBe(true);
   expect(draftToggle?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector('.workspace-page-rich-text-draft-stage .workspace-page-template-stage-item strong')?.textContent).toMatch(/^Draft /);
@@ -3892,6 +4267,43 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('shows a new draft immediately and restores the editor if persistence fails', async () => {
+    let finishSave: (() => void) | null = null;
+    const { unmount } = await renderWorkspacePage();
+    await openDraftsStage();
+    await act(async () => {
+      (document.querySelector('.workspace-page-draft-stage-add') as HTMLButtonElement).click();
+    });
+    await act(async () => {
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft name' }), { target: { value: 'Pending draft' } });
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft text' }), { target: { value: 'Pending body' } });
+    });
+    const saveButton = document.querySelector('.workspace-page-draft-stage-footer button[type="submit"]') as HTMLButtonElement;
+    await waitFor(() => expect(saveButton).not.toBeDisabled());
+    vi.mocked(window.draftStorage.save).mockImplementationOnce(() => new Promise((resolve) => {
+      finishSave = () => resolve({ success: false, code: 'WRITE_FAILED', error: 'Disk full' });
+    }));
+    await act(async () => {
+      fireEvent.submit(document.querySelector('#workspace-draft-editor-form') as HTMLFormElement);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(document.querySelector('.workspace-page-template-stage-item')).toHaveTextContent('Pending draft'));
+    expect(screen.queryByRole('textbox', { name: 'Draft name' })).not.toBeInTheDocument();
+    expect(document.querySelector('.workspace-page-template-stage-item')).toHaveTextContent('Pending draft');
+    expect(inMemoryDraftStore.savedDrafts).toHaveLength(0);
+
+    await act(async () => {
+      finishSave?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Draft text' })).toHaveValue('Pending body'));
+    expect(document.querySelector('.workspace-page-template-stage-item')).toBeNull();
+    expect(document.querySelector('.workspace-page-publish-transient-feedback.is-warning')?.textContent).toContain('not saved');
+    unmount();
+  });
+
   it('does not offer inline rename for saved drafts in the quick menu', async () => {
     const savedDraft = {
       id: 'renameable-draft',
@@ -3918,7 +4330,7 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
-  it('shows a success status after saving the current post as a draft', async () => {
+  it('keeps the selected save-draft action after saving the current post', async () => {
     inMemoryDraftStore.savedDrafts = [{
       id: 'older-draft',
       name: 'Older draft',
@@ -3939,6 +4351,7 @@ describe('WorkspacePage main-screen flows', () => {
       repeatOccurrences: 5,
     };
     const { unmount } = await renderWorkspacePage();
+    vi.mocked(window.draftStorage.save).mockClear();
     await act(async () => {
       (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
     });
@@ -3952,9 +4365,14 @@ describe('WorkspacePage main-screen flows', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
+    await new Promise((resolve) => window.setTimeout(resolve, 400));
 
     expect(inMemoryDraftStore.savedDrafts.map((draft) => draft.body)).toEqual(['Hello world', 'Older body']);
+    expect(window.draftStorage.save).toHaveBeenCalledOnce();
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Draft saved.');
+    expect(document.querySelector('.workspace-page-publish-main')).toHaveTextContent(/save draft/i);
+    expect(document.querySelector('.workspace-page-publish-main')).toHaveClass('is-draft');
+    expect(document.querySelector('.workspace-page-publish-main')).not.toBeDisabled();
     unmount();
   });
 
@@ -3987,11 +4405,60 @@ describe('WorkspacePage main-screen flows', () => {
 
     const confirmation = screen.getByRole('alertdialog');
     expect(confirmation).toHaveTextContent('Delete draft');
+    const saveCountBeforeDelete = vi.mocked(window.draftStorage.save).mock.calls.length;
     await act(async () => {
       fireEvent.click(within(confirmation).getByRole('button', { name: 'Remove' }));
     });
     expect(document.querySelector('.workspace-page-template-stage-item')).toBeNull();
+    expect(vi.mocked(window.draftStorage.save).mock.calls.length - saveCountBeforeDelete).toBe(1);
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')?.textContent).toBe('Draft deleted.');
+    unmount();
+  });
+
+  it('shows an error when deleting a saved draft cannot be persisted', async () => {
+    let finishDelete: (() => void) | null = null;
+    vi.mocked(window.draftStorage.save).mockImplementation(async (store) => {
+      inMemoryDraftStore = JSON.parse(JSON.stringify(store));
+      return { success: true, store: JSON.parse(JSON.stringify(inMemoryDraftStore)) };
+    });
+    const { unmount } = await renderWorkspacePage();
+    await act(async () => {
+      (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
+    });
+    const saveDraftOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+      .find((button) => button.textContent?.trim() === 'Save draft') as HTMLButtonElement;
+    await act(async () => saveDraftOption.click());
+    await act(async () => {
+      (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const draftModeButton = Array.from(document.querySelectorAll('.workspace-page-action-left-group > button'))
+      .find((button) => button.textContent?.trim() === 'Draft') as HTMLButtonElement;
+    await act(async () => draftModeButton.click());
+    await waitFor(() => expect(document.querySelector('.workspace-page-template-stage-item')).not.toBeNull());
+    const deleteButton = document.querySelector('.workspace-page-rich-text-draft-stage .workspace-page-template-stage-item > div button:last-child') as HTMLButtonElement;
+
+    await act(async () => deleteButton.click());
+    vi.mocked(window.draftStorage.save).mockImplementationOnce(() => new Promise((resolve) => {
+      finishDelete = () => resolve({ success: false, code: 'WRITE_FAILED', error: 'Disk full' });
+    }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('.workspace-page-template-stage-item')).toBeNull();
+    await act(async () => {
+      finishDelete?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(document.querySelector('.workspace-page-template-stage-item')).not.toBeNull());
+    expect(inMemoryDraftStore.savedDrafts).toHaveLength(1);
+    expect(document.querySelector('.workspace-page-publish-transient-feedback')?.textContent).toContain('not saved');
+    expect(document.querySelector('.workspace-page-template-stage-item')).not.toBeNull();
     unmount();
   });
 
@@ -4278,6 +4745,10 @@ describe('WorkspacePage main-screen flows', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-link-popover\s*\{[^}]*position:\s*absolute !important;[^}]*top:\s*calc\(100% \+ 8px\) !important;[^}]*bottom:\s*auto !important;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-rich-text-tool-popover\s*\{[^}]*top:\s*calc\(100% \+ 8px\);/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-editor-export-menu\s*\{[^}]*top:\s*calc\(100% \+ 8px\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-import-menu\s*\{[^}]*top:\s*auto;[^}]*bottom:\s*calc\(100% \+ 8px\);/);
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button:not\(\.workspace-page-editor-export-option\),\s*html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy \.workspace-page-rich-text-tool-icon-trigger\s*\{\s*width:\s*32px;\s*min-width:\s*32px;\s*height:\s*32px;\s*min-height:\s*32px;/,
+    );
     const { unmount } = await renderWorkspacePage();
     const editor = document.querySelector('.workspace-page-rich-text-editor')!;
     const linkButton = document.querySelector<HTMLButtonElement>('.workspace-page-rich-text-link-controls > button')!;
@@ -4788,6 +5259,34 @@ describe('WorkspacePage main-screen flows', () => {
     unmount();
   });
 
+  it('passes the cached chat avatar to preview history', async () => {
+    const cachedAvatarDataUrl = 'data:image/jpeg;base64,avatar';
+    const { unmount } = await renderWorkspacePage({
+      connected: true,
+      selectedChat: { ...chatA, avatarDataUrl: cachedAvatarDataUrl },
+    });
+
+    expect(window.telegram.getChatHistory).toHaveBeenCalledWith({
+      chatId: chatA.id,
+      limit: 50,
+      cachedAvatarDataUrl,
+    });
+    unmount();
+  });
+
+  it('omits an invalid cached chat avatar when loading preview history', async () => {
+    const { unmount } = await renderWorkspacePage({
+      connected: true,
+      selectedChat: { ...chatA, avatarDataUrl: 'data:image/svg+xml;base64,PHN2Zz4=' },
+    });
+
+    expect(window.telegram.getChatHistory).toHaveBeenCalledWith({
+      chatId: chatA.id,
+      limit: 50,
+    });
+    unmount();
+  });
+
   it('reuses a recent preview history when returning to a chat', async () => {
     const chatB: Chat = { id: 'chat-2', name: 'Beta Team', type: 'group' };
     vi.mocked(window.telegram.getChatHistory).mockResolvedValue({
@@ -4801,7 +5300,12 @@ describe('WorkspacePage main-screen flows', () => {
           avatarDataUrl: '',
           topic: '',
         },
-        messages: [],
+        messages: [{
+          id: 'history-1',
+          text: 'Recent channel post',
+          date: '2026-11-05T12:00:00.000Z',
+          outgoing: false,
+        }],
       },
     });
     const { rerender, unmount } = await renderWorkspacePage({ connected: true });
@@ -4821,6 +5325,39 @@ describe('WorkspacePage main-screen flows', () => {
     });
 
     expect(window.telegram.getChatHistory).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
+  it('does not cache an empty preview history', async () => {
+    const chatB: Chat = { id: 'chat-2', name: 'Beta Team', type: 'group' };
+    vi.mocked(window.telegram.getChatHistory).mockResolvedValue({
+      success: true,
+      history: {
+        chat: {
+          id: chatA.id,
+          title: chatA.name,
+          username: chatA.username,
+          type: chatA.type,
+          avatarDataUrl: '',
+          topic: '',
+        },
+        messages: [],
+      },
+    });
+    const { rerender, unmount } = await renderWorkspacePage({ connected: true });
+
+    await act(async () => {
+      rerender({ chats: [chatA, chatB], selectedChat: chatB });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      rerender({ selectedChat: chatA });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.telegram.getChatHistory).toHaveBeenCalledTimes(3);
     unmount();
   });
 
@@ -5291,12 +5828,12 @@ describe('WorkspacePage main-screen flows', () => {
   });
 
   it('does not report a named draft as saved when the file-store write fails', async () => {
-    vi.mocked(window.draftStorage.save).mockResolvedValueOnce({
-      success: false,
-      code: 'WRITE_FAILED',
-      error: 'Disk full',
-    });
+    let finishSave: (() => void) | null = null;
+    vi.mocked(window.draftStorage.save).mockImplementationOnce(() => new Promise((resolve) => {
+      finishSave = () => resolve({ success: false, code: 'WRITE_FAILED', error: 'Disk full' });
+    }));
     const { unmount } = await renderWorkspacePage();
+    await editComposerText('Failed draft content');
 
     await act(async () => {
       (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
@@ -5309,11 +5846,18 @@ describe('WorkspacePage main-screen flows', () => {
     await act(async () => {
       (document.querySelector('.workspace-page-publish-main') as HTMLButtonElement).click();
       await Promise.resolve();
+    });
+
+    expect(document.querySelector('[role="textbox"]')).toHaveTextContent('');
+    expect(document.querySelector('.workspace-page-publish-main')).toBeDisabled();
+    await act(async () => {
+      finishSave?.();
       await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(inMemoryDraftStore.savedDrafts).toHaveLength(0);
+    expect(document.querySelector('[role="textbox"]')).toHaveTextContent('Failed draft content');
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('Disk full');
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-error')?.textContent).toContain('Disk full');
     expect(document.querySelector('.workspace-page-publish-transient-feedback.is-success')).toBeNull();
@@ -5571,6 +6115,52 @@ describe('WorkspacePage main-screen flows', () => {
       expect(restoredEditor.textContent).toContain('Autosave draft 1');
 
       reloaded.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the save-draft button enabled while typing triggers an autosave', async () => {
+    vi.useFakeTimers();
+
+    try {
+      let resolveSave!: (result: { success: boolean; store?: PersistedDraftStore }) => void;
+      vi.mocked(window.draftStorage.save).mockImplementationOnce((store) => new Promise((resolve) => {
+        resolveSave = resolve;
+        void store;
+      }));
+      const { unmount } = await renderWorkspacePage();
+
+      await act(async () => {
+        (document.querySelector('.workspace-page-publish-menu-toggle') as HTMLButtonElement).click();
+      });
+      const saveDraftOption = Array.from(document.querySelectorAll('.workspace-page-publish-option'))
+        .find((button) => button.textContent?.trim() === 'Save draft') as HTMLButtonElement;
+      await act(async () => saveDraftOption.click());
+
+      const editor = document.querySelector('[role="textbox"]') as HTMLDivElement;
+      await act(async () => {
+        editor.textContent = 'Text being autosaved';
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(600);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const primaryButton = document.querySelector('.workspace-page-publish-main') as HTMLButtonElement;
+      expect(window.draftStorage.save).toHaveBeenCalled();
+      expect(primaryButton).toHaveTextContent(/save draft/i);
+      expect(primaryButton).not.toBeDisabled();
+
+      const submittedStore = vi.mocked(window.draftStorage.save).mock.calls[0]?.[0];
+      await act(async () => {
+        resolveSave({ success: true, store: submittedStore });
+        await Promise.resolve();
+      });
+      unmount();
     } finally {
       vi.useRealTimers();
     }

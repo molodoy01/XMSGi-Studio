@@ -159,6 +159,29 @@ function renderRichTextEditor(overrides: Partial<React.ComponentProps<typeof Ric
   };
 }
 
+function captureAnimationFrames() {
+  let nextId = 0;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    const id = ++nextId;
+    callbacks.set(id, callback);
+    return id;
+  });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+    callbacks.delete(id);
+  });
+  return {
+    get pendingCount() {
+      return callbacks.size;
+    },
+    flush() {
+      const currentCallbacks = [...callbacks.values()];
+      callbacks.clear();
+      act(() => currentCallbacks.forEach((callback) => callback(0)));
+    },
+  };
+}
+
 function createLogoHarness() {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -229,6 +252,37 @@ describe('WorkspaceTextStage editor flows', () => {
     act(() => clearButton?.click());
 
     expect(onChange).toHaveBeenLastCalledWith('', []);
+
+    unmount();
+  });
+
+  it('clears immediately while saving a checkpoint and restores the text if saving fails', async () => {
+    let resolveCheckpoint: ((success: boolean) => void) | undefined;
+    const onBeforeClear = vi.fn(() => new Promise<boolean>((resolve) => {
+      resolveCheckpoint = resolve;
+    }));
+    const { container, editor, onChange, unmount } = renderRichTextEditor({
+      text: 'Text to preserve',
+      onBeforeClear,
+    });
+    const clearButton = container.querySelector<HTMLButtonElement>('[aria-label="Clear editor text"]')!;
+
+    act(() => clearButton.click());
+
+    expect(onBeforeClear).toHaveBeenCalledOnce();
+    expect(editor.textContent).toBe('');
+    expect(editor).toHaveAttribute('contenteditable', 'false');
+    expect(editor).toHaveAttribute('aria-busy', 'true');
+    expect(onChange).toHaveBeenLastCalledWith('', []);
+
+    await act(async () => {
+      resolveCheckpoint?.(false);
+    });
+
+    expect(editor.textContent).toBe('Text to preserve');
+    expect(editor).toHaveAttribute('contenteditable', 'true');
+    expect(editor).not.toHaveAttribute('aria-busy');
+    expect(onChange).toHaveBeenLastCalledWith('Text to preserve', []);
 
     unmount();
   });
@@ -785,6 +839,7 @@ describe('WorkspaceTextStage editor flows', () => {
   });
 
   it('uses an external scrollbar to control long editor text', () => {
+    const frames = captureAnimationFrames();
     const { editor, container, unmount } = renderRichTextEditor();
     Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
     Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 400 });
@@ -795,11 +850,15 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(scrollbar?.parentElement).not.toBe(editor.parentElement);
     expect(scrollbar).toHaveAttribute('aria-controls', 'workspace-page-rich-text-input');
 
+    frames.flush();
     act(() => {
       editor.scrollTop = 150;
       editor.dispatchEvent(new Event('scroll'));
+      editor.dispatchEvent(new Event('scroll'));
     });
 
+    expect(frames.pendingCount).toBe(1);
+    frames.flush();
     expect(scrollbar).toHaveAttribute('aria-valuenow', '50');
     expect(scrollbar?.querySelector('.workspace-page-rich-text-scrollbar-thumb')).toHaveStyle({ top: '37.5%', height: '25%' });
 
@@ -810,6 +869,39 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(editor.scrollTop).toBe(300);
 
     unmount();
+    vi.restoreAllMocks();
+  });
+
+  it('drags the editor scrollbar by grabbing its thumb', () => {
+    const frames = captureAnimationFrames();
+    const { editor, container, unmount } = renderRichTextEditor();
+    Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 400 });
+    frames.flush();
+    act(() => editor.dispatchEvent(new Event('scroll')));
+    frames.flush();
+    const scrollbar = container.querySelector<HTMLElement>('[role="scrollbar"]')!;
+    const thumb = scrollbar.querySelector<HTMLElement>('.workspace-page-rich-text-scrollbar-thumb')!;
+    Object.defineProperty(scrollbar, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(scrollbar, 'setPointerCapture', { configurable: true, value: vi.fn() });
+    Object.defineProperty(scrollbar, 'hasPointerCapture', { configurable: true, value: vi.fn(() => true) });
+    Object.defineProperty(scrollbar, 'releasePointerCapture', { configurable: true, value: vi.fn() });
+
+    act(() => {
+      fireEvent.pointerDown(thumb, { pointerId: 1, clientY: 10 });
+      fireEvent.pointerMove(scrollbar, { pointerId: 1, clientY: 25 });
+    });
+
+    expect(editor.scrollTop).toBe(60);
+    expect(scrollbar).toHaveClass('is-dragging');
+    expect(scrollbar.setPointerCapture).toHaveBeenCalledWith(1);
+
+    act(() => fireEvent.pointerUp(scrollbar, { pointerId: 1, clientY: 25 }));
+
+    expect(scrollbar).not.toHaveClass('is-dragging');
+    expect(scrollbar.releasePointerCapture).toHaveBeenCalledWith(1);
+    unmount();
+    vi.restoreAllMocks();
   });
 
   it('inserts the selected template and returns to editor mode', () => {
@@ -957,7 +1049,8 @@ describe('WorkspaceTextStage editor flows', () => {
     const savedDraftButton = Array.from(draftView?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes('Follow-up'));
 
     expect(draftView?.classList.contains('workspace-page-rich-text-template-stage')).toBe(true);
-    expect(draftView?.querySelector('header strong')?.textContent).toBe('Saved drafts');
+    expect(draftView?.querySelector('header strong')?.textContent).toBe('Drafts');
+    expect(draftView?.querySelector('.workspace-page-draft-header-info > span')?.textContent).toBe('1 saved');
     expect(savedDraftButton).toBeTruthy();
     expect(savedDraftButton?.querySelector('.workspace-page-draft-color-dot')?.getAttribute('data-color')).toBe('gray');
     expect(savedDraftButton?.querySelector('.workspace-page-draft-color-indicator')?.getAttribute('data-color-label')).toBe('Gray');
@@ -967,6 +1060,43 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     expect(onInsertDraft).toHaveBeenCalledWith(savedDraftA);
+    unmount();
+  });
+
+  it('shows all draft color filters with zero counts when there are no saved drafts', () => {
+    window.localStorage.removeItem('xmsgi_saved_draft_color_filter');
+    const { unmount } = renderStage({ mode: 'draft', savedDrafts: [] });
+    const draftView = document.querySelector('.workspace-page-rich-text-draft-stage.is-active')!;
+    const filterGroup = draftView.querySelector('.workspace-page-draft-color-filters');
+
+    expect(filterGroup?.parentElement).toBe(draftView.querySelector('.workspace-page-stage-header'));
+    for (const color of ['Gray', 'Coral', 'Amber', 'Green', 'Teal', 'Blue']) {
+      expect(screen.getByRole('button', { name: `${color} draft color` })).toHaveTextContent('0');
+    }
+    expect(draftView.querySelector('.workspace-page-template-stage-empty')).toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('uses the editor export menu appearance for draft import options', () => {
+    const onImportEditorText = vi.fn();
+    const onImportDrafts = vi.fn();
+    const { unmount } = renderStage({ mode: 'draft', onImportEditorText, onImportDrafts });
+
+    act(() => screen.getByRole('button', { name: 'Import' }).click());
+
+    const menu = screen.getByRole('menu', { name: 'Choose what to import' });
+    const options = menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    expect(menu).toHaveClass('workspace-page-editor-export-menu', 'workspace-page-draft-import-menu');
+    expect(menu).not.toHaveClass('workspace-page-publish-menu-compact');
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveClass('workspace-page-editor-export-option');
+    expect(options[1]).toHaveClass('workspace-page-editor-export-option');
+
+    act(() => options[0]!.click());
+    expect(onImportEditorText).toHaveBeenCalledOnce();
+    expect(onImportDrafts).not.toHaveBeenCalled();
+
     unmount();
   });
 
@@ -1286,6 +1416,25 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     expect(document.querySelector('.quick-planner-date-picker')).toHaveClass('quick-planner-schedule-popover');
+    unmount();
+  });
+
+  it('shows today in the Studio calendar even when today is the selected date', () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const { unmount } = renderStage({ mode: 'schedule', date: today, time: '23:59' });
+    const calendarButton = document.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
+
+    act(() => calendarButton.click());
+
+    const todayButton = document.querySelector<HTMLButtonElement>('.quick-planner-date-picker-grid button.is-today');
+    const calendar = document.querySelector<HTMLElement>('.quick-planner-date-picker');
+    expect(todayButton).toBeInTheDocument();
+    expect(todayButton).toHaveTextContent(String(now.getDate()));
+    expect(todayButton).toHaveClass('is-selected');
+    expect(todayButton).not.toBeDisabled();
+    expect(calendar?.style.getPropertyValue('--planner-accent')).toBe('#477c9e');
+    expect(calendar?.style.getPropertyValue('--planner-accent-rgb')).toBe('71, 124, 158');
     unmount();
   });
 
@@ -1864,6 +2013,74 @@ describe('WorkspaceTextStage editor flows', () => {
     act(() => editor.focus());
     act(() => root.unmount());
     container.remove();
+  });
+
+  it('matches open editor menus to the text field width in a narrow Electron window', () => {
+    document.documentElement.classList.add('electron-runtime');
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<RichTextEditor
+        text="Message"
+        entities={[]}
+        onChange={vi.fn()}
+        maxLength={4096}
+        onEffectChange={vi.fn()}
+        onExportText={vi.fn()}
+      />);
+    });
+
+    const editorInput = container.querySelector<HTMLElement>('.workspace-page-rich-text-input.is-active')!;
+    vi.spyOn(editorInput, 'getBoundingClientRect').mockReturnValue({
+      x: 24, y: 80, left: 24, top: 80, right: 744, bottom: 420, width: 720, height: 340,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const toolbar = container.querySelector<HTMLElement>('.workspace-page-rich-text-toolbar')!;
+    vi.spyOn(toolbar, 'getBoundingClientRect').mockReturnValue({
+      x: 20, y: 30, left: 20, top: 30, right: 744, bottom: 70, width: 724, height: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const linkAnchor = container.querySelector<HTMLElement>('.workspace-page-rich-text-link-controls')!;
+    vi.spyOn(linkAnchor, 'getBoundingClientRect').mockReturnValue({
+      x: 600, y: 40, left: 600, top: 40, right: 632, bottom: 70, width: 32, height: 30,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const linkButton = container.querySelector<HTMLButtonElement>('[aria-label="Insert link"]')!;
+    act(() => linkButton.click());
+
+    const popover = container.querySelector<HTMLElement>('.workspace-page-rich-text-link-popover')!;
+    expect(popover.style.getPropertyValue('position')).toBe('fixed');
+    expect(popover.style.getPropertyValue('left')).toBe('4px');
+    expect(popover.style.getPropertyValue('top')).toBe('48px');
+    expect(popover.style.getPropertyValue('width')).toBe('720px');
+    expect(popover.querySelectorAll('button')).toHaveLength(2);
+
+    act(() => linkButton.click());
+    const [emojiButton, effectsButton] = container.querySelectorAll<HTMLButtonElement>('.workspace-page-rich-text-leading-tools button');
+    act(() => emojiButton.click());
+    const emojiPicker = document.body.querySelector<HTMLElement>('.workspace-page-rich-text-emoji-picker--floating')!;
+    expect(emojiPicker.style.left).toBe('24px');
+    expect(emojiPicker.style.width).toBe('720px');
+
+    act(() => emojiButton.click());
+    act(() => effectsButton.click());
+    const effectsPicker = container.querySelector<HTMLElement>('.workspace-page-rich-text-effects-picker')!;
+    expect(effectsPicker.style.getPropertyValue('position')).toBe('fixed');
+    expect(effectsPicker.style.getPropertyValue('left')).toBe('4px');
+    expect(effectsPicker.style.getPropertyValue('width')).toBe('720px');
+
+    act(() => effectsButton.click());
+    act(() => container.querySelector<HTMLButtonElement>('.workspace-page-editor-export-trigger')!.click());
+    const exportMenu = container.querySelector<HTMLElement>('.workspace-page-editor-export-menu')!;
+    expect(exportMenu.style.getPropertyValue('position')).toBe('fixed');
+    expect(exportMenu.style.getPropertyValue('left')).toBe('4px');
+    expect(exportMenu.style.getPropertyValue('width')).toBe('720px');
+
+    act(() => root.unmount());
+    container.remove();
+    document.documentElement.classList.remove('electron-runtime');
   });
 
   it('closes link entry with Escape without changing the message', () => {
@@ -2600,6 +2817,58 @@ describe('WorkspaceTextStage editor flows', () => {
     unmount();
   });
 
+  it('keeps the caret visible while typing and inserting text in successive pastes', () => {
+    const frames = captureAnimationFrames();
+    const previousRangeBounds = Object.getOwnPropertyDescriptor(Range.prototype, 'getBoundingClientRect');
+    let caretBottom = 210;
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: function getBoundingClientRect(this: Range) {
+        return this.collapsed
+          ? { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }
+          : { top: caretBottom - 16, bottom: caretBottom, left: 10, right: 10, width: 0, height: 16, x: 10, y: caretBottom - 16, toJSON: () => ({}) };
+      },
+    });
+
+    try {
+      const { editor, unmount } = renderRichTextEditor();
+      Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+      Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 500 });
+      Object.defineProperty(editor, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ width: 300, height: 100, top: 100, right: 300, bottom: 200, left: 0, x: 0, y: 100, toJSON: () => ({}) }),
+      });
+      editor.textContent = 'Typed text';
+      const selection = window.getSelection()!;
+      const range = document.createRange();
+      range.setStart(editor.firstChild!, editor.firstChild!.textContent!.length);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      act(() => fireEvent.input(editor, { inputType: 'insertText' }));
+      frames.flush();
+      expect(editor.scrollTop).toBe(14);
+
+      for (let index = 0; index < 5; index += 1) {
+        caretBottom += 14;
+        const paste = new Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(paste, 'clipboardData', {
+          value: { items: [], files: [], getData: (type: string) => type === 'text/plain' ? ' pasted text' : '' },
+        });
+        act(() => editor.dispatchEvent(paste));
+        frames.flush();
+      }
+
+      expect(editor.scrollTop).toBeGreaterThan(14);
+      unmount();
+    } finally {
+      if (previousRangeBounds) Object.defineProperty(Range.prototype, 'getBoundingClientRect', previousRangeBounds);
+      else Reflect.deleteProperty(Range.prototype, 'getBoundingClientRect');
+      vi.restoreAllMocks();
+    }
+  });
+
   it('adds pasted clipboard images as attachments instead of dropping them', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -2667,6 +2936,40 @@ describe('WorkspaceTextStage editor flows', () => {
 
     act(() => root.unmount());
     container.remove();
+  });
+
+  it('does not jump to the top when the caret has no measurable bounds at the text limit', () => {
+    const frames = captureAnimationFrames();
+    const previousRangeBounds = Object.getOwnPropertyDescriptor(Range.prototype, 'getBoundingClientRect');
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    });
+
+    try {
+      const { editor, unmount } = renderRichTextEditor({ maxLength: 10 });
+      Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+      Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 500 });
+      Object.defineProperty(editor, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ width: 300, height: 100, top: 100, right: 300, bottom: 200, left: 0, x: 0, y: 100, toJSON: () => ({}) }),
+      });
+      editor.scrollTop = 140;
+      act(() => editor.focus());
+      act(() => {
+        editor.textContent = 'abcdefghijk';
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      expect(editor.textContent).toBe('abcdefghij');
+      frames.flush();
+      expect(editor.scrollTop).toBe(140);
+      unmount();
+    } finally {
+      if (previousRangeBounds) Object.defineProperty(Range.prototype, 'getBoundingClientRect', previousRangeBounds);
+      else Reflect.deleteProperty(Range.prototype, 'getBoundingClientRect');
+      vi.restoreAllMocks();
+    }
   });
 
   it('blocks only insertions that would exceed the editor limit', () => {
