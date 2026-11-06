@@ -1053,7 +1053,7 @@ describe('WorkspaceTextStage editor flows', () => {
     const savedDraftButton = Array.from(draftView?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes('Follow-up'));
 
     expect(draftView?.classList.contains('workspace-page-rich-text-template-stage')).toBe(true);
-    expect(draftView?.querySelector('header strong')?.textContent).toBe('Drafts');
+    expect(draftView?.querySelector('header strong')?.textContent).toBe('Saved drafts');
     expect(draftView?.querySelector('.workspace-page-draft-header-info > span')?.textContent).toBe('1 saved');
     expect(savedDraftButton).toBeTruthy();
     expect(savedDraftButton?.querySelector('.workspace-page-draft-color-dot')?.getAttribute('data-color')).toBe('gray');
@@ -3084,9 +3084,9 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(logo).toBeTruthy();
     expect(window.getSelection()?.anchorNode).toBe(editor);
     expect(window.getSelection()?.anchorOffset).toBe(0);
-    expect(editor.classList.contains('has-content')).toBe(true);
-    expect(editor.classList.contains('is-empty')).toBe(false);
-    expect(editor.getAttribute('data-placeholder')).toBe('Start writing your post…');
+    expect(editor.classList.contains('has-content')).toBe(false);
+    expect(editor.classList.contains('is-empty')).toBe(true);
+    expect(editor.getAttribute('data-placeholder')).toBe('What shall we share?');
     expect(logo?.querySelector('img')?.getAttribute('src')).toContain('logo.png');
     expect(editor.contains(logo)).toBe(false);
     expect(animate).toHaveBeenCalledTimes(1);

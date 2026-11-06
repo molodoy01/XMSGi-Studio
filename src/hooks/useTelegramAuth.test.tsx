@@ -421,7 +421,7 @@ describe('useTelegramAuth', () => {
     }
   });
 
-  it('returns to code entry and clears expired credentials when Telegram requests a new code', async () => {
+  it('returns to code entry and clears old credentials when Telegram sends a new code', async () => {
     const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
     const previousLocale = window.localStorage.getItem('awaitmsg_locale');
     window.localStorage.setItem('awaitmsg_locale', 'en');
@@ -463,7 +463,7 @@ describe('useTelegramAuth', () => {
       expect(result.current.authStep).toBe('code');
       expect(result.current.phoneCode).toBe('');
       expect(result.current.twoFactorPassword).toBe('');
-      expect(result.current.authError).toBe('Your sign-in expired. We sent a new code to Telegram. Enter it to continue.');
+      expect(result.current.authError).toBe('A new Telegram login code was sent.');
       expect(result.current.authNotice).toBe(true);
     } finally {
       if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);

@@ -4238,7 +4238,7 @@ describe('WorkspacePage main-screen flows', () => {
       (draftToggle as HTMLButtonElement).click();
     });
 
-    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Drafts');
+    expect(document.querySelector('.workspace-page-rich-text-draft-stage.is-active strong')?.textContent).toBe('Saved drafts');
   expect(draftToggle?.classList.contains('is-active')).toBe(true);
   expect(draftToggle?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector('.workspace-page-rich-text-draft-stage .workspace-page-template-stage-item strong')?.textContent).toMatch(/^Draft /);
@@ -4675,7 +4675,7 @@ describe('WorkspacePage main-screen flows', () => {
       templatesButton.click();
     });
     await act(async () => {
-      screen.getByRole('button', { name: '+ Template' }).click();
+      screen.getByRole('button', { name: '+ New template' }).click();
     });
 
     const nameInput = document.querySelector('[aria-label="Template name"]') as HTMLInputElement;

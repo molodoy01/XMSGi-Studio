@@ -2,7 +2,7 @@
 
 Все каналы связи renderer ⇄ main-процесс.
 Источник истины: `main.cjs` (хендлеры), `preload.cjs` (API рендера),
-`ipc-security.cjs` (валидация). Соответствует версии **1.4.0**.
+`ipc-security.cjs` (валидация). Соответствует версии **1.4.1**.
 
 **Всего: 41 `ipcMain.handle` + 1 `ipcRenderer.sendSync`
 + 2 push-события.**

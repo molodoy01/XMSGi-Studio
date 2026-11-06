@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1 - 2026-11-06
+
+### Improvements
+
+- Refined the light-theme application topbar and adjusted the Posts toolbar alignment.
+- Consolidated the application files at the repository root and updated release workflows for the root-based layout.
+
 ## 1.4.0 - 2026-11-06
 
 ### Highlights
