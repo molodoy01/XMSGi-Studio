@@ -1513,7 +1513,7 @@ html.electron-runtime .history-confirmation-backdrop {
   margin-right: 0;
   margin-left: 10px;
   padding: 11px 8px;
-  transform: translateY(-17px);
+  transform: translate(2px, -17px);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
@@ -1525,7 +1525,7 @@ html.electron-runtime .history-confirmation-backdrop {
     inset-block-end: 0;
     bottom: 0;
     left: 4px;
-    transform: translateY(-11px);
+    transform: translate(2px, -11px);
   }
 }
 
@@ -1666,7 +1666,6 @@ html.electron-runtime .history-confirmation-backdrop {
 .history-drawer.is-page .history-search-dock {
   width: 100%;
   min-width: 0;
-  transform: translateX(2px);
 }
 
 @container (max-width: 480px) {

@@ -1058,15 +1058,15 @@ describe('Posts page split view', () => {
       expect(recordList.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(tools).toContainElement(searchDock);
       expect(searchDock.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-drawer-tools\s*\{[^}]*width:\s*calc\(45% - 17\.2px\);[^}]*margin-right:\s*0;[^}]*margin-left:\s*10px;[^}]*padding:\s*11px 8px;[^}]*transform:\s*translateY\(-17px\);/);
+      expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-drawer-tools\s*\{[^}]*width:\s*calc\(45% - 17\.2px\);[^}]*margin-right:\s*0;[^}]*margin-left:\s*10px;[^}]*padding:\s*11px 8px;[^}]*transform:\s*translate\(2px,\s*-17px\);/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-drawer-tools\s*\{[^}]*border-top-left-radius:\s*0;[^}]*border-top-right-radius:\s*0;/);
       expect(globalStyles).toMatch(/\.history-content\.is-page \.history-list-pane\s*\{[^}]*border-radius:\s*12px 12px 0 0;/);
       expect(globalStyles).not.toMatch(/\.history-content\.is-page \.history-list-pane\s*\{[^}]*top:\s*-2px;/);
-      expect(globalStyles).toMatch(/@media \(min-width:\s*761px\)\s*\{\s*\.history-drawer\.is-page \.history-drawer-tools\s*\{\s*padding-top:\s*5px;[^}]*position:\s*sticky;[^}]*inset-block-end:\s*0;[^}]*left:\s*4px;[^}]*transform:\s*translateY\(-11px\);/);
+      expect(globalStyles).toMatch(/@media \(min-width:\s*761px\)\s*\{\s*\.history-drawer\.is-page \.history-drawer-tools\s*\{\s*padding-top:\s*5px;[^}]*position:\s*sticky;[^}]*inset-block-end:\s*0;[^}]*left:\s*4px;[^}]*transform:\s*translate\(2px,\s*-11px\);/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-export-control\s*\{[^}]*gap:\s*2px;[^}]*transform:\s*translate\(10px,\s*3px\);/);
       expect(globalStyles).toMatch(/\.history-content\.is-page \.history-list-pane\s*\{[^}]*margin-bottom:\s*2px;/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-search-dock\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;/);
-      expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-search-dock\s*\{[^}]*transform:\s*translateX\(2px\);/);
+      expect(globalStyles).not.toMatch(/\.history-drawer\.is-page \.history-search-dock\s*\{[^}]*transform:\s*translateX\(/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-result-count\s*\{[^}]*padding-left:\s*0;[^}]*text-align:\s*center;/);
       expect(footer).not.toContainElement(statusFilters);
       expect(footer).toContainElement(container.querySelector('.history-export-button'));
