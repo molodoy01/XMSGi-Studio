@@ -2,6 +2,8 @@
 
 Инструкции для контрибьюторов и разработчиков.
 Соответствует версии **1.4.1**.
+Пути к исходникам в этом документе указаны относительно `app/`, если не указан
+корень репозитория.
 
 ---
 
@@ -19,34 +21,25 @@
 
 ```
 XMSGi Studio/
-├── main.cjs                  # Electron main: окно, Tray, IPC, валидация
-├── preload.cjs               # contextBridge: window.telegram/draftStorage
-├── ipc-security.cjs          # валидация всех IPC-payload
-├── telegram.cjs              # ядро Telegram (teleproto, MTProto)
-├── telegram-*.cjs            # lifecycle, errors, storage, search,
-│                             # permissions, idempotency, dialogs, rate-limit
-├── draft-store.cjs           # черновики: атомарная запись, бэкапы, вложения
-├── schedule-history.cjs      # нормализация/валидация истории планирования
-├── chat-storage.cjs          # список чатов (избранное, скрытые)
-├── app-data-path.cjs         # корень данных приложения + миграция имён
-├── src/                      # рендерер-хост (React + TS)
-│   ├── App.tsx               # маршруты, Quick Planner/Studio, runtime composition
-│   ├── appState.ts           # reducer сообщения, действия и операций приложения
-│   ├── pages/                # LoginPage, SettingsPage
-│   ├── components/           # QuickPlanner, ChatPicker, SettingsView…
-│   ├── hooks/                # useTelegramAuth, useChats, useScheduler…
-│   ├── lib/                  # scheduling, richText, plannerDraft, i18n…
-│   ├── services/             # chatDomainService, adapters
-│   ├── workspace/            # AppShell, StudioMount, HistoryDrawer
-│   └── studio/               # Studio UI, hooks, services, repositories
-├── packages/shared/          # общий код хоста и Studio
-│   ├── bridge/               # версионированный контракт моста (v1)
-│   ├── i18n/                 # переводы en/ru
-│   ├── types/, utils/
-│   └── telegramText.cjs      # rich-text утилиты для main-процесса
-├── docs/                     # эта документация
-├── *.test.mjs, *.test.tsx    # тесты Vitest (main и renderer)
-└── package.json              # скрипты, конфиг electron-builder
+├── .github/                  # GitHub Actions workflows
+├── app/                      # всё приложение и его npm-конфигурация
+│   ├── main.cjs              # Electron main: окно, Tray, IPC, валидация
+│   ├── preload.cjs           # contextBridge: window.telegram/draftStorage
+│   ├── ipc-security.cjs      # валидация всех IPC-payload
+│   ├── telegram*.cjs         # ядро Telegram и вспомогательные модули
+│   ├── src/                  # React + TypeScript renderer и Studio
+│   ├── packages/shared/      # общий код, типы, i18n и bridge
+│   ├── public/               # статические ресурсы
+│   ├── *.test.*              # main- и renderer-тесты
+│   └── package.json          # скрипты и конфиг electron-builder
+├── docs/                     # документация
+├── screenshots/              # скриншоты приложения
+├── website/                  # сайт продукта
+├── README.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── LICENSE
+└── SECURITY.md
 ```
 
 ---
@@ -55,24 +48,24 @@ XMSGi Studio/
 
 | Команда | Назначение |
 |---|---|
-| `npm install` | установка зависимостей |
-| `npm run dev` | Vite dev-сервер (рендерер) |
-| `npm run build` | production-сборка рендерера в `dist/` |
-| `npm run electron` | запуск Electron-оболочки (нужен `npm run build`) |
-| `npm run start` | запуск Electron-оболочки (предварительно соберите renderer через `npm run build`) |
-| `npm test` | прогон всех тестов (Vitest, `vitest run`) |
-| `npm run lint` | ESLint по всему проекту |
-| `npm run typecheck` | TypeScript-проверка (`tsconfig.app.json`) |
-| `npm run dev:electron` | Vite + Electron в режиме разработки |
-| `npm run dist` | `build` + `electron-builder --win` (портативный `.exe`) |
-| `npm run preview` | предпросмотр production-сборки Vite |
+| `npm install --prefix app` | установка зависимостей |
+| `npm --prefix app run dev` | Vite dev-сервер (рендерер) |
+| `npm --prefix app run build` | production-сборка рендерера в `app/dist/` |
+| `npm --prefix app run electron` | запуск Electron-оболочки (нужен build) |
+| `npm --prefix app run start` | запуск Electron-оболочки (предварительно соберите renderer) |
+| `npm --prefix app test` | прогон всех тестов (Vitest, `vitest run`) |
+| `npm --prefix app run lint` | ESLint по всему приложению |
+| `npm --prefix app run typecheck` | TypeScript-проверка (`tsconfig.app.json`) |
+| `npm --prefix app run dev:electron` | Vite + Electron в режиме разработки |
+| `npm --prefix app run dist` | `build` + `electron-builder --win` (портативный `.exe`) |
+| `npm --prefix app run preview` | предпросмотр production-сборки Vite |
 
 ### Проверки Studio
 
 ```bash
-npm run typecheck
-npm test -- src/studio
-npm run build
+npm --prefix app run typecheck
+npm --prefix app test -- src/studio
+npm --prefix app run build
 ```
 
 ---
@@ -93,15 +86,15 @@ npm run build
   `git diff --check`.
 - Отчёты прогона в репозиторий не коммитятся (см. `.gitignore`).
   При необходимости сохраните JSON-отчёт вручную:
-  `npx vitest run --reporter=json --outputFile=vitest-report.json`.
+  `npm --prefix app exec -- vitest run --reporter=json --outputFile=vitest-report.json`.
 
 Рекомендуемый порядок перед PR:
 
 ```bash
-npm test
-npm run lint
-npm run typecheck
-npm run build
+npm --prefix app test
+npm --prefix app run lint
+npm --prefix app run typecheck
+npm --prefix app run build
 ```
 
 ---
@@ -160,8 +153,8 @@ npm run build
 
 ## 7. CI
 
-CI описан в `.github/workflows/` (дерево репозитория — оболочка, приложение в
-подкаталоге `XMSGi Studio/`).
+CI описан в `.github/workflows/`; workflow запускает проверки и сборку из
+подкаталога `app/`.
 
 - `.github/workflows/release-check.yml` — lint, typecheck и полный набор тестов
   на push в `main`, на PR и вручную. Артефакты релиза не публикует.
@@ -176,7 +169,7 @@ CI описан в `.github/workflows/` (дерево репозитория —
 - `.github/workflows/static.yml` — деплой статического сайта на GitHub Pages
   (ветка `main`, каталог `website`).
 
-Сборки desktop-релизов используют electron-builder-таргеты из `package.json`
+Сборки desktop-релизов используют electron-builder-таргеты из `app/package.json`
 (см. [Архитектура §7](architecture.md#7-сборка-и-упаковка)).
 
 macOS-релизы выпускаются без подписи и notarization; для первого запуска

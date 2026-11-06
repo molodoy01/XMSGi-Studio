@@ -60,12 +60,12 @@ macOS-сборка не подписана и не notarized. В Finder нажм
 ### Запуск из исходников
 
 ```bash
-npm install
-npm run build      # сборка React-рендерера (Vite)
-npm run electron   # запуск Electron-оболочки
+npm install --prefix app
+npm --prefix app run build      # сборка React-рендерера (Vite)
+npm --prefix app run electron   # запуск Electron-оболочки
 ```
 
-Для разработки с Vite и Electron используйте `npm run dev:electron`.
+Для разработки с Vite и Electron используйте `npm --prefix app run dev:electron`.
 
 Подробнее — в [документации для разработчиков](development.md).
 

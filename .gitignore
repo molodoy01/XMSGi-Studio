@@ -8,7 +8,8 @@
 **/.vitest/
 **/coverage/
 *.tsbuildinfo
-/XMSGi Studio/
+!/app/build/
+!/app/build/icon.ico
 
 # Local configuration and application data
 **/.env

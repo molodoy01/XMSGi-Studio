@@ -12,9 +12,9 @@ Thanks for helping improve XMSGi Studio.
 ## Development workflow
 
 ```bash
-npm install
-npm test
-npm run build
+npm install --prefix app
+npm --prefix app test
+npm --prefix app run build
 ```
 
 ## Pull request expectations

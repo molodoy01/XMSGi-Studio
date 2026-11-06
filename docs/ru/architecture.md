@@ -2,6 +2,7 @@
 
 Техническое описание приложения для разработчиков.
 Соответствует версии **1.4.1**.
+Пути к исходникам в этом документе указаны относительно `app/`.
 
 ---
 
@@ -13,7 +14,7 @@ XMSGi Studio — настольное приложение на **Electron**.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Electron MAIN PROCESS (Node.js)                            │
-│  main.cjs — окно, Tray, IPC-хендлеры, валидация             │
+│  app/main.cjs — окно, Tray, IPC-хендлеры, валидация        │
 │  telegram.cjs — ядро Telegram (MTProto через teleproto)     │
 │  draft-store.cjs, schedule-history.cjs, chat-storage.cjs    │
 │  telegram-account-storage.cjs — защищённое хранение         │
@@ -28,9 +29,9 @@ XMSGi Studio — настольное приложение на **Electron**.
                 │ window.* API
 ┌───────────────┴─────────────────────────────────────────────┐
 │  RENDERER (React 18 + TypeScript + Vite)                    │
-│  src/           — приложение (Studio, Quick Planner)        │
-│  src/studio/    — внутренняя структура Studio               │
-│  packages/shared/ — общие типы, i18n, утилиты, bridge       │
+│  app/src/       — приложение (Studio, Quick Planner)        │
+│  app/src/studio/ — внутренняя структура Studio              │
+│  app/packages/shared/ — общие типы, i18n, утилиты, bridge   │
 └─────────────────────────────────────────────────────────────┘
 ```
 

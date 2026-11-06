@@ -63,21 +63,22 @@ The bilingual website and its search-engine pages, metadata, and sitemap are mai
 Requirements: Node.js 20+ and npm.
 
 ```bash
-npm ci
-npm test
-npm run typecheck
-npm run build
-npm run electron
+npm ci --prefix app
+npm --prefix app test
+npm --prefix app run typecheck
+npm --prefix app run build
+npm --prefix app run electron
 ```
 
-Create a Windows portable package with `npm run dist`.
+Create a Windows portable package with `npm --prefix app run dist`.
 
 ## Project layout
 
-- [`src/`](src/) and [`packages/`](packages/) — desktop application source.
+- [`app/`](app/) — desktop application, including its source, tests, and npm configuration.
 - [`docs/`](docs/) — application documentation.
 - [`website/`](website/) — bilingual product site and SEO pages.
 - [`screenshots/`](screenshots/) — product screenshots used on this page.
+- [`.github/`](.github/) — repository workflows.
 
 ## Contributing and security
 

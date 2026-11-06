@@ -25,20 +25,20 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: 'package-lock.json'
+          cache-dependency-path: 'app/package-lock.json'
 
       - name: Install dependencies
-        working-directory: '.'
+        working-directory: app
         run: npm ci
 
       - name: Lint
-        working-directory: '.'
+        working-directory: app
         run: npm run lint
 
       - name: Typecheck
-        working-directory: '.'
+        working-directory: app
         run: npm run typecheck
 
       - name: Test
-        working-directory: '.'
+        working-directory: app
         run: npm test -- --reporter=dot
