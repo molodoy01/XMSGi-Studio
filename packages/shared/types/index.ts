@@ -11,6 +11,7 @@ export interface Chat {
   id: string;
   name: string;
   username?: string;
+  phone?: string;
   type?: 'private' | 'group' | 'supergroup' | 'channel' | 'unknown';
   avatarDataUrl?: string;
   permissions?: ChatPermissions;
@@ -46,12 +47,15 @@ export interface SavedDraftAttachment {
   mimeType?: string;
   size?: number;
   path?: string;
+  sourcePath?: string;
   previewUrl?: string;
   position?: number;
 }
 
 export interface SavedDraft {
   id: string;
+  documentId?: string;
+  postId?: string;
   name: string;
   body: string;
   color?: DraftColor;
@@ -72,21 +76,36 @@ export interface PersistedDraftStore {
   migrationVersion?: number;
   savedDrafts: SavedDraft[];
   workspaceDraft?: SavedDraft | Record<string, unknown> | null;
+  documentHistories?: PersistedWorkspaceDocumentHistories;
   [key: string]: unknown;
 }
+
+export interface PersistedWorkspaceDocumentVersion {
+  id: string;
+  documentId: string;
+  createdAt: string;
+  reason: 'edit' | 'before-clear' | 'before-delete' | 'before-replacement' | 'before-attachment-removal' | 'restore' | 'publish';
+  snapshot: Record<string, unknown>;
+}
+
+export type PersistedWorkspaceDocumentHistories = Record<string, PersistedWorkspaceDocumentVersion[]>;
 
 export type RichTextEntityType =
   | 'bold'
   | 'italic'
   | 'underline'
   | 'strikethrough'
-  | 'text_url';
+  | 'text_url'
+  | 'code'
+  | 'pre'
+  | 'blockquote';
 
 export interface RichTextEntity {
   type: RichTextEntityType;
   offset: number;
   length: number;
   url?: string;
+  language?: string;
 }
 
 export interface ScheduledMessage {
@@ -97,13 +116,14 @@ export interface ScheduledMessage {
   text: string;
   when: string;
   createdAt: string;
-  status: 'pending' | 'scheduled' | 'confirmed' | 'sending' | 'sent' | 'failed';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'sending' | 'sent' | 'failed' | 'unknown';
   lastError?: string;
   lastErrorDetails?: BridgeErrorDetails;
   retryAction?: 'schedule' | 'send' | 'cancel';
   lastAttemptAt?: string;
   sendAttemptId?: string;
   attachments?: string[];
+  attachmentGroups?: string[][];
   entities?: RichTextEntity[];
   silent?: boolean;
   effect?: string;

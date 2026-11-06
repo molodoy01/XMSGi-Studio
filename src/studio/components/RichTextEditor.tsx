@@ -33,7 +33,7 @@ interface Props {
   onOpenAlbum?: (position: number) => void;
   albumDisabled?: boolean;
   onExportText?: (text: string, format: 'txt' | 'json') => void;
-  onBeforeClear?: () => Promise<boolean>;
+  onBeforeClear?: () => boolean | Promise<boolean>;
   onOpenVersionHistory?: () => void;
   selectedEffectId?: string | null;
   onEffectChange?: (effectId: string | null) => void;
@@ -58,6 +58,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
   const [hasIndentedLineBreak, setHasIndentedLineBreak] = useState(false);
   const hasEditorContent = Boolean(text.trim()) || hasIndentedLineBreak;
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const clearPendingRef = useRef(false);
+  const [clearPending, setClearPending] = useState(false);
   const editorScrollbarRef = useRef<HTMLDivElement | null>(null);
   const editorScrollDragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const logicalTextLengthRef = useRef(text.length);
@@ -107,19 +109,24 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     const editor = editorRef.current;
     if (!editor) return undefined;
 
+    let metricsFrame: number | null = null;
     const syncScrollMetrics = () => {
-      const next = {
-        scrollTop: editor.scrollTop,
-        scrollHeight: editor.scrollHeight,
-        clientHeight: editor.clientHeight,
-      };
-      setEditorScrollMetrics((current) => (
-        current.scrollTop === next.scrollTop
-        && current.scrollHeight === next.scrollHeight
-        && current.clientHeight === next.clientHeight
-          ? current
-          : next
-      ));
+      if (metricsFrame !== null) return;
+      metricsFrame = window.requestAnimationFrame(() => {
+        metricsFrame = null;
+        const next = {
+          scrollTop: editor.scrollTop,
+          scrollHeight: editor.scrollHeight,
+          clientHeight: editor.clientHeight,
+        };
+        setEditorScrollMetrics((current) => (
+          current.scrollTop === next.scrollTop
+          && current.scrollHeight === next.scrollHeight
+          && current.clientHeight === next.clientHeight
+            ? current
+            : next
+        ));
+      });
     };
 
     editor.addEventListener('scroll', syncScrollMetrics, { passive: true });
@@ -133,6 +140,7 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
       editor.removeEventListener('scroll', syncScrollMetrics);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
+      if (metricsFrame !== null) window.cancelAnimationFrame(metricsFrame);
     };
   }, []);
 
@@ -181,6 +189,14 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     editor.scrollTop = Math.max(0, Math.min(maxScroll, drag.scrollTop + (event.clientY - drag.pointerY) / travel * maxScroll));
   };
 
+  const handleEditorScrollbarPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    editorScrollDragRef.current = null;
+    setEditorScrollbarDragging(false);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   const handleEditorScrollbarKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -199,8 +215,99 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     editor.scrollTop = nextScrollTop;
   };
 
+  const scheduleCaretIntoView = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    window.requestAnimationFrame(() => {
+      if (!editor.isConnected) return;
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed || !selection.focusNode
+        || (selection.focusNode !== editor && !editor.contains(selection.focusNode))) return;
+
+      const range = document.createRange();
+      range.setStart(selection.focusNode, selection.focusOffset);
+      range.collapse(true);
+      if (typeof range.getBoundingClientRect !== 'function') return;
+
+      const isMeasurable = (rect: DOMRect) => (
+        Number.isFinite(rect.top) && Number.isFinite(rect.bottom) && rect.height > 0
+      );
+      let caretRect = range.getBoundingClientRect();
+      if (!isMeasurable(caretRect)) {
+        const focusNode = selection.focusNode;
+        const candidates: Array<{ node: Text; start: number; end: number }> = [];
+        const findEdgeTextNode = (node: Node | undefined, direction: -1 | 1): Text | null => {
+          if (!node) return null;
+          if (node.nodeType === Node.TEXT_NODE) {
+            return (node.textContent?.length ?? 0) > 0 ? node as Text : null;
+          }
+          const children = Array.from(node.childNodes);
+          if (direction < 0) children.reverse();
+          for (const child of children) {
+            const textNode = findEdgeTextNode(child, direction);
+            if (textNode) return textNode;
+          }
+          return null;
+        };
+        const addCharacterCandidate = (textNode: Text | null, offset: number, direction: -1 | 1) => {
+          if (!textNode) return;
+          if (direction < 0 && offset > 0) {
+            const start = offset > 1
+              && /[\uDC00-\uDFFF]/.test(textNode.data[offset - 1])
+              && /[\uD800-\uDBFF]/.test(textNode.data[offset - 2])
+              ? offset - 2
+              : offset - 1;
+            candidates.push({ node: textNode, start, end: offset });
+          } else if (direction > 0 && offset < textNode.length) {
+            const end = offset + 1 < textNode.length
+              && /[\uD800-\uDBFF]/.test(textNode.data[offset])
+              && /[\uDC00-\uDFFF]/.test(textNode.data[offset + 1])
+              ? offset + 2
+              : offset + 1;
+            candidates.push({ node: textNode, start: offset, end });
+          }
+        };
+
+        if (focusNode.nodeType === Node.TEXT_NODE) {
+          const textNode = focusNode as Text;
+          addCharacterCandidate(textNode, selection.focusOffset, -1);
+          addCharacterCandidate(textNode, selection.focusOffset, 1);
+        } else {
+          const previousNode = findEdgeTextNode(focusNode.childNodes[selection.focusOffset - 1], -1);
+          const nextNode = findEdgeTextNode(focusNode.childNodes[selection.focusOffset], 1);
+          addCharacterCandidate(previousNode, previousNode?.length ?? 0, -1);
+          addCharacterCandidate(nextNode, 0, 1);
+        }
+
+        for (const candidate of candidates) {
+          const adjacentRange = document.createRange();
+          adjacentRange.setStart(candidate.node, candidate.start);
+          adjacentRange.setEnd(candidate.node, candidate.end);
+          const rect = adjacentRange.getBoundingClientRect();
+          if (isMeasurable(rect)) {
+            caretRect = rect;
+            break;
+          }
+        }
+      }
+      if (!isMeasurable(caretRect)) return;
+
+      const editorRect = editor.getBoundingClientRect();
+      const visibleTop = editorRect.top + editor.clientTop;
+      const visibleBottom = visibleTop + editor.clientHeight;
+      const inset = 4;
+
+      if (caretRect.top < visibleTop + inset) {
+        editor.scrollTop -= visibleTop + inset - caretRect.top;
+      } else if (caretRect.bottom > visibleBottom - inset) {
+        editor.scrollTop += caretRect.bottom - visibleBottom + inset;
+      }
+    });
+  };
+
   const emitChange = () => {
-    if (!editorRef.current) return;
+    if (!editorRef.current) return null;
     const editor = editorRef.current;
     const selection = window.getSelection();
     const selectionRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
@@ -271,6 +378,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     }
     if (selectionOffsets) saveSelection();
     onChange(limited.text, limited.entities);
+    scheduleCaretIntoView();
+    return limited.text;
   };
 
   const insertEmoji = (emoji: string) => {
@@ -576,9 +685,29 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
   };
 
   const clearEditorText = async () => {
-    if (onBeforeClear && !await onBeforeClear()) return;
+    if (clearPendingRef.current) return;
     const editor = editorRef.current;
     if (!editor) return;
+    const previousHtml = editor.innerHTML;
+    const previousHasIndentedLineBreak = hasIndentedLineBreak;
+    const selection = window.getSelection();
+    const selectionRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectionOffsets = selectionRange
+      && (selectionRange.startContainer === editor || editor.contains(selectionRange.startContainer))
+      && (selectionRange.endContainer === editor || editor.contains(selectionRange.endContainer))
+      ? {
+          start: getEditorTextOffset(editor, selectionRange.startContainer, selectionRange.startOffset),
+          end: getEditorTextOffset(editor, selectionRange.endContainer, selectionRange.endOffset),
+        }
+      : null;
+    const clearAuthorization = onBeforeClear?.();
+    if (clearAuthorization === false) return;
+    const checkpointPending = clearAuthorization instanceof Promise;
+    if (checkpointPending) {
+      clearPendingRef.current = true;
+      setClearPending(true);
+    }
+
     editor.innerHTML = '';
     setHasIndentedLineBreak(false);
     logicalTextLengthRef.current = 0;
@@ -587,6 +716,31 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     editor.focus();
     setEditorFocused(true);
     placeCaretAtStart();
+
+    if (!checkpointPending) return;
+
+    let checkpointSaved = false;
+    try {
+      checkpointSaved = await clearAuthorization;
+    } finally {
+      clearPendingRef.current = false;
+      setClearPending(false);
+    }
+
+    if (!checkpointSaved && editorRef.current === editor) {
+      editor.innerHTML = previousHtml;
+      setHasIndentedLineBreak(previousHasIndentedLineBreak);
+      logicalTextLengthRef.current = text.length;
+      onChange(text, entities);
+      editor.focus();
+      setEditorFocused(true);
+      if (selectionOffsets?.start !== null && selectionOffsets?.start !== undefined
+        && selectionOffsets.end !== null && selectionOffsets.end !== undefined) {
+        restoreTextSelection(selectionOffsets.start, selectionOffsets.end);
+      } else {
+        placeCaretAtStart();
+      }
+    }
   };
 
   const remainingCharacters = getRemainingMessageLength(text.length, maxLength);
@@ -648,11 +802,11 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
       onClick={clearEditorText}
       aria-label={t('studio.clearEditorText')}
       aria-hidden={!hasEditorText}
-      disabled={!hasEditorText}
+      disabled={!hasEditorText || clearPending}
       tabIndex={hasEditorText ? 0 : -1}
       title={t('studio.clearText')}
     >
-      <Eraser size={16} strokeWidth={1.8} aria-hidden="true" />
+      <Eraser size={18} strokeWidth={1.8} aria-hidden="true" />
     </button>
   ) : null;
   return (
@@ -665,13 +819,17 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     >
       {stageMode === 'editor' && (
         <div className="workspace-page-rich-text-meta-row">
-          <span
-            className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
-            aria-live="polite"
-          >
-            {remainingCharacters}
-          </span>
-          {editorClearButton}
+          {hasEditorText && (
+            <>
+              <span
+                className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
+                aria-live="polite"
+              >
+                {remainingCharacters}
+              </span>
+              {editorClearButton}
+            </>
+          )}
         </div>
       )}
       <div className="workspace-page-rich-text-stage-shell">
@@ -682,7 +840,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
               if (inputRef) inputRef.current = element;
             }}
             className={`workspace-page-textarea workspace-page-rich-text-input workspace-page-rich-text-stage-view ${stageMode === 'editor' ? 'is-active' : ''} ${hasEditorContent ? 'has-content' : 'is-empty'} ${editorFocused ? 'is-focused' : ''} ${isLogoIntroActive ? 'is-logo-intro' : ''} ${logoState.glowFinishing ? 'is-logo-intro-finishing' : ''}`}
-            contentEditable
+            contentEditable={!clearPending}
+            aria-busy={clearPending || undefined}
             suppressContentEditableWarning
             role="textbox"
             id="workspace-page-rich-text-input"
@@ -880,16 +1039,18 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
             }}
             onInput={(event) => {
               const inputType = (event.nativeEvent as InputEvent).inputType;
+              let nextText: string | null = null;
               if (inputType === 'insertParagraph' || inputType === 'insertLineBreak') {
                 setHasIndentedLineBreak(true);
               } else {
                 pendingTabEnterRef.current = false;
-                if (inputType?.startsWith('delete') && editorRef.current) {
-                  const value = editorHtmlToRichText(editorRef.current).text;
-                  setHasIndentedLineBreak(/[ \t]+\n/.test(value));
-                }
               }
-              if (!isApplyingFormatRef.current) emitChange();
+              if (!isApplyingFormatRef.current) {
+                nextText = emitChange();
+              }
+              if (inputType?.startsWith('delete') && nextText !== null) {
+                setHasIndentedLineBreak(/[ \t]+\n/.test(nextText));
+              }
               scheduleToolbarStateSync();
             }}
             onMouseUp={() => {
@@ -944,8 +1105,8 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
             : 0}
           onPointerDown={handleEditorScrollbarPointerDown}
           onPointerMove={handleEditorScrollbarPointerMove}
-          onPointerUp={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
-          onPointerCancel={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
+          onPointerUp={handleEditorScrollbarPointerUp}
+          onPointerCancel={handleEditorScrollbarPointerUp}
           onLostPointerCapture={() => { editorScrollDragRef.current = null; setEditorScrollbarDragging(false); }}
           onKeyDown={handleEditorScrollbarKeyDown}
         >

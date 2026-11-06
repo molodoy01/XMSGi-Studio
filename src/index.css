@@ -1666,6 +1666,7 @@ html.electron-runtime .history-confirmation-backdrop {
 .history-drawer.is-page .history-search-dock {
   width: 100%;
   min-width: 0;
+  transform: translateX(2px);
 }
 
 @container (max-width: 480px) {
@@ -3882,6 +3883,8 @@ body:has(.auth-panel) {
 }
 
 .app:has(.auth-panel) {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -3903,6 +3906,16 @@ body:has(.auth-panel) {
 
 .product-shell-content {
   flex: 1;
+  min-height: 0;
+}
+
+.product-shell:has(.auth-panel) > .topbar-placeholder {
+  display: none;
+}
+
+.product-shell:has(.auth-panel) > .product-shell-content {
+  display: flex;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -4098,6 +4111,10 @@ html.electron-runtime .product-shell {
 
 html.electron-custom-window-controls .product-shell {
   --electron-titlebar-height: 27px;
+}
+
+.product-shell.is-window-full-screen {
+  --electron-titlebar-height: 0px;
 }
 
 html.electron-runtime .product-shell.studio-shell {
@@ -5036,9 +5053,10 @@ html.electron-runtime .topbar-logout-modal-backdrop::before {
 
 .auth-panel {
   position: relative;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 100vh;
-  min-height: calc(100svh / 0.95);
+  min-height: 0;
+  flex: 1 1 auto;
   margin: 0;
   padding: 0;
   display: flex;
@@ -5054,7 +5072,7 @@ html.electron-runtime .topbar-logout-modal-backdrop::before {
 
 .auth-top-controls {
   position: fixed;
-  top: 27px;
+  top: 32px;
   right: 30px;
   z-index: 6;
   display: inline-flex;

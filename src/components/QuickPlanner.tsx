@@ -35,6 +35,7 @@ import type { StudioPlannerTextPayload } from '@shared/bridge';
 import { createPortal } from 'react-dom';
 import { telegramGetFilePath } from '@/services/telegramAppService';
 import { getDraftStorageApi } from '@studio/lib/draftStore';
+import { getMessageMaxLength, limitMessageText } from '@/lib/messageLimits';
 import { loadFreeTelegramMessageEffects, type TelegramMessageEffect } from '@/lib/telegramMessageEffects';
 import { ChatAvatar } from '../studio/components/ChatAvatar';
 import { QuickPlannerNavigationContext } from '../workspace/QuickPlannerNavigationContext';
@@ -315,6 +316,7 @@ export function QuickPlanner({
   const calendarMonthKey = calendarYear * 12 + calendarMonth;
   const minimumMonthKey = Number(minimumScheduleDateValue.slice(0, 4)) * 12 + Number(minimumScheduleDateValue.slice(5, 7)) - 1;
   const todayScheduleDateValue = toDateInputValue(new Date());
+  const messageMaxLength = getMessageMaxLength(attachments.length > 0);
   const SubmitIcon = selectedMode === 'Send now' ? Send : selectedMode === 'Draft' ? FileText : CalendarDays;
   const submitLabel = selectedMode === 'Send now' ? t('studio.sendNow') : selectedMode === 'Draft' ? t('quickPlanner.saveDraftAction') : t('quickPlanner.schedulePost');
   const { currentSection, openStudio } = useContext(QuickPlannerNavigationContext);
@@ -330,7 +332,6 @@ export function QuickPlanner({
   const scheduleTimePickerRef = useRef<HTMLDivElement>(null);
   const chatTriggerRef = useRef<HTMLButtonElement>(null);
   const chatSearchRef = useRef<HTMLInputElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const workbenchRef = useRef<HTMLElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -442,24 +443,6 @@ export function QuickPlanner({
     };
   }, [attachments.length]);
 
-  useLayoutEffect(() => {
-    const heading = headingRef.current;
-    const workbench = workbenchRef.current;
-    if (!heading || !workbench) return undefined;
-
-    const updateHeadingWidth = () => {
-      const width = Number.parseFloat(window.getComputedStyle(heading).width);
-      if (Number.isFinite(width)) workbench.style.setProperty('--planner-heading-width', `${width}px`);
-    };
-    updateHeadingWidth();
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateHeadingWidth);
-    resizeObserver?.observe(heading);
-    return () => {
-      resizeObserver?.disconnect();
-      workbench.style.removeProperty('--planner-heading-width');
-    };
-  }, []);
   const sourceChats = activeChat && !chats.some((chat) => chat.id === activeChat.id)
     ? [activeChat, ...chats]
     : chats;
@@ -884,7 +867,7 @@ export function QuickPlanner({
     const textarea = messageInputRef.current;
     const start = emojiCommandRange?.start ?? textarea?.selectionStart ?? message.length;
     const end = emojiCommandRange?.end ?? textarea?.selectionEnd ?? message.length;
-    const nextMessage = `${message.slice(0, start)}${emoji}${message.slice(end)}`.slice(0, 1023);
+    const nextMessage = limitMessageText(`${message.slice(0, start)}${emoji}${message.slice(end)}`, messageMaxLength);
     setMessageEntities((current) => retainUnchangedRichTextEntities(message, nextMessage, current));
     setMessage(nextMessage);
     setEmojiCommandRange(null);
@@ -1206,7 +1189,7 @@ export function QuickPlanner({
       <div className="quick-planner-inner">
         <header className="quick-planner-heading">
           <div>
-            <h1 ref={headingRef} id="quick-planner-title">{t('quickPlanner.newMessage')}</h1>
+            <h1 id="quick-planner-title">{t('quickPlanner.newMessage')}</h1>
           </div>
         </header>
 
@@ -1343,7 +1326,7 @@ export function QuickPlanner({
                         {selectedEffect.emoticon}
                       </span>
                     )}
-                    <span className="quick-planner-character-count">{String(message.length).padStart(2, '0')} <i>/</i> 1023</span>
+                    <span className="quick-planner-character-count">{String(message.length).padStart(2, '0')} <i>/</i> {messageMaxLength}</span>
                     <button
                       className={`quick-planner-clear-message${message ? '' : ' is-hidden'}`}
                       type="button"
@@ -1360,7 +1343,7 @@ export function QuickPlanner({
                         messageInputRef.current?.focus();
                       }}
                     >
-                      <Eraser size={16} aria-hidden="true" />
+                      <Eraser size={20} aria-hidden="true" />
                     </button>
                   </span>
                 </span>
@@ -1371,7 +1354,7 @@ export function QuickPlanner({
                 wrap="soft"
                 aria-label={t('quickPlanner.reminderText')}
                 aria-describedby="quick-planner-counter"
-                maxLength={1023}
+                maxLength={messageMaxLength}
                 value={message}
                 onFocus={() => setMessageInputFocused(true)}
                 onBlur={() => setMessageInputFocused(false)}
@@ -1438,7 +1421,7 @@ export function QuickPlanner({
                 placeholder={messageInputFocused ? '' : t('quickPlanner.messagePlaceholder')}
               />
               <span id="quick-planner-counter" className="quick-planner-sr-only">
-                {t('quickPlanner.characterCount', { count: message.length })}
+                {t('quickPlanner.characterCount', { count: message.length, limit: messageMaxLength })}
               </span>
             </div>
             <div className="quick-planner-tools-row" ref={toolsRowRef}>

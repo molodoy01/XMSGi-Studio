@@ -49,6 +49,61 @@ describe('Telegram status presentation', () => {
 });
 
 describe('product navigation', () => {
+  it('hides Electron window controls while the app is in full-screen mode', async () => {
+    let updateFullScreenState: ((isFullScreen: boolean) => void) | undefined;
+    const desktop = {
+      hasCustomWindowControls: true,
+      minimizeWindow: vi.fn().mockResolvedValue(undefined),
+      toggleMaximizeWindow: vi.fn().mockResolvedValue(false),
+      closeWindow: vi.fn().mockResolvedValue(undefined),
+      isWindowMaximized: vi.fn().mockResolvedValue(false),
+      onWindowMaximizedChange: vi.fn().mockReturnValue(vi.fn()),
+      isWindowFullScreen: vi.fn().mockResolvedValue(false),
+      onWindowFullScreenChange: vi.fn((callback: (isFullScreen: boolean) => void) => {
+        updateFullScreenState = callback;
+        return vi.fn();
+      }),
+      setColorTheme: vi.fn().mockResolvedValue({ success: true }),
+    };
+    window.desktop = desktop;
+    const view = render(createElement(LocaleProvider, null, createElement(AppShell, {
+      view: 'studio',
+      onViewChange: vi.fn(),
+      connected: true,
+      authBusy: false,
+      isConfirmingLogout: false,
+      setIsConfirmingLogout: vi.fn(),
+      setShowAuthForm: vi.fn(),
+      handleDisconnect: async () => undefined,
+      handleForgetAccount: async () => undefined,
+      onOpenSettings: vi.fn(),
+      historyRecords: [],
+      onHistoryCancel: vi.fn(),
+      onHistoryReschedule: vi.fn(),
+      onHistorySendNow: vi.fn(),
+      onHistoryDelete: vi.fn(),
+      onHistoryOpenDraft: vi.fn(),
+      onHistoryClearSent: vi.fn(),
+    })));
+
+    try {
+      expect(screen.getByRole('button', { name: 'Close window' })).toBeInTheDocument();
+      await waitFor(() => expect(updateFullScreenState).toBeTypeOf('function'));
+      updateFullScreenState?.(true);
+
+      await waitFor(() => {
+        expect(view.container.querySelector('.product-shell')).toHaveClass('is-window-full-screen');
+        expect(screen.queryByRole('button', { name: 'Close window' })).not.toBeInTheDocument();
+      });
+
+      updateFullScreenState?.(false);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Close window' })).toBeInTheDocument());
+    } finally {
+      view.unmount();
+      Reflect.deleteProperty(window, 'desktop');
+    }
+  });
+
   it('switches product views on pointer press without switching again on release', () => {
     const onViewChange = vi.fn();
     render(createElement(LocaleProvider, null, createElement(AppShell, {
@@ -948,6 +1003,10 @@ describe('shared History Drawer entry point', () => {
     const view = render(createElement(LocaleProvider, null, createElement(AppShell, props, createElement('div', null, 'Studio'))));
 
     expect(view.container.querySelector('.topbar-placeholder')).toBeInTheDocument();
+
+    view.rerender(createElement(LocaleProvider, null, createElement(AppShell, { ...props, headerPending: false }, createElement('div', null, 'Studio'))));
+
+    expect(view.container.querySelector('.topbar-placeholder')).not.toBeInTheDocument();
 
     view.rerender(createElement(LocaleProvider, null, createElement(AppShell, { ...props, connected: true, headerPending: false }, createElement('div', null, 'Studio'))));
 

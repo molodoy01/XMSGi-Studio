@@ -41,9 +41,9 @@ type WorkspacePageActionRowsProps = {
   onPrimaryPublish: () => void;
   onChoosePublishAction: (action: PublishAction) => void;
   sendInFlight: boolean;
+  savingCurrentDraft: boolean;
   publishingDraft: boolean;
   scheduling: boolean;
-  draftStoreSaving: boolean;
   successPulse: boolean;
   lastAction: 'sent' | 'scheduled' | null;
   reconnectingForSend: boolean;
@@ -87,9 +87,9 @@ export function WorkspacePageActionRows({
   onPrimaryPublish,
   onChoosePublishAction,
   sendInFlight,
+  savingCurrentDraft,
   publishingDraft,
   scheduling,
-  draftStoreSaving,
   successPulse,
   lastAction,
   reconnectingForSend,
@@ -220,13 +220,13 @@ export function WorkspacePageActionRows({
             onClick={onPrimaryPublish}
             onPointerMove={updateIconRimPointer}
             onPointerLeave={clearIconRimPointer}
-            disabled={sendInFlight || publishingDraft || scheduling || (publishAction === 'draft' && draftStoreSaving)}
+            disabled={sendInFlight || savingCurrentDraft || publishingDraft || scheduling}
           >
             <span className={`workspace-page-publish-trigger-main ${locale === 'en' ? 'is-english' : ''}`}>
               {publishAction === 'schedule'
                 ? (scheduling ? t('studio.scheduling') : successPulse && lastAction === 'scheduled' ? t('studio.scheduled') : t('studio.schedule'))
                 : publishAction === 'draft'
-                  ? t('studio.saveAction')
+                  ? (savingCurrentDraft ? t('studio.saving') : t('studio.saveAction'))
                   : (publishingDraft ? t(reconnectingForSend ? 'studio.reconnecting' : 'studio.sending') : successPulse && lastAction === 'sent' ? t('studio.sent') : t('studio.sendAction'))}
             </span>
           </button>

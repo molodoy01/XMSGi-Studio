@@ -5,7 +5,7 @@ import type { SavedDraft, ScheduledMessage as StudioScheduledMessage } from '@sh
 import { createStudioSchedulerRuntime } from '@shared/bridge';
 import type { StudioPlannerTextPayload } from '@shared/bridge';
 
-import { AppShell, StudioMount } from './workspace';
+import { AppShell, preloadStudioApp, StudioMount } from './workspace';
 import { useLocale } from '@/lib/i18n';
 import { getPlannerAttachmentPaths, hasPlannerPayloadContent } from './workspace/plannerText';
 import { getPlannerSurface } from './workspace/plannerSurface';
@@ -190,7 +190,10 @@ function AppContent() {
 
     persistProductView(view);
     productViewRef.current = view;
-    if (view === 'studio') setStudioHasBeenOpened(true);
+    if (view === 'studio') {
+      setStudioHasBeenOpened(true);
+      void preloadStudioApp();
+    }
     dispatch({ type: 'SET_PRODUCT_VIEW', view });
   }, [dispatch]);
   const setRoute = useCallback((nextRoute: AppRoute) => {
@@ -991,7 +994,7 @@ function AppContent() {
       closeNotification={closeNotification}
       connected={sessionResolved && (connected || sessionAvailable) && !signedOut}
       connectionRecoveryStatus={connectionRecoveryStatus}
-      headerPending={connecting || !connectionResolved}
+      headerPending={connecting || !connectionResolved || signedOut}
       authBusy={authBusy}
       isConfirmingLogout={isConfirmingLogout}
       setIsConfirmingLogout={setIsConfirmingLogout}
@@ -1116,6 +1119,7 @@ function AppContent() {
             setAuthError={setAuthError}
             handleTelegramAuth={handleTelegramAuthFromLogin}
             handleWelcomeBack={handleWelcomeBackFromReturn}
+            handleForgetAccount={handleForgetAccount}
           />
         )}
       </div>

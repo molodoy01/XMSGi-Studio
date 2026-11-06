@@ -31,22 +31,22 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: 'XMSGi Studio/XMSGi Studio/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm ci
 
       - name: Lint
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm run lint
 
       - name: Typecheck
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm run typecheck
 
       - name: Test
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm test -- --reporter=dot
 
   build:
@@ -61,21 +61,21 @@ jobs:
             platform: win
             targets: portable --x64
             artifact_name: windows-x64
-            artifact_path: XMSGi Studio/XMSGi Studio/release/*.exe
+            artifact_path: release/*.exe
           - runner: ubuntu-latest
             platform: linux
             targets: AppImage deb --x64
             artifact_name: linux-x64
             artifact_path: |
-              XMSGi Studio/XMSGi Studio/release/*.AppImage
-              XMSGi Studio/XMSGi Studio/release/*.deb
+              release/*.AppImage
+              release/*.deb
           - runner: macos-latest
             platform: mac
             targets: dmg zip --x64 --arm64
             artifact_name: macos-x64-arm64
             artifact_path: |
-              XMSGi Studio/XMSGi Studio/release/*.dmg
-              XMSGi Studio/XMSGi Studio/release/*.zip
+              release/*.dmg
+              release/*.zip
 
     steps:
       - name: Checkout
@@ -89,18 +89,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: 'XMSGi Studio/XMSGi Studio/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm ci
 
       - name: Build application
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         run: npm run build
 
       - name: Package for platform
-        working-directory: 'XMSGi Studio/XMSGi Studio'
+        working-directory: '.'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.platform != 'mac' }}
         # --publish never: публикацию делает отдельный шаг softprops/action-gh-release,

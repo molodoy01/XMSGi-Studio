@@ -389,6 +389,13 @@ describe('Posts page split view', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.history-drawer\.is-page \.history-list-status-section\s*\{[^}]*background:\s*#fbfcfd;/);
   });
 
+  it('adds only a subtle shadow below the app topbar in the light theme', () => {
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='light'\] \.topbar\s*\{\s*z-index:\s*1;\s*box-shadow:\s*0 2px 5px rgba\(34, 47, 58, 0\.06\);\s*\}/,
+    );
+    expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.topbar\s*\{[^}]*box-shadow:/);
+  });
+
   it('keeps a soft highlight in the middle of the dark Posts category header gradient', () => {
     expect(colorThemeStyles).toMatch(
       /html\[data-theme='dark'\] \.history-drawer\.is-page \.history-list-status-section\s*\{[^}]*background-color:\s*#191f23;[^}]*background-image:\s*linear-gradient\(110deg,\s*rgba\(55,\s*96,\s*112,\s*0\.26\),\s*rgba\(67,\s*107,\s*121,\s*0\.2\)\s*52%,\s*rgba\(18,\s*25,\s*32,\s*0\)\s*94%\);/,
@@ -1059,6 +1066,7 @@ describe('Posts page split view', () => {
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-export-control\s*\{[^}]*gap:\s*2px;[^}]*transform:\s*translate\(10px,\s*3px\);/);
       expect(globalStyles).toMatch(/\.history-content\.is-page \.history-list-pane\s*\{[^}]*margin-bottom:\s*2px;/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-search-dock\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;/);
+      expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-search-dock\s*\{[^}]*transform:\s*translateX\(2px\);/);
       expect(globalStyles).toMatch(/\.history-drawer\.is-page \.history-result-count\s*\{[^}]*padding-left:\s*0;[^}]*text-align:\s*center;/);
       expect(footer).not.toContainElement(statusFilters);
       expect(footer).toContainElement(container.querySelector('.history-export-button'));

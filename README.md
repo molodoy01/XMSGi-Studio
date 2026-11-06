@@ -52,9 +52,9 @@ The release page contains the current Windows portable app, Linux AppImage and `
 
 - [Product website](https://molodoy01.github.io/XMSGi-Studio/) — product overview and downloads.
 - [Telegram post scheduler (RU)](https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-scheduler/) · [English](https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-scheduler/) — product information and guides.
-- [User guide (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md) — setup, features, and workflows.
-- [Development guide (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/development.md) — local setup, tests, and conventions.
-- [Architecture (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/architecture.md) · [Security and privacy (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/security.md) · [IPC reference (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/ipc-reference.md).
+- [User guide (RU)](docs/ru/user-guide.md) — setup, features, and workflows.
+- [Development guide (RU)](docs/ru/development.md) — local setup, tests, and conventions.
+- [Architecture (RU)](docs/ru/architecture.md) · [Security and privacy (RU)](docs/ru/security.md) · [IPC reference (RU)](docs/ru/ipc-reference.md).
 
 The bilingual website and its search-engine pages, metadata, and sitemap are maintained in [`website/`](website/).
 
@@ -63,7 +63,6 @@ The bilingual website and its search-engine pages, metadata, and sitemap are mai
 Requirements: Node.js 20+ and npm.
 
 ```bash
-cd "XMSGi Studio/XMSGi Studio"
 npm ci
 npm test
 npm run typecheck
@@ -75,7 +74,8 @@ Create a Windows portable package with `npm run dist`.
 
 ## Project layout
 
-- [`XMSGi Studio/`](XMSGi%20Studio/) — desktop application and its technical documentation.
+- [`src/`](src/) and [`packages/`](packages/) — desktop application source.
+- [`docs/`](docs/) — application documentation.
 - [`website/`](website/) — bilingual product site and SEO pages.
 - [`screenshots/`](screenshots/) — product screenshots used on this page.
 

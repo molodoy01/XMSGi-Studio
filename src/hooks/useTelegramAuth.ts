@@ -44,7 +44,7 @@ function getFriendlyAuthError(error: string): TranslationKey {
   if (/PHONE_CODE_EXPIRED|phone code.{0,24}expired/i.test(error)) return 'auth.expiredCode';
   if (/PHONE_CODE_INVALID|phone code.{0,24}invalid/i.test(error)) return 'auth.invalidCode';
   if (/PASSWORD_HASH_INVALID|password.{0,24}invalid/i.test(error)) return 'auth.invalidPassword';
-  if (/PHONE_NUMBER_FLOOD|PHONE_PASSWORD_FLOOD|FLOOD_WAIT|too many attempts/i.test(error)) {
+  if (/PHONE_NUMBER_FLOOD|PHONE_PASSWORD_FLOOD|FLOOD_WAIT|too many attempts|^\s*420(?:\b|$)/i.test(error)) {
     return 'auth.tooManyAttempts';
   }
   if (/NETWORK|TIME.?OUT|ECONN|CONNECTION|FAILED TO FETCH|ERR_INTERNET|ERR_NETWORK|ENOTFOUND|EAI_AGAIN|SOCKET/i.test(error)) {
@@ -107,7 +107,8 @@ export function useTelegramAuth({
     setAuthErrorValue(t(key));
   }, [t]);
   const visibleAuthError = authErrorTranslationKey ? t(authErrorTranslationKey) : authError;
-  const authNotice = authErrorTranslationKey === 'auth.enterTwoFactor';
+  const authNotice = authErrorTranslationKey === 'auth.enterTwoFactor'
+    || authErrorTranslationKey === 'auth.codeResent';
   const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatusSnapshot>({
     accountId: '',
@@ -194,6 +195,11 @@ export function useTelegramAuth({
 
       if (result.requiresCode || result.nextStep === 'code') {
         setAuthStep('code');
+        if (authStep !== 'phone') {
+          setPhoneCode('');
+          setTwoFactorPassword('');
+          setLocalizedAuthError('auth.codeResent');
+        }
         return false;
       }
 
@@ -221,7 +227,7 @@ export function useTelegramAuth({
     } finally {
       setAuthBusy(false);
     }
-  }, [authStep, phoneCode, phoneNumber, setAuthError, setLocalizedAuthError, twoFactorPassword, t]);
+  }, [authStep, phoneCode, phoneNumber, setAuthError, setLocalizedAuthError, setPhoneCode, setTwoFactorPassword, twoFactorPassword, t]);
 
   const handleDisconnect = useCallback(async (): Promise<boolean> => {
     setAuthBusy(true);

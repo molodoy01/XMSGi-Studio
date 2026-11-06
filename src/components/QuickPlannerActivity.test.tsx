@@ -51,10 +51,16 @@ describe('QuickPlannerActivity', () => {
     expect(activityStyles).toMatch(/\.quick-planner-activity-section\s*\{[^}]*overflow:\s*visible;/);
     expect(activityStyles).toMatch(/\.quick-planner-activity-section\s*\{[^}]*min-height:\s*510px;[^}]*flex:\s*1 0 auto;/);
     expect(activityStyles).toMatch(
-      /\.quick-planner-activity-section\s*\{[^}]*background:\s*radial-gradient\([^;]+,\s*linear-gradient\([^;]+;/,
+      /\.quick-planner-activity-section\s*\{[^}]*background:\s*#f5f7f9;/,
+    );
+    expect(activityStyles).not.toMatch(
+      /^\.quick-planner-activity-section\s*\{[^}]*background:\s*radial-gradient/m,
     );
     expect(activityStyles).toMatch(
       /html\[data-theme='dark'\] \.quick-planner-activity-section\s*\{[^}]*background:\s*radial-gradient\([^;]+,\s*linear-gradient\([^;]+;/,
+    );
+    expect(activityStyles).toMatch(
+      /html:not\(\[data-theme='dark'\]\) \.quick-planner-activity-grid-line,\s*html:not\(\[data-theme='dark'\]\) \.quick-planner-activity-peak-guide\s*\{\s*display:\s*none;/,
     );
     expect(activityStyles).toMatch(
       /\.quick-planner-activity-header h2\s*\{[^}]*top:\s*-33px;[^}]*left:\s*0;/,
@@ -133,9 +139,12 @@ describe('QuickPlannerActivity', () => {
     );
   });
 
-  it('keeps dark-theme highlights in distinct compact blocks', () => {
+  it('matches the Planner editor fill in Activity highlight blocks', () => {
     expect(activityStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner-activity-highlight\s*\{[^}]*border-color:\s*rgba\(110, 166, 202, 0\.16\);[^}]*border-radius:\s*8px;[^}]*background:\s*linear-gradient\(/,
+      /\.quick-planner-activity-highlight\s*\{[^}]*border:\s*1px solid #c8d0d6;[^}]*background:\s*#ffffff;/,
+    );
+    expect(activityStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-activity-highlight\s*\{[^}]*border-color:\s*transparent;[^}]*border-radius:\s*8px;[^}]*background:\s*#151b20;[^}]*box-shadow:\s*none;/,
     );
     expect(activityStyles).toMatch(
       /html\[data-theme='dark'\] \.quick-planner-activity-highlight strong\s*\{[^}]*font-size:\s*20px;/,

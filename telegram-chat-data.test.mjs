@@ -54,6 +54,24 @@ describe('Telegram chat history peer resolution', () => {
     expect(client.getMessages).toHaveBeenCalledWith(chat, { limit: 50 });
   });
 
+  it('uses the cached avatar instead of downloading it while loading chat history', async () => {
+    const chat = Object.assign(new Chat(), { id: 73, title: 'Group' });
+    const self = Object.assign(new User(), { id: 42, firstName: 'Account' });
+    const cachedAvatarDataUrl = 'data:image/jpeg;base64,YXZhdGFy';
+    const client = {
+      getMe: vi.fn().mockResolvedValue(self),
+      getEntity: vi.fn().mockResolvedValue(chat),
+      getMessages: vi.fn().mockResolvedValue([]),
+      downloadProfilePhoto: vi.fn(),
+    };
+
+    const result = await createChatData(client)
+      .getChatHistoryInternal('73', 50, undefined, cachedAvatarDataUrl);
+
+    expect(client.downloadProfilePhoto).not.toHaveBeenCalled();
+    expect(result.chat.avatarDataUrl).toBe(cachedAvatarDataUrl);
+  });
+
   it('bounds media downloads and the total media payload for a large history', async () => {
     const self = Object.assign(new User(), { id: 42, firstName: 'Account' });
     let activeDownloads = 0;

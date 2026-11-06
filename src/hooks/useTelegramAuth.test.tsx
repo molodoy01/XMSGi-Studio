@@ -331,6 +331,148 @@ describe('useTelegramAuth', () => {
     }
   });
 
+  it('shows a 2FA password error on the password step without returning to code entry', async () => {
+    const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
+    const previousLocale = window.localStorage.getItem('awaitmsg_locale');
+    window.localStorage.setItem('awaitmsg_locale', 'en');
+    const login = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'PASSWORD_HASH_INVALID',
+    });
+    Object.defineProperty(window, 'telegram', {
+      configurable: true,
+      value: {
+        getAuthState: vi.fn().mockResolvedValue({
+          success: true,
+          authState: { hasSession: false, signedOut: false, connected: false, userName: '', state: 'ready' },
+        }),
+        login,
+      },
+    });
+
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <LocaleProvider>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useTelegramAuth({
+        setIsSettingsOpen: vi.fn(),
+        setChats: vi.fn(),
+        setSelectedChat: vi.fn(),
+      }), { wrapper });
+
+      await waitFor(() => expect(result.current.connectionResolved).toBe(true));
+      act(() => {
+        result.current.setAuthStep('password');
+        result.current.setPhoneNumber('+14155550123');
+        result.current.setPhoneCode('12345');
+        result.current.setTwoFactorPassword('wrong-password');
+      });
+      await act(async () => result.current.handleTelegramAuth());
+
+      expect(login).toHaveBeenCalledWith({
+        phoneNumber: '+14155550123',
+        phoneCode: '12345',
+        password: 'wrong-password',
+      });
+      expect(result.current.authStep).toBe('password');
+      expect(result.current.authError).toBe('The two-step verification password is incorrect. Try again.');
+    } finally {
+      if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
+      else Reflect.deleteProperty(window, 'telegram');
+      if (previousLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', previousLocale);
+    }
+  });
+
+  it('shows the rate-limit warning when Telegram returns numeric error 420', async () => {
+    const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
+    const previousLocale = window.localStorage.getItem('awaitmsg_locale');
+    window.localStorage.setItem('awaitmsg_locale', 'en');
+    Object.defineProperty(window, 'telegram', {
+      configurable: true,
+      value: {
+        getAuthState: vi.fn().mockResolvedValue({
+          success: true,
+          authState: { hasSession: false, signedOut: false, connected: false, userName: '', state: 'ready' },
+        }),
+        login: vi.fn().mockResolvedValue({ success: false, error: '420' }),
+      },
+    });
+
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <LocaleProvider>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useTelegramAuth({
+        setIsSettingsOpen: vi.fn(),
+        setChats: vi.fn(),
+        setSelectedChat: vi.fn(),
+      }), { wrapper });
+
+      await waitFor(() => expect(result.current.connectionResolved).toBe(true));
+      await act(async () => result.current.handleTelegramAuth());
+
+      expect(result.current.authError).toBe('Too many sign-in attempts. Please try again later.');
+    } finally {
+      if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
+      else Reflect.deleteProperty(window, 'telegram');
+      if (previousLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', previousLocale);
+    }
+  });
+
+  it('returns to code entry and clears expired credentials when Telegram requests a new code', async () => {
+    const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
+    const previousLocale = window.localStorage.getItem('awaitmsg_locale');
+    window.localStorage.setItem('awaitmsg_locale', 'en');
+    const login = vi.fn().mockResolvedValue({
+      success: true,
+      requiresCode: true,
+      nextStep: 'code',
+    });
+    Object.defineProperty(window, 'telegram', {
+      configurable: true,
+      value: {
+        getAuthState: vi.fn().mockResolvedValue({
+          success: true,
+          authState: { hasSession: false, signedOut: false, connected: false, userName: '', state: 'ready' },
+        }),
+        login,
+      },
+    });
+
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <LocaleProvider>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useTelegramAuth({
+        setIsSettingsOpen: vi.fn(),
+        setChats: vi.fn(),
+        setSelectedChat: vi.fn(),
+      }), { wrapper });
+
+      await waitFor(() => expect(result.current.connectionResolved).toBe(true));
+      act(() => {
+        result.current.setAuthStep('password');
+        result.current.setPhoneNumber('+14155550123');
+        result.current.setPhoneCode('expired-code');
+        result.current.setTwoFactorPassword('old-password');
+      });
+      await act(async () => result.current.handleTelegramAuth());
+
+      expect(result.current.authStep).toBe('code');
+      expect(result.current.phoneCode).toBe('');
+      expect(result.current.twoFactorPassword).toBe('');
+      expect(result.current.authError).toBe('Your sign-in expired. We sent a new code to Telegram. Enter it to continue.');
+      expect(result.current.authNotice).toBe(true);
+    } finally {
+      if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
+      else Reflect.deleteProperty(window, 'telegram');
+      if (previousLocale === null) window.localStorage.removeItem('awaitmsg_locale');
+      else window.localStorage.setItem('awaitmsg_locale', previousLocale);
+    }
+  });
+
   it('turns bridge network failures into the localized connection message', async () => {
     const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
     const previousLocale = window.localStorage.getItem('awaitmsg_locale');
@@ -534,6 +676,52 @@ describe('useTelegramAuth', () => {
       expect(signedOut).toBe(false);
       expect(result.current.signedOut).toBe(false);
       expect(result.current.authError).toBe('Sign out failed.');
+    } finally {
+      if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
+      else Reflect.deleteProperty(window, 'telegram');
+    }
+  });
+
+  it('clears the saved Telegram account and exits the returning-user state', async () => {
+    const previousTelegram = Object.getOwnPropertyDescriptor(window, 'telegram');
+    const setChats = vi.fn();
+    const setSelectedChat = vi.fn();
+    const forgetAccount = vi.fn().mockResolvedValue({
+      success: true,
+      authState: { hasSession: false, signedOut: false, connected: false, userName: '', state: 'NO_SESSION' },
+    });
+    Object.defineProperty(window, 'telegram', {
+      configurable: true,
+      value: {
+        getAuthState: vi.fn().mockResolvedValue({
+          success: true,
+          authState: { hasSession: true, signedOut: true, connected: false, userName: 'Alex', username: 'alex', state: 'SIGNED_OUT' },
+        }),
+        getStatus: vi.fn().mockResolvedValue({ success: true }),
+        getRateLimitState: vi.fn().mockResolvedValue({ success: true }),
+        forgetAccount,
+      },
+    });
+
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <LocaleProvider>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useTelegramAuth({
+        setIsSettingsOpen: vi.fn(),
+        setChats,
+        setSelectedChat,
+      }), { wrapper });
+
+      await waitFor(() => expect(result.current.signedOut).toBe(true));
+      await act(async () => result.current.handleForgetAccount());
+
+      expect(forgetAccount).toHaveBeenCalledOnce();
+      expect(result.current.signedOut).toBe(false);
+      expect(result.current.connected).toBe(false);
+      expect(result.current.returningUserName).toBe('');
+      expect(setChats).toHaveBeenCalledWith([]);
+      expect(setSelectedChat).toHaveBeenCalledWith(null);
     } finally {
       if (previousTelegram) Object.defineProperty(window, 'telegram', previousTelegram);
       else Reflect.deleteProperty(window, 'telegram');

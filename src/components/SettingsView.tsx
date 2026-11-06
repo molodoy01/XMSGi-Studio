@@ -278,7 +278,8 @@ export function SettingsView({
               </div>
             </div>
           </section>
-          <section className="settings-view-section settings-telegram-section">
+          <section className="settings-view-section settings-telegram-section" aria-labelledby="settings-telegram-title">
+            <h2 id="settings-telegram-title">{t('settings.telegram')}</h2>
             <div className={`settings-telegram-entry ${telegramConnected ? 'is-connected' : ''}`}>
               <button
                 type="button"
@@ -288,16 +289,14 @@ export function SettingsView({
                 aria-expanded={isTelegramManagementOpen}
               >
                 <span className="settings-telegram-summary-main">
-                  <strong>{t('settings.telegram')}</strong>
-                  <span className={`settings-telegram-summary-state ${telegramConnected ? 'is-connected' : ''}`}>
-                    <span className="settings-telegram-status-dot" aria-hidden="true" />
-                    {telegramConnected ? t('telegramStatus.connected') : t('settings.telegramNotConnected')}
+                  <span className="settings-telegram-summary-account">
+                    {telegramConnected
+                      ? telegramUsername
+                        ? `@${telegramUsername.replace(/^@/, '')}`
+                        : accountName || t('settings.telegram')
+                      : t('settings.telegramNotConnected')}
                   </span>
-                  {telegramConnected && (telegramUsername || accountName) && (
-                    <span className="settings-telegram-summary-account">
-                      {telegramUsername ? `@${telegramUsername.replace(/^@/, '')}` : accountName}
-                    </span>
-                  )}
+                  <span className={`settings-telegram-status-dot ${telegramConnected ? 'is-connected' : ''}`} aria-hidden="true" />
                 </span>
                 <span className="settings-telegram-summary-open">
                   <span>{t('settings.manageTelegram')}</span>
@@ -326,9 +325,11 @@ export function SettingsView({
                   </header>
 
                   <div className="telegram-manager-status topbar-logout-modal-description" role="status" aria-live="polite">
-                    <span className={`settings-telegram-status-dot ${telegramConnected ? 'is-connected' : ''}`} aria-hidden="true" />
                     <div>
-                      <strong>{telegramConnected ? t('telegramStatus.connected') : t('settings.telegramNotConnected')}</strong>
+                      <span className="telegram-manager-status-label">
+                        <span className={`settings-telegram-status-dot ${telegramConnected ? 'is-connected' : ''}`} aria-hidden="true" />
+                        <strong>{telegramConnected ? t('telegramStatus.connected') : t('settings.telegramNotConnected')}</strong>
+                      </span>
                       {telegramConnected && (telegramUsername || accountName) && (
                         <span>{telegramUsername ? `@${telegramUsername.replace(/^@/, '')}` : accountName}</span>
                       )}

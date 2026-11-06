@@ -4,6 +4,7 @@ import type { WorkspaceDraft } from './draftStore';
 import {
   appendWorkspaceDocumentVersion,
   areWorkspaceSnapshotsEqual,
+  hasEmbeddedWorkspaceHistoryAvatars,
   MAX_WORKSPACE_DOCUMENT_VERSIONS,
   normalizeWorkspaceDocumentHistories,
 } from './documentHistory';
@@ -38,6 +39,48 @@ describe('workspace document history', () => {
 
     expect(first['document-1']).toHaveLength(1);
     expect(repeated).toBe(first);
+  });
+
+  it('omits chat avatars from new and normalized history snapshots', () => {
+    const withAvatar = {
+      ...snapshot('document-1', 'Post'),
+      selectedChat: {
+        id: 'chat-1',
+        name: 'Chat',
+        avatarDataUrl: `data:image/jpeg;base64,${'a'.repeat(1000)}`,
+      },
+    };
+    const created = appendWorkspaceDocumentVersion({}, 'document-1', withAvatar, 'edit');
+    const legacy = {
+      ...created,
+      'document-1': [{
+        ...created['document-1']![0],
+        snapshot: withAvatar,
+      }],
+    };
+    const normalized = normalizeWorkspaceDocumentHistories(legacy);
+
+    expect(hasEmbeddedWorkspaceHistoryAvatars(created)).toBe(false);
+    expect(hasEmbeddedWorkspaceHistoryAvatars(legacy)).toBe(true);
+    expect(hasEmbeddedWorkspaceHistoryAvatars(normalized)).toBe(false);
+    expect(normalized['document-1']?.[0].snapshot).toMatchObject({
+      body: 'Post',
+      selectedChat: { id: 'chat-1', name: 'Chat' },
+    });
+    expect(normalized['document-1']?.[0].snapshot).not.toHaveProperty('selectedChat.avatarDataUrl');
+  });
+
+  it('does not treat chat avatar changes as document edits', () => {
+    const first = {
+      ...snapshot('document-1', 'Post'),
+      selectedChat: { id: 'chat-1', name: 'Chat', avatarDataUrl: 'data:image/jpeg;base64,old' },
+    };
+    const updatedAvatar = {
+      ...first,
+      selectedChat: { ...first.selectedChat, avatarDataUrl: 'data:image/jpeg;base64,new' },
+    };
+
+    expect(areWorkspaceSnapshotsEqual(first, updatedAvatar)).toBe(true);
   });
 
   it('keeps the newest 30 versions independently for each document', () => {
