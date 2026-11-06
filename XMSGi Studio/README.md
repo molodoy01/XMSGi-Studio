@@ -35,7 +35,7 @@
 Studio is the main workspace for composing and organizing posts. Quick Planner handles fast sends, schedules, and drafts that can be continued in Studio and viewed in Posts/History.
 
 - **Publish:** send from your own Telegram account to chats, groups, and channels. No bot required.
-- **Compose and schedule:** rich text, attachments, inline buttons, one-time posts, and daily, weekly, biweekly, or monthly repeats (up to 15 occurrences).
+- **Compose and schedule:** rich text, attachments, one-time posts, and daily, weekly, biweekly, or monthly repeats (up to 15 occurrences).
 - **Stay organized:** color-coded drafts, reusable templates, and document history.
 - **Keep control:** edit, reschedule, or cancel queued posts; FloodWait limits retry automatically.
 - **Keep data local:** sessions stay on the device and use Electron <code>safeStorage</code> where supported. Portable Windows build available.
@@ -102,7 +102,7 @@ Studio's internal feature structure lives under `XMSGi Studio/src/studio/`:
 
 - `XMSGi Studio/src/studio/App.tsx` composes the workspace and scheduler.
 - `XMSGi Studio/src/studio/pages/WorkspacePage.tsx` owns the workspace page.
-- `XMSGi Studio/src/studio/components/stages/` contains the chat, schedule, draft, template and inline-button stages.
+- `XMSGi Studio/src/studio/components/stages/` contains the chat, schedule, draft and template stages.
 - `XMSGi Studio/src/studio/services/` adapts publishing operations to the Telegram runtime.
 - `XMSGi Studio/packages/shared/` provides types, translations and utilities shared across the application.
 - `XMSGi Studio/telegram-errors.cjs` classifies Telegram errors; the account rate-limit interceptor waits and retries FloodWaits. IPC passes error category and retry metadata to Studio's operation-aware error handler.

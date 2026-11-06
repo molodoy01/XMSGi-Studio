@@ -14,7 +14,7 @@ Product screenshots of the **XMSGi Studio** desktop application.
 
 These images back the project README. Use `04-zoom.png` for the sign-in screen
 and `03.png` for the secondary Quick Planner view. The website gallery's final
-sign-in image is `XMSGi Studio/website/screenshots/04.png`.
+sign-in image is `website/screenshots/04.png`.
 
 ---
 
