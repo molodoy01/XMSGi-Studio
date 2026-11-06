@@ -11,7 +11,7 @@
   <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
 </p>
 
-<img src="website/screenshots/01.png" alt="XMSGi Studio workspace" width="880" />
+<img src="../../screenshots/01.png" alt="XMSGi Studio workspace" width="880" />
 
 A desktop workspace for **writing, scheduling, and reviewing Telegram messages** — straight from your own account, **no bot required**. Available for Windows, Linux, and macOS; the Windows build is portable.
 

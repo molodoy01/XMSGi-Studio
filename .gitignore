@@ -1,38 +1,27 @@
-# Root ignores � nested project + standalone website clone
-.vite/
-website XMSGi Studio/
-XMSGi Studio/node_modules/
-XMSGi Studio/dist/
-XMSGi Studio/release/
-XMSGi Studio/release-working-*/
-*.tsbuildinfo
-Studio/Studio module/node_modules/
-Studio/Studio module/dist/
-/Stands/
-node_modules
-/.playwright-mcp/
-/dist/
-/release/
-/release-working-*/
-# Common build + temp files
-node_modules/
-dist/
-build/
-.vite/
-.vitest/
-*.log
-npm-debug.log*
-.DS_Store
-Thumbs.db
-.cache/
-**/.cache/
-**/tmp/
-**/temp/
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/build/
+**/release/
+**/release-working-*/
+**/.vite/
+**/.vitest/
 **/coverage/
-**/.idea/
-**/.vscode/
+*.tsbuildinfo
+
+# Local configuration and application data
 **/.env
 **/.env.*
 !**/.env.example
 **/electron-user-data/
 **/app-data/
+**/.playwright-mcp/
+
+# Editor, operating system, and temporary files
+**/.cache/
+**/.idea/
+**/.vscode/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

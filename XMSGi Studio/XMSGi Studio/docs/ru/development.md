@@ -174,7 +174,7 @@ CI описан в `.github/workflows/` (дерево репозитория —
   сборка и публикация не запускаются. Сам тег создаётся и пушится локально:
   `git tag v1.4.0 && git push origin v1.4.0`.
 - `.github/workflows/static.yml` — деплой статического сайта на GitHub Pages
-  (ветка `main`, каталог `XMSGi Studio/website`).
+  (ветка `main`, каталог `website`).
 
 Сборки desktop-релизов используют electron-builder-таргеты из `package.json`
 (см. [Архитектура §7](architecture.md#7-сборка-и-упаковка)).

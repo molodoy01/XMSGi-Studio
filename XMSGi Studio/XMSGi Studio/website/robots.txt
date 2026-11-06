@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://molodoy01.github.io/XMSGi-Studio/sitemap.xml

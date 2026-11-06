@@ -2,170 +2,87 @@
 
 # XMSGi Studio
 
-### ✈️ Telegram messages, when you choose.
+### Plan and publish Telegram posts from your own account.
+
+Write, schedule, and manage posts in a focused desktop workspace. Your Telegram session stays on your device; no bot is required for publishing.
 
 <p>
-  <a href="https://github.com/molodoy01/XMSGi-Studio/releases"><img alt="Release" src="https://img.shields.io/github/v/release/molodoy01/XMSGi-Studio?style=flat-square"></a>
-  <a href="https://github.com/molodoy01/XMSGi-Studio/actions/workflows/release-check.yml"><img alt="Build" src="https://github.com/molodoy01/XMSGi-Studio/actions/workflows/release-check.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square"></a>
-  <a href="https://github.com/molodoy01/XMSGi-Studio/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/molodoy01/XMSGi-Studio?style=flat-square"></a>
-</p>
-
-**XMSGi Studio** makes planning and publishing Telegram posts simple, local, and reliable.
-
-<p align="center">
-  <a href="https://github.com/molodoy01/XMSGi-Studio/releases/latest"><img alt="Download latest release" src="https://img.shields.io/badge/⬇%20Download-latest-6c7cff?style=for-the-badge"></a>
-</p>
-
-<img src="screenshots/01.png" alt="XMSGi Studio workspace" width="760" />
-
-<p align="center">
-  <a href="https://molodoy01.github.io/XMSGi-Studio/"><img alt="Website" src="https://img.shields.io/badge/Website-molodoy01.github.io-101218?style=for-the-badge"></a>
+  <a href="https://github.com/molodoy01/XMSGi-Studio/releases/latest"><img alt="Download the latest release" src="https://img.shields.io/badge/Download-latest%20release-536dfe?style=for-the-badge"></a>
   &nbsp;
-  <a href="https://github.com/molodoy01/XMSGi-Studio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github"></a>
+  <a href="https://molodoy01.github.io/XMSGi-Studio/"><img alt="Product website" src="https://img.shields.io/badge/Product-website-20232a?style=for-the-badge"></a>
 </p>
+
+<p>
+  <a href="https://github.com/molodoy01/XMSGi-Studio/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/molodoy01/XMSGi-Studio?style=flat-square"></a>
+  <a href="https://github.com/molodoy01/XMSGi-Studio/actions/workflows/release-check.yml"><img alt="Release checks" src="https://github.com/molodoy01/XMSGi-Studio/actions/workflows/release-check.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square"></a>
+</p>
+
+<img src="screenshots/01.png" alt="XMSGi Studio desktop workspace" width="840">
 
 </div>
 
----
+## Your publishing workflow
 
-## ✨ Features
+- **Compose:** format messages, add media, and preview posts before sending.
+- **Schedule:** publish once or set daily, weekly, biweekly, or monthly repeats, up to 15 occurrences.
+- **Stay organized:** keep drafts, reusable templates, scheduled posts, and publishing history together.
+- **Work from your account:** publish to Telegram chats, groups, and channels without a bot.
+- **Keep control:** manage queued posts and retain session data locally, using Electron `safeStorage` where supported.
 
-### ⚡ Studio first, Quick Planner when speed matters
-Studio is the main workspace for composing and organizing posts. Quick Planner handles fast sends, schedules, and drafts that can be continued in Studio and viewed in Posts/History.
+Studio is the main workspace for preparing and organizing posts. Quick Planner is there for fast sends, schedules, and drafts that can be continued in Studio.
 
-- **Publish:** send from your own Telegram account to chats, groups, and channels. No bot required.
-- **Compose and schedule:** rich text, attachments, inline buttons, one-time posts, and daily, weekly, biweekly, or monthly repeats (up to 15 occurrences).
-- **Stay organized:** color-coded drafts, reusable templates, and document history.
-- **Keep control:** edit, reschedule, or cancel queued posts; FloodWait limits retry automatically.
-- **Keep data local:** sessions stay on the device and use Electron <code>safeStorage</code> where supported. Portable Windows build available.
-
-For setup and workflow details, see the [user guide](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md).
-
-## 🖼️ Screenshots
+## Screenshots
 
 <p align="center">
-  <img src="screenshots/02.png" alt="Posts history and saved messages" width="32%" />
-  <img src="screenshots/03.png" alt="Quick Planner composer and activity chart" width="32%" />
-  <img src="screenshots/04-zoom.png" alt="XMSGi Studio sign-in screen" width="32%" />
+  <img src="screenshots/02.png" alt="Posts history and saved messages" width="32%">
+  <img src="screenshots/03.png" alt="Quick Planner composer and activity chart" width="32%">
+  <img src="screenshots/04-zoom.png" alt="XMSGi Studio sign-in screen" width="32%">
 </p>
 
-## 📥 Download
+## Download
 
-**[Download the latest release and choose your platform](https://github.com/molodoy01/XMSGi-Studio/releases/latest).**
+**[Get the latest release](https://github.com/molodoy01/XMSGi-Studio/releases/latest)** for Windows, Linux, or macOS.
 
-| Platform | Format | Download |
-| --- | --- | --- |
-| Windows | Portable `.exe` | [XMSGi Studio.exe](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio.exe) — no installation required |
-| Linux | AppImage (x64) | [XMSGi.Studio-1.4.0.AppImage](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.AppImage) |
-| Linux | `.deb` (x64) | [xmsgi-studio_1.4.0_amd64.deb](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/xmsgi-studio_1.4.0_amd64.deb) |
-| macOS | `.dmg` (Intel, unsigned) | [XMSGi.Studio-1.4.0.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.dmg) |
-| macOS | `.dmg` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64.dmg) |
-| macOS | `.zip` (Intel, unsigned) | [XMSGi.Studio-1.4.0-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-mac.zip) |
-| macOS | `.zip` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64-mac.zip) |
+The release page contains the current Windows portable app, Linux AppImage and `.deb` packages, and macOS `.dmg` and `.zip` builds.
 
-The v1.4.0 download links will work after the release and its platform packages are published.
+**macOS note:** builds are unsigned and not notarized. Open the app from Finder using **Control-click → Open**, and only bypass this warning for a copy downloaded from the official releases page.
 
-### First launch on macOS
+## Documentation and website
 
-macOS builds are unsigned and not notarized. Control-click XMSGi Studio in Finder,
-choose **Open**, then confirm **Open**.
-If macOS still blocks it, go to **System Settings → Privacy & Security → Open Anyway**.
-Only bypass this warning for a copy downloaded from the official releases page.
+- [Product website](https://molodoy01.github.io/XMSGi-Studio/) — product overview and downloads.
+- [Telegram post scheduler (RU)](https://molodoy01.github.io/XMSGi-Studio/ru/telegram-post-scheduler/) · [English](https://molodoy01.github.io/XMSGi-Studio/en/telegram-post-scheduler/) — product information and guides.
+- [User guide (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md) — setup, features, and workflows.
+- [Development guide (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/development.md) — local setup, tests, and conventions.
+- [Architecture (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/architecture.md) · [Security and privacy (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/security.md) · [IPC reference (RU)](XMSGi%20Studio/XMSGi%20Studio/docs/ru/ipc-reference.md).
 
-## 🚀 Quick start
+The bilingual website and its search-engine pages, metadata, and sitemap are maintained in [`website/`](website/).
 
-Requirements:
+## Run from source
 
-- Node.js 20+
-- npm
-- Windows, Linux (x64), or macOS (x64 / Apple Silicon) for the packaged desktop app
-
-Run locally:
+Requirements: Node.js 20+ and npm.
 
 ```bash
 cd "XMSGi Studio/XMSGi Studio"
 npm ci
+npm test
+npm run typecheck
 npm run build
 npm run electron
 ```
 
-Build a Windows release package:
+Create a Windows portable package with `npm run dist`.
 
-```bash
-cd "XMSGi Studio/XMSGi Studio"
-npm run dist
-```
+## Project layout
 
-<details>
-<summary>🏗️ <b>Studio architecture</b> · for developers</summary>
+- [`XMSGi Studio/`](XMSGi%20Studio/) — desktop application and its technical documentation.
+- [`website/`](website/) — bilingual product site and SEO pages.
+- [`screenshots/`](screenshots/) — product screenshots used on this page.
 
-The Electron host owns the window, Telegram session and IPC bridge. Studio and Quick Planner are pages in the same React application. Studio is composed in `XMSGi Studio/src/studio/App.tsx` and mounted through `XMSGi Studio/src/workspace/StudioMount.tsx` with the host-owned scheduler runtime.
+## Contributing and security
 
-Studio's internal feature structure lives under `XMSGi Studio/src/studio/`:
+Focused pull requests and bug reports are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing. For vulnerability reports, follow [SECURITY.md](SECURITY.md) and avoid posting sensitive details publicly.
 
-- `XMSGi Studio/src/studio/App.tsx` composes the workspace and scheduler.
-- `XMSGi Studio/src/studio/pages/WorkspacePage.tsx` owns the workspace page.
-- `XMSGi Studio/src/studio/components/stages/` contains the chat, schedule, draft, template and inline-button stages.
-- `XMSGi Studio/src/studio/services/` adapts publishing operations to the Telegram runtime.
-- `XMSGi Studio/packages/shared/` provides types, translations and utilities shared across the application.
-- `XMSGi Studio/telegram-errors.cjs` classifies Telegram errors; the account rate-limit interceptor waits and retries FloodWaits. IPC passes error category and retry metadata to Studio's operation-aware error handler.
+## License
 
-Studio's locale context is provided by the host. Keep `StudioMount` under the host's `LocaleProvider`, and pass the existing connection, chats, account ID and scheduler runtime:
-
-```tsx
-<StudioMount
-  connected={connected}
-  activeAccountId={activeAccountId}
-  chats={chats}
-  scheduler={scheduler}
-/>
-```
-
-The `@/`, `@studio/` and `@shared/` aliases are configured by the host Vite and TypeScript settings. Run `npm --prefix "XMSGi Studio/XMSGi Studio" run typecheck`, `npm --prefix "XMSGi Studio/XMSGi Studio" test` and `npm --prefix "XMSGi Studio/XMSGi Studio" run build` from the repository root to validate the complete app, including Studio.
-
-### Scheduler ownership
-
-When Studio is embedded, the Host `useScheduler` runtime is authoritative for scheduling history, cancellation, retry state and FloodWait pauses. Studio receives that runtime through the versioned React-props contract in `packages/shared/bridge/`; History/Archive callbacks are part of the same contract. There is no separate event stream.
-
-The Electron application always passes the host scheduler runtime, which is authoritative for scheduling history, cancellation, retry state and FloodWait pauses. `useStudioScheduler` remains a fallback for isolated previews and component tests.
-
-</details>
-
-## 📚 Documentation
-
-Full documentation lives in the [`docs/`](XMSGi%20Studio/XMSGi%20Studio/docs/README.md) directory:
-
-- [User guide](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md) — features, modes, installation, workflows (RU)
-- [Architecture](XMSGi%20Studio/XMSGi%20Studio/docs/ru/architecture.md) — process layers, modules, data flows (RU)
-- [Development](XMSGi%20Studio/XMSGi%20Studio/docs/ru/development.md) — setup, commands, tests, conventions (RU)
-- [Security and privacy](XMSGi%20Studio/XMSGi%20Studio/docs/ru/security.md) — storage, encryption, trust boundaries (RU)
-- [IPC reference](XMSGi%20Studio/XMSGi%20Studio/docs/ru/ipc-reference.md) — renderer ⇄ main channels (RU)
-
-## 🔒 Security &amp; privacy
-
-XMSGi Studio keeps Telegram data local to the device. Session and account data are stored in the user data directory, and secure storage is used where the platform supports it.
-
-This app does not depend on a Telegram bot for its core scheduling flow.
-
-## 🤝 Contributing
-
-We welcome focused pull requests and bug reports. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
-
-## 🛡️ Security reporting
-
-Please report vulnerabilities privately through the repository security process. Do not disclose critical issues in public issues or pull requests. See [SECURITY.md](SECURITY.md).
-
-## 📦 Repository
-
-- Source code: https://github.com/molodoy01/XMSGi-Studio
-- Website: https://molodoy01.github.io/XMSGi-Studio/
-
-## 📄 License
-
-This project is licensed under the MIT License. The canonical license text is in [LICENSE](LICENSE).
-
----
-Why XMSGi Studio?
-
-XMSGi Studio was created because existing Telegram scheduling tools felt slow, bloated and disconnected from the actual Telegram experience.
+XMSGi Studio is released under the [MIT License](LICENSE).

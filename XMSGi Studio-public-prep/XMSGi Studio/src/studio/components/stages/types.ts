@@ -1,1 +1,0 @@
-export type StageMode = 'editor' | 'schedule' | 'template' | 'draft' | 'chat' | 'buttons';
