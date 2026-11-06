@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="description" content="Создавайте посты для Telegram со своего аккаунта и отправляйте их точно в срок — даже если компьютер выключен. Черновики, очередь и статусы доставки. Без ботов, всё локально." />
+  <meta name="description" content="РЎРѕР·РґР°РІР°Р№С‚Рµ РїРѕСЃС‚С‹ РґР»СЏ Telegram СЃРѕ СЃРІРѕРµРіРѕ Р°РєРєР°СѓРЅС‚Р° Рё РѕС‚РїСЂР°РІР»СЏР№С‚Рµ РёС… С‚РѕС‡РЅРѕ РІ СЃСЂРѕРє вЂ” РґР°Р¶Рµ РµСЃР»Рё РєРѕРјРїСЊСЋС‚РµСЂ РІС‹РєР»СЋС‡РµРЅ. Р§РµСЂРЅРѕРІРёРєРё, РѕС‡РµСЂРµРґСЊ Рё СЃС‚Р°С‚СѓСЃС‹ РґРѕСЃС‚Р°РІРєРё. Р‘РµР· Р±РѕС‚РѕРІ, РІСЃС‘ Р»РѕРєР°Р»СЊРЅРѕ." />
   <meta name="google-site-verification" content="zIfUT777dJkjXOqgry0vpuZJUXKJChisbAGXvZJASpE" />
   <meta name="theme-color" content="#000000" />
-  <title>XMSGi Studio — отложенные посты в Telegram с вашего аккаунта</title>
+  <title>XMSGi Studio вЂ” РѕС‚Р»РѕР¶РµРЅРЅС‹Рµ РїРѕСЃС‚С‹ РІ Telegram СЃ РІР°С€РµРіРѕ Р°РєРєР°СѓРЅС‚Р°</title>
   <link href="assets/fonts.css" rel="stylesheet" />
   <style>
     :root {
@@ -48,7 +48,7 @@
       padding-right: 20px;
     }
 
-    /* ——— top bar ——— */
+    /* вЂ”вЂ”вЂ” top bar вЂ”вЂ”вЂ” */
     header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 50;
       height: 56px;
@@ -88,7 +88,7 @@
     }
     .lang button.on, .lang button:hover { color: var(--text); }
 
-    /* ——— hero ——— */
+    /* вЂ”вЂ”вЂ” hero вЂ”вЂ”вЂ” */
     .hero {
       padding: 120px 0 48px;
       text-align: center;
@@ -140,7 +140,7 @@
       font-size: 11px;
     }
 
-    /* ——— shot ——— */
+    /* вЂ”вЂ”вЂ” shot вЂ”вЂ”вЂ” */
     .shot {
       margin: 0 auto;
       max-width: 880px;
@@ -158,14 +158,14 @@
     .shot-frame picture,
     .gallery-item picture { display: block; width: 100%; }
 
-    /* ——— neon divider ——— */
+    /* вЂ”вЂ”вЂ” neon divider вЂ”вЂ”вЂ” */
     .line {
       height: 1px; border: none; width: 100%; margin: 20px 0 0;
       background: linear-gradient(90deg, transparent, var(--neon-soft) 15%, var(--neon) 50%, var(--neon-soft) 85%, transparent);
       box-shadow: 0 0 12px rgba(168,144,255,0.35);
     }
 
-    /* ——— grid ——— */
+    /* вЂ”вЂ”вЂ” grid вЂ”вЂ”вЂ” */
     .points-wrap { padding: 56px 0 0; }
     .section-head { text-align: center; margin-bottom: 34px; }
     .section-head .kicker {
@@ -218,7 +218,7 @@
       font-size: 13px; color: var(--dim); line-height: 1.5;
     }
 
-    /* ——— gallery ——— */
+    /* вЂ”вЂ”вЂ” gallery вЂ”вЂ”вЂ” */
     .gallery { padding: 56px 0 0; }
     .gallery-grid {
       display: grid;
@@ -248,7 +248,7 @@
     }
     .gallery-item:hover img { transform: scale(1.03); }
 
-    /* ——— ending ——— */
+    /* вЂ”вЂ”вЂ” ending вЂ”вЂ”вЂ” */
     .ending {
       padding: 56px 0 80px;
       text-align: center;
@@ -323,7 +323,7 @@
       letter-spacing: 0.04em;
     }
 
-    /* ——— footer ——— */
+    /* вЂ”вЂ”вЂ” footer вЂ”вЂ”вЂ” */
     footer {
       padding: 20px 0 32px;
       border-top: 1px solid var(--line);
@@ -334,7 +334,7 @@
     footer a:hover { color: var(--dim); }
     footer .links { display: flex; gap: 16px; }
 
-    /* ——— mobile ——— */
+    /* вЂ”вЂ”вЂ” mobile вЂ”вЂ”вЂ” */
     @media (max-width: 720px) {
       .wrap { padding-left: 16px; padding-right: 16px; }
       .hero { padding: 100px 0 36px; }
@@ -369,21 +369,21 @@
         <button type="button" data-lang="en">EN</button>
         <button type="button" data-lang="ru" class="on">RU</button>
       </div>
-      <a class="dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest" style="color:var(--text);font-weight:600" data-i18n="dl">Загрузки</a>
+      <a class="dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest" style="color:var(--text);font-weight:600" data-i18n="dl">Р—Р°РіСЂСѓР·РєРё</a>
     </div>
   </div>
 </header>
 
 <section class="hero">
   <div class="wrap">
-    <p class="hero-year">XMSGi Studio · <span data-current-year>2026</span></p>
-    <h1 data-i18n="h1">Посты в Telegram<br><em>по расписанию.</em></h1>
+    <p class="hero-year">XMSGi Studio В· <span data-current-year>2026</span></p>
+    <h1 data-i18n="h1">РџРѕСЃС‚С‹ РІ Telegram<br><em>РїРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ.</em></h1>
     <a class="hero-cta" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <span data-i18n="latest">Скачать последнюю версию</span>
+      <span data-i18n="latest">РЎРєР°С‡Р°С‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ РІРµСЂСЃРёСЋ</span>
     </a>
-    <p class="release-version" data-i18n="currentRelease">Актуальный релиз: v1.3.6</p>
-    <p data-i18n="sub">Составляйте пост в удобное время — XMSGi Studio отправит его по расписанию, даже если компьютер выключен. Без ботов и облака — только ваш аккаунт.</p>
+    <p class="release-version" data-i18n="currentRelease">РђРєС‚СѓР°Р»СЊРЅС‹Р№ СЂРµР»РёР·: v1.4.0</p>
+    <p data-i18n="sub">РЎРѕСЃС‚Р°РІР»СЏР№С‚Рµ РїРѕСЃС‚ РІ СѓРґРѕР±РЅРѕРµ РІСЂРµРјСЏ вЂ” XMSGi Studio РѕС‚РїСЂР°РІРёС‚ РµРіРѕ РїРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ, РґР°Р¶Рµ РµСЃР»Рё РєРѕРјРїСЊСЋС‚РµСЂ РІС‹РєР»СЋС‡РµРЅ. Р‘РµР· Р±РѕС‚РѕРІ Рё РѕР±Р»Р°РєР° вЂ” С‚РѕР»СЊРєРѕ РІР°С€ Р°РєРєР°СѓРЅС‚.</p>
   </div>
 </section>
 
@@ -392,7 +392,7 @@
     <div class="shot-frame">
       <picture>
         <source srcset="screenshots/01.webp" type="image/webp" />
-        <img src="screenshots/01.webp" alt="Рабочее пространство XMSGi Studio" data-i18n-alt="altMain" width="880" height="auto" />
+        <img src="screenshots/01.png" alt="Р Р°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ XMSGi Studio" data-i18n-alt="altMain" width="880" height="auto" />
       </picture>
     </div>
     <hr class="line" />
@@ -402,50 +402,50 @@
 <div class="wrap points-wrap">
   <div class="points">
     <div class="point">
-      <strong data-i18n="p1t">Быстрый планировщик</strong>
-      <span data-i18n="p1d">Отправляйте сообщения сейчас, планируйте отправку или сохраняйте черновики — в одном месте.</span>
+      <strong data-i18n="p1t">Р‘С‹СЃС‚СЂС‹Р№ РїР»Р°РЅРёСЂРѕРІС‰РёРє</strong>
+      <span data-i18n="p1d">РћС‚РїСЂР°РІР»СЏР№С‚Рµ СЃРѕРѕР±С‰РµРЅРёСЏ СЃРµР№С‡Р°СЃ, РїР»Р°РЅРёСЂСѓР№С‚Рµ РѕС‚РїСЂР°РІРєСѓ РёР»Рё СЃРѕС…СЂР°РЅСЏР№С‚Рµ С‡РµСЂРЅРѕРІРёРєРё вЂ” РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ.</span>
     </div>
     <div class="point">
-      <strong data-i18n="p2t">Полные посты</strong>
-      <span data-i18n="p2d">Добавляйте медиа, форматируйте текст и проверяйте результат в предварительном просмотре.</span>
+      <strong data-i18n="p2t">РџРѕР»РЅС‹Рµ РїРѕСЃС‚С‹</strong>
+      <span data-i18n="p2d">Р”РѕР±Р°РІР»СЏР№С‚Рµ РјРµРґРёР°, С„РѕСЂРјР°С‚РёСЂСѓР№С‚Рµ С‚РµРєСЃС‚ Рё РїСЂРѕРІРµСЂСЏР№С‚Рµ СЂРµР·СѓР»СЊС‚Р°С‚ РІ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРј РїСЂРѕСЃРјРѕС‚СЂРµ.</span>
     </div>
     <div class="point">
-      <strong data-i18n="p3t">Одна история публикаций</strong>
-      <span data-i18n="p3d">Черновики, очередь отправки и статусы доставки собраны в одном месте.</span>
+      <strong data-i18n="p3t">РћРґРЅР° РёСЃС‚РѕСЂРёСЏ РїСѓР±Р»РёРєР°С†РёР№</strong>
+      <span data-i18n="p3d">Р§РµСЂРЅРѕРІРёРєРё, РѕС‡РµСЂРµРґСЊ РѕС‚РїСЂР°РІРєРё Рё СЃС‚Р°С‚СѓСЃС‹ РґРѕСЃС‚Р°РІРєРё СЃРѕР±СЂР°РЅС‹ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ.</span>
     </div>
     <div class="point">
-      <strong data-i18n="p4t">Ваш аккаунт Telegram</strong>
-      <span data-i18n="p4d">Выбирайте нужные чаты, группы и каналы и публикуйте от своего имени.</span>
+      <strong data-i18n="p4t">Р’Р°С€ Р°РєРєР°СѓРЅС‚ Telegram</strong>
+      <span data-i18n="p4d">Р’С‹Р±РёСЂР°Р№С‚Рµ РЅСѓР¶РЅС‹Рµ С‡Р°С‚С‹, РіСЂСѓРїРїС‹ Рё РєР°РЅР°Р»С‹ Рё РїСѓР±Р»РёРєСѓР№С‚Рµ РѕС‚ СЃРІРѕРµРіРѕ РёРјРµРЅРё.</span>
     </div>
     <div class="point">
-      <strong data-i18n="p5t">Статистика отправок</strong>
-      <span data-i18n="p5d">Посмотрите диаграмму публикаций за последние 7 или 30 дней.</span>
+      <strong data-i18n="p5t">РЎС‚Р°С‚РёСЃС‚РёРєР° РѕС‚РїСЂР°РІРѕРє</strong>
+      <span data-i18n="p5d">РџРѕСЃРјРѕС‚СЂРёС‚Рµ РґРёР°РіСЂР°РјРјСѓ РїСѓР±Р»РёРєР°С†РёР№ Р·Р° РїРѕСЃР»РµРґРЅРёРµ 7 РёР»Рё 30 РґРЅРµР№.</span>
     </div>
     <div class="point">
-      <strong data-i18n="p6t">Светлая и тёмная темы</strong>
-      <span data-i18n="p6d">Выберите оформление, которое комфортно для работы.</span>
+      <strong data-i18n="p6t">РЎРІРµС‚Р»Р°СЏ Рё С‚С‘РјРЅР°СЏ С‚РµРјС‹</strong>
+      <span data-i18n="p6d">Р’С‹Р±РµСЂРёС‚Рµ РѕС„РѕСЂРјР»РµРЅРёРµ, РєРѕС‚РѕСЂРѕРµ РєРѕРјС„РѕСЂС‚РЅРѕ РґР»СЏ СЂР°Р±РѕС‚С‹.</span>
     </div>
   </div>
 </div>
 
 <div class="wrap points-wrap">
   <div class="section-head section-head--management">
-    <span class="kicker" data-i18n="mgmtKicker">Запланировали — а что дальше?</span>
-    <h2 data-i18n="mgmtTitle">Контроль<br><em>остаётся у вас.</em></h2>
-    <p data-i18n="mgmtSub">Правьте, переносите и отслеживайте публикации — вплоть до самой отправки.</p>
+    <span class="kicker" data-i18n="mgmtKicker">Р—Р°РїР»Р°РЅРёСЂРѕРІР°Р»Рё вЂ” Р° С‡С‚Рѕ РґР°Р»СЊС€Рµ?</span>
+    <h2 data-i18n="mgmtTitle">РљРѕРЅС‚СЂРѕР»СЊ<br><em>РѕСЃС‚Р°С‘С‚СЃСЏ Сѓ РІР°СЃ.</em></h2>
+    <p data-i18n="mgmtSub">РџСЂР°РІСЊС‚Рµ, РїРµСЂРµРЅРѕСЃРёС‚Рµ Рё РѕС‚СЃР»РµР¶РёРІР°Р№С‚Рµ РїСѓР±Р»РёРєР°С†РёРё вЂ” РІРїР»РѕС‚СЊ РґРѕ СЃР°РјРѕР№ РѕС‚РїСЂР°РІРєРё.</p>
   </div>
   <div class="points points--management">
     <div class="point">
-      <strong data-i18n="c1t">Обновите пост без пересоздания</strong>
-      <span data-i18n="c1d">Измените текст или медиа запланированной публикации — она уйдёт в обновлённом виде.</span>
+      <strong data-i18n="c1t">РћР±РЅРѕРІРёС‚Рµ РїРѕСЃС‚ Р±РµР· РїРµСЂРµСЃРѕР·РґР°РЅРёСЏ</strong>
+      <span data-i18n="c1d">РР·РјРµРЅРёС‚Рµ С‚РµРєСЃС‚ РёР»Рё РјРµРґРёР° Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅРЅРѕР№ РїСѓР±Р»РёРєР°С†РёРё вЂ” РѕРЅР° СѓР№РґС‘С‚ РІ РѕР±РЅРѕРІР»С‘РЅРЅРѕРј РІРёРґРµ.</span>
     </div>
     <div class="point">
-      <strong data-i18n="c2t">Вся история публикаций</strong>
-      <span data-i18n="c2d">Очередь, отправленные посты и черновики — в одной истории. Сохраняйте идеи, чтобы вернуться и превратить их в публикации.</span>
+      <strong data-i18n="c2t">Р’СЃСЏ РёСЃС‚РѕСЂРёСЏ РїСѓР±Р»РёРєР°С†РёР№</strong>
+      <span data-i18n="c2d">РћС‡РµСЂРµРґСЊ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Рµ РїРѕСЃС‚С‹ Рё С‡РµСЂРЅРѕРІРёРєРё вЂ” РІ РѕРґРЅРѕР№ РёСЃС‚РѕСЂРёРё. РЎРѕС…СЂР°РЅСЏР№С‚Рµ РёРґРµРё, С‡С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊСЃСЏ Рё РїСЂРµРІСЂР°С‚РёС‚СЊ РёС… РІ РїСѓР±Р»РёРєР°С†РёРё.</span>
     </div>
     <div class="point">
-      <strong data-i18n="c3t">Activity — ваш ритм публикаций</strong>
-      <span data-i18n="c3d">Смотрите, сколько сообщений отправили за неделю или месяц, и планируйте следующие публикации с учётом своей активности.</span>
+      <strong data-i18n="c3t">Activity вЂ” РІР°С€ СЂРёС‚Рј РїСѓР±Р»РёРєР°С†РёР№</strong>
+      <span data-i18n="c3d">РЎРјРѕС‚СЂРёС‚Рµ, СЃРєРѕР»СЊРєРѕ СЃРѕРѕР±С‰РµРЅРёР№ РѕС‚РїСЂР°РІРёР»Рё Р·Р° РЅРµРґРµР»СЋ РёР»Рё РјРµСЃСЏС†, Рё РїР»Р°РЅРёСЂСѓР№С‚Рµ СЃР»РµРґСѓСЋС‰РёРµ РїСѓР±Р»РёРєР°С†РёРё СЃ СѓС‡С‘С‚РѕРј СЃРІРѕРµР№ Р°РєС‚РёРІРЅРѕСЃС‚Рё.</span>
     </div>
   </div>
 </div>
@@ -453,25 +453,25 @@
 <div class="wrap gallery">
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="screenshots/02.png" alt="Быстрый планировщик XMSGi Studio" data-i18n-alt="altQuickPlanner" loading="lazy" />
+      <img src="screenshots/02.png" alt="Р‘С‹СЃС‚СЂС‹Р№ РїР»Р°РЅРёСЂРѕРІС‰РёРє XMSGi Studio" data-i18n-alt="altQuickPlanner" loading="lazy" />
     </div>
     <div class="gallery-item">
-      <img src="screenshots/03.png" alt="Выбранное сообщение в Posts" data-i18n-alt="altPosts" loading="lazy" />
+      <img src="screenshots/03.png" alt="Р’С‹Р±СЂР°РЅРЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РІ Posts" data-i18n-alt="altPosts" loading="lazy" />
     </div>
     <div class="gallery-item">
-      <img src="screenshots/04.png" alt="Экран входа XMSGi Studio с продолжением через Telegram" data-i18n-alt="altLogin" loading="lazy" />
+      <img src="screenshots/04.png" alt="Р­РєСЂР°РЅ РІС…РѕРґР° XMSGi Studio СЃ РїСЂРѕРґРѕР»Р¶РµРЅРёРµРј С‡РµСЂРµР· Telegram" data-i18n-alt="altLogin" loading="lazy" />
     </div>
   </div>
 </div>
 
 <section class="ending">
   <div class="wrap">
-    <h2 data-i18n="end">Просто. Локально. Надёжно.</h2>
-    <p data-i18n="endd">Скачайте и запустите — без установки и облака.</p>
+    <h2 data-i18n="end">РџСЂРѕСЃС‚Рѕ. Р›РѕРєР°Р»СЊРЅРѕ. РќР°РґС‘Р¶РЅРѕ.</h2>
+    <p data-i18n="endd">РЎРєР°С‡Р°Р№С‚Рµ Рё Р·Р°РїСѓСЃС‚РёС‚Рµ вЂ” Р±РµР· СѓСЃС‚Р°РЅРѕРІРєРё Рё РѕР±Р»Р°РєР°.</p>
       <div class="ending-actions">
         <a class="btn-w" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span data-i18n="cta">Скачать последнюю версию</span>
+          <span data-i18n="cta">РЎРєР°С‡Р°С‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ РІРµСЂСЃРёСЋ</span>
         </a>
         <a class="btn-g" href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 015.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0023.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
@@ -481,45 +481,45 @@
       <div class="dl-row">
         <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <span data-i18n="win">Windows</span> · .exe
+          <span data-i18n="win">Windows</span> В· .exe
         </a>
         <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          <span data-i18n="lin">Linux</span> · AppImage
+          <span data-i18n="lin">Linux</span> В· AppImage
         </a>
         <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          <span data-i18n="lin">Linux</span> · .deb
+          <span data-i18n="lin">Linux</span> В· .deb
         </a>
         <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.73 1.13-4.73 2.87-2.02 3.5-.52 8.68 1.45 11.52.96 1.39 2.1 2.95 3.6 2.89 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.03-.01-3.03-1.16-3.08-4.63zM14.16 4.06c.8-.97 1.34-2.32 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.86-1.39 2.23-1.22 3.55 1.29.1 2.6-.65 3.41-1.63z"/></svg>
-          <span data-i18n="mac">macOS</span> · .dmg (Intel)
+          <span data-i18n="mac">macOS</span> В· .dmg (Intel)
         </a>
         <a class="btn-dl" href="https://github.com/molodoy01/XMSGi-Studio/releases/latest">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.73 1.13-4.73 2.87-2.02 3.5-.52 8.68 1.45 11.52.96 1.39 2.1 2.95 3.6 2.89 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.03-.01-3.03-1.16-3.08-4.63zM14.16 4.06c.8-.97 1.34-2.32 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.86-1.39 2.23-1.22 3.55 1.29.1 2.6-.65 3.41-1.63z"/></svg>
-          <span data-i18n="mac">macOS</span> · .dmg (ARM)
+          <span data-i18n="mac">macOS</span> В· .dmg (ARM)
         </a>
       </div>
-      <p class="macos-note" data-i18n="macosNote">Сборки для macOS не подписаны и не notarized. При первом запуске в Finder нажмите Control и кликните по приложению, выберите «Открыть» и подтвердите запуск.</p>
-      <div class="plats" data-i18n="plats">Windows · Linux · macOS</div>
+      <p class="macos-note" data-i18n="macosNote">РЎР±РѕСЂРєРё РґР»СЏ macOS РЅРµ РїРѕРґРїРёСЃР°РЅС‹ Рё РЅРµ notarized. РџСЂРё РїРµСЂРІРѕРј Р·Р°РїСѓСЃРєРµ РІ Finder РЅР°Р¶РјРёС‚Рµ Control Рё РєР»РёРєРЅРёС‚Рµ РїРѕ РїСЂРёР»РѕР¶РµРЅРёСЋ, РІС‹Р±РµСЂРёС‚Рµ В«РћС‚РєСЂС‹С‚СЊВ» Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ Р·Р°РїСѓСЃРє.</p>
+      <div class="plats" data-i18n="plats">Windows В· Linux В· macOS</div>
   </div>
 </section>
 
 <div class="wrap">
   <footer>
-    <span>© <span data-current-year>2026</span> XMSGi Studio</span>
+    <span>В© <span data-current-year>2026</span> XMSGi Studio</span>
     <div class="links">
       <a href="https://github.com/molodoy01/XMSGi-Studio" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/molodoy01/XMSGi-Studio/releases" target="_blank" rel="noopener" data-i18n="rel">Релизы</a>
-      <a href="ru/telegram-post-scheduler/">Планировщик постов</a>
+      <a href="https://github.com/molodoy01/XMSGi-Studio/releases" target="_blank" rel="noopener" data-i18n="rel">Р РµР»РёР·С‹</a>
+      <a href="ru/telegram-post-scheduler/">РџР»Р°РЅРёСЂРѕРІС‰РёРє РїРѕСЃС‚РѕРІ</a>
       <a href="en/telegram-post-scheduler/">Telegram post scheduler</a>
-      <a href="ru/telegram-content-plan/">Контент-план для Telegram</a>
+      <a href="ru/telegram-content-plan/">РљРѕРЅС‚РµРЅС‚-РїР»Р°РЅ РґР»СЏ Telegram</a>
       <a href="en/telegram-content-plan/">Telegram content plan</a>
-      <a href="ru/telegram-recurring-messages/">Повторяющиеся сообщения в Telegram</a>
+      <a href="ru/telegram-recurring-messages/">РџРѕРІС‚РѕСЂСЏСЋС‰РёРµСЃСЏ СЃРѕРѕР±С‰РµРЅРёСЏ РІ Telegram</a>
       <a href="en/telegram-recurring-messages/">Recurring Telegram messages</a>
-      <a href="ru/telegram-post-drafts/">Черновики постов для Telegram</a>
+      <a href="ru/telegram-post-drafts/">Р§РµСЂРЅРѕРІРёРєРё РїРѕСЃС‚РѕРІ РґР»СЏ Telegram</a>
       <a href="en/telegram-post-drafts/">Telegram post drafts</a>
-      <a href="ru/about-xmsgi-studio/">О проекте XMSGi Studio</a>
+      <a href="ru/about-xmsgi-studio/">Рћ РїСЂРѕРµРєС‚Рµ XMSGi Studio</a>
       <a href="en/about-xmsgi-studio/">About XMSGi Studio</a>
       <a href="https://github.com/molodoy01/XMSGi-Studio/blob/main/XMSGi%20Studio/LICENSE" target="_blank" rel="noopener">MIT</a>
     </div>
@@ -529,66 +529,66 @@
 <script>
   const T = {
     ru: {
-      title: "XMSGi Studio — рабочее пространство для публикаций в Telegram",
-      desc: "Готовьте публикации в Studio, управляйте черновиками и отправляйте их в Telegram со своего аккаунта. Quick Planner — для быстрых сообщений и напоминаний.",
-      dl: "Загрузки",
-      latest: "Скачать последнюю версию",
-      currentRelease: "Актуальный релиз: v1.3.6",
-      h1: "XMSGi Studio<br><em>рабочее пространство для Telegram.</em>",
-      sub: "Готовьте посты и черновики в Studio. Для быстрого отправления, планирования или сохранения черновика используйте Quick Planner.",
-      cta: "Скачать последнюю версию",
-      macosNote: "Сборки для macOS не подписаны и не notarized. При первом запуске в Finder нажмите Control и кликните по приложению, выберите «Открыть» и подтвердите запуск.",
-      p1t: "Быстрый планировщик", p1d: "Отправляйте сообщения сейчас, планируйте отправку или сохраняйте черновики — в одном месте.",
-      p2t: "Полные посты", p2d: "Добавляйте медиа, форматируйте текст и проверяйте результат в предварительном просмотре.",
-      p3t: "Одна история публикаций", p3d: "Черновики, очередь отправки и статусы доставки собраны в одном месте.",
-      p4t: "Ваш аккаунт Telegram", p4d: "Выбирайте нужные чаты, группы и каналы и публикуйте от своего имени.",
-      p5t: "Статистика отправок", p5d: "Посмотрите диаграмму публикаций за последние 7 или 30 дней.",
-      p6t: "Светлая и тёмная темы", p6d: "Выберите оформление, которое комфортно для работы.",
-      end: "Просто. Локально. Надёжно.",
-      endd: "Скачайте и запустите — без установки и облака.",
-      rel: "Релизы",
-      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows · Linux · macOS",
-      altMain: "Рабочее пространство XMSGi Studio",
-      altQuickPlanner: "Быстрый планировщик XMSGi Studio",
-      altPosts: "Выбранное сообщение в Posts",
-      altLogin: "Экран входа XMSGi Studio с продолжением через Telegram",
-      mgmtKicker: "Запланировали — а что дальше?",
-      mgmtTitle: "Контроль<br><em>остаётся у вас.</em>",
-      mgmtSub: "Правьте, переносите и отслеживайте публикации — вплоть до самой отправки.",
-      c1t: "Обновите пост без пересоздания", c1d: "Измените текст или медиа запланированной публикации — она уйдёт в обновлённом виде.",
-      c2t: "Вся история публикаций", c2d: "Очередь, отправленные посты и черновики — в одной истории. Сохраняйте идеи, чтобы вернуться и превратить их в публикации.",
-      c3t: "Activity — ваш ритм публикаций", c3d: "Смотрите, сколько сообщений отправили за неделю или месяц, и планируйте следующие публикации с учётом своей активности."
+      title: "XMSGi Studio вЂ” СЂР°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ РґР»СЏ РїСѓР±Р»РёРєР°С†РёР№ РІ Telegram",
+      desc: "Р“РѕС‚РѕРІСЊС‚Рµ РїСѓР±Р»РёРєР°С†РёРё РІ Studio, СѓРїСЂР°РІР»СЏР№С‚Рµ С‡РµСЂРЅРѕРІРёРєР°РјРё Рё РѕС‚РїСЂР°РІР»СЏР№С‚Рµ РёС… РІ Telegram СЃРѕ СЃРІРѕРµРіРѕ Р°РєРєР°СѓРЅС‚Р°. Quick Planner вЂ” РґР»СЏ Р±С‹СЃС‚СЂС‹С… СЃРѕРѕР±С‰РµРЅРёР№ Рё РЅР°РїРѕРјРёРЅР°РЅРёР№.",
+      dl: "Р—Р°РіСЂСѓР·РєРё",
+      latest: "РЎРєР°С‡Р°С‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ РІРµСЂСЃРёСЋ",
+      currentRelease: "РђРєС‚СѓР°Р»СЊРЅС‹Р№ СЂРµР»РёР·: v1.4.0",
+      h1: "XMSGi Studio<br><em>СЂР°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ РґР»СЏ Telegram.</em>",
+      sub: "Р“РѕС‚РѕРІСЊС‚Рµ РїРѕСЃС‚С‹ Рё С‡РµСЂРЅРѕРІРёРєРё РІ Studio. Р”Р»СЏ Р±С‹СЃС‚СЂРѕРіРѕ РѕС‚РїСЂР°РІР»РµРЅРёСЏ, РїР»Р°РЅРёСЂРѕРІР°РЅРёСЏ РёР»Рё СЃРѕС…СЂР°РЅРµРЅРёСЏ С‡РµСЂРЅРѕРІРёРєР° РёСЃРїРѕР»СЊР·СѓР№С‚Рµ Quick Planner.",
+      cta: "РЎРєР°С‡Р°С‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ РІРµСЂСЃРёСЋ",
+      macosNote: "РЎР±РѕСЂРєРё РґР»СЏ macOS РЅРµ РїРѕРґРїРёСЃР°РЅС‹ Рё РЅРµ notarized. РџСЂРё РїРµСЂРІРѕРј Р·Р°РїСѓСЃРєРµ РІ Finder РЅР°Р¶РјРёС‚Рµ Control Рё РєР»РёРєРЅРёС‚Рµ РїРѕ РїСЂРёР»РѕР¶РµРЅРёСЋ, РІС‹Р±РµСЂРёС‚Рµ В«РћС‚РєСЂС‹С‚СЊВ» Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ Р·Р°РїСѓСЃРє.",
+      p1t: "Р‘С‹СЃС‚СЂС‹Р№ РїР»Р°РЅРёСЂРѕРІС‰РёРє", p1d: "РћС‚РїСЂР°РІР»СЏР№С‚Рµ СЃРѕРѕР±С‰РµРЅРёСЏ СЃРµР№С‡Р°СЃ, РїР»Р°РЅРёСЂСѓР№С‚Рµ РѕС‚РїСЂР°РІРєСѓ РёР»Рё СЃРѕС…СЂР°РЅСЏР№С‚Рµ С‡РµСЂРЅРѕРІРёРєРё вЂ” РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ.",
+      p2t: "РџРѕР»РЅС‹Рµ РїРѕСЃС‚С‹", p2d: "Р”РѕР±Р°РІР»СЏР№С‚Рµ РјРµРґРёР°, С„РѕСЂРјР°С‚РёСЂСѓР№С‚Рµ С‚РµРєСЃС‚ Рё РїСЂРѕРІРµСЂСЏР№С‚Рµ СЂРµР·СѓР»СЊС‚Р°С‚ РІ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРј РїСЂРѕСЃРјРѕС‚СЂРµ.",
+      p3t: "РћРґРЅР° РёСЃС‚РѕСЂРёСЏ РїСѓР±Р»РёРєР°С†РёР№", p3d: "Р§РµСЂРЅРѕРІРёРєРё, РѕС‡РµСЂРµРґСЊ РѕС‚РїСЂР°РІРєРё Рё СЃС‚Р°С‚СѓСЃС‹ РґРѕСЃС‚Р°РІРєРё СЃРѕР±СЂР°РЅС‹ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ.",
+      p4t: "Р’Р°С€ Р°РєРєР°СѓРЅС‚ Telegram", p4d: "Р’С‹Р±РёСЂР°Р№С‚Рµ РЅСѓР¶РЅС‹Рµ С‡Р°С‚С‹, РіСЂСѓРїРїС‹ Рё РєР°РЅР°Р»С‹ Рё РїСѓР±Р»РёРєСѓР№С‚Рµ РѕС‚ СЃРІРѕРµРіРѕ РёРјРµРЅРё.",
+      p5t: "РЎС‚Р°С‚РёСЃС‚РёРєР° РѕС‚РїСЂР°РІРѕРє", p5d: "РџРѕСЃРјРѕС‚СЂРёС‚Рµ РґРёР°РіСЂР°РјРјСѓ РїСѓР±Р»РёРєР°С†РёР№ Р·Р° РїРѕСЃР»РµРґРЅРёРµ 7 РёР»Рё 30 РґРЅРµР№.",
+      p6t: "РЎРІРµС‚Р»Р°СЏ Рё С‚С‘РјРЅР°СЏ С‚РµРјС‹", p6d: "Р’С‹Р±РµСЂРёС‚Рµ РѕС„РѕСЂРјР»РµРЅРёРµ, РєРѕС‚РѕСЂРѕРµ РєРѕРјС„РѕСЂС‚РЅРѕ РґР»СЏ СЂР°Р±РѕС‚С‹.",
+      end: "РџСЂРѕСЃС‚Рѕ. Р›РѕРєР°Р»СЊРЅРѕ. РќР°РґС‘Р¶РЅРѕ.",
+      endd: "РЎРєР°С‡Р°Р№С‚Рµ Рё Р·Р°РїСѓСЃС‚РёС‚Рµ вЂ” Р±РµР· СѓСЃС‚Р°РЅРѕРІРєРё Рё РѕР±Р»Р°РєР°.",
+      rel: "Р РµР»РёР·С‹",
+      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows В· Linux В· macOS",
+      altMain: "Р Р°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ XMSGi Studio",
+      altQuickPlanner: "Р‘С‹СЃС‚СЂС‹Р№ РїР»Р°РЅРёСЂРѕРІС‰РёРє XMSGi Studio",
+      altPosts: "Р’С‹Р±СЂР°РЅРЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РІ Posts",
+      altLogin: "Р­РєСЂР°РЅ РІС…РѕРґР° XMSGi Studio СЃ РїСЂРѕРґРѕР»Р¶РµРЅРёРµРј С‡РµСЂРµР· Telegram",
+      mgmtKicker: "Р—Р°РїР»Р°РЅРёСЂРѕРІР°Р»Рё вЂ” Р° С‡С‚Рѕ РґР°Р»СЊС€Рµ?",
+      mgmtTitle: "РљРѕРЅС‚СЂРѕР»СЊ<br><em>РѕСЃС‚Р°С‘С‚СЃСЏ Сѓ РІР°СЃ.</em>",
+      mgmtSub: "РџСЂР°РІСЊС‚Рµ, РїРµСЂРµРЅРѕСЃРёС‚Рµ Рё РѕС‚СЃР»РµР¶РёРІР°Р№С‚Рµ РїСѓР±Р»РёРєР°С†РёРё вЂ” РІРїР»РѕС‚СЊ РґРѕ СЃР°РјРѕР№ РѕС‚РїСЂР°РІРєРё.",
+      c1t: "РћР±РЅРѕРІРёС‚Рµ РїРѕСЃС‚ Р±РµР· РїРµСЂРµСЃРѕР·РґР°РЅРёСЏ", c1d: "РР·РјРµРЅРёС‚Рµ С‚РµРєСЃС‚ РёР»Рё РјРµРґРёР° Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅРЅРѕР№ РїСѓР±Р»РёРєР°С†РёРё вЂ” РѕРЅР° СѓР№РґС‘С‚ РІ РѕР±РЅРѕРІР»С‘РЅРЅРѕРј РІРёРґРµ.",
+      c2t: "Р’СЃСЏ РёСЃС‚РѕСЂРёСЏ РїСѓР±Р»РёРєР°С†РёР№", c2d: "РћС‡РµСЂРµРґСЊ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Рµ РїРѕСЃС‚С‹ Рё С‡РµСЂРЅРѕРІРёРєРё вЂ” РІ РѕРґРЅРѕР№ РёСЃС‚РѕСЂРёРё. РЎРѕС…СЂР°РЅСЏР№С‚Рµ РёРґРµРё, С‡С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊСЃСЏ Рё РїСЂРµРІСЂР°С‚РёС‚СЊ РёС… РІ РїСѓР±Р»РёРєР°С†РёРё.",
+      c3t: "Activity вЂ” РІР°С€ СЂРёС‚Рј РїСѓР±Р»РёРєР°С†РёР№", c3d: "РЎРјРѕС‚СЂРёС‚Рµ, СЃРєРѕР»СЊРєРѕ СЃРѕРѕР±С‰РµРЅРёР№ РѕС‚РїСЂР°РІРёР»Рё Р·Р° РЅРµРґРµР»СЋ РёР»Рё РјРµСЃСЏС†, Рё РїР»Р°РЅРёСЂСѓР№С‚Рµ СЃР»РµРґСѓСЋС‰РёРµ РїСѓР±Р»РёРєР°С†РёРё СЃ СѓС‡С‘С‚РѕРј СЃРІРѕРµР№ Р°РєС‚РёРІРЅРѕСЃС‚Рё."
     },
     en: {
-      title: "XMSGi Studio — your Telegram publishing workspace",
+      title: "XMSGi Studio вЂ” your Telegram publishing workspace",
       desc: "Create posts in Studio, manage drafts and publish to Telegram from your account. Quick Planner is the fast path for messages and reminders.",
       dl: "Downloads",
       latest: "Download latest release",
-      currentRelease: "Latest release: v1.3.6",
+      currentRelease: "Latest release: v1.4.0",
       h1: "XMSGi Studio<br><em>your Telegram publishing workspace.</em>",
       sub: "Create posts and drafts in Studio. Use Quick Planner when you need to send, schedule or save a message quickly.",
       cta: "Download latest release",
       macosNote: "macOS builds are unsigned and not notarized. On first launch in Finder, Control-click the app, choose Open, then confirm Open.",
-      p1t: "Quick Planner", p1d: "Send messages now, schedule them, or save drafts — all in one place.",
+      p1t: "Quick Planner", p1d: "Send messages now, schedule them, or save drafts вЂ” all in one place.",
       p2t: "Full-featured posts", p2d: "Add media, format your text, and check the result in the live preview.",
       p3t: "One publishing history", p3d: "Drafts, the send queue, and delivery statuses in one place.",
       p4t: "Your Telegram account", p4d: "Choose chats, groups, and channels, and publish as yourself.",
       p5t: "Sending activity", p5d: "View a chart of your posts over the last 7 or 30 days.",
       p6t: "Light and dark themes", p6d: "Choose the appearance that feels right for your workflow.",
       end: "Simple. Local. Reliable.",
-      endd: "Download and run — no installation, no cloud.",
+      endd: "Download and run вЂ” no installation, no cloud.",
       rel: "Releases",
-      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows · Linux · macOS",
+      win: "Windows", lin: "Linux", mac: "macOS", plats: "Windows В· Linux В· macOS",
       altMain: "XMSGi Studio workspace",
       altQuickPlanner: "XMSGi Studio Quick Planner",
       altPosts: "Selected message in Posts",
       altLogin: "XMSGi Studio sign-in screen with Continue to Telegram",
-      mgmtKicker: "Scheduled — what now?",
+      mgmtKicker: "Scheduled вЂ” what now?",
       mgmtTitle: "Control<br><em>stays in your hands.</em>",
-      mgmtSub: "Edit, reschedule and track your posts — right up to the moment they're sent.",
+      mgmtSub: "Edit, reschedule and track your posts вЂ” right up to the moment they're sent.",
       c1t: "Update without recreating", c1d: "Change the text or media of a scheduled post and it will go out with your updates.",
-      c2t: "Your publishing history", c2d: "Your queue, sent posts and drafts — all in one history. Save ideas and return when you're ready to turn them into posts.",
-      c3t: "Activity — your publishing rhythm", c3d: "See how many messages you sent this week or month, then plan your next posts based on your activity."
+      c2t: "Your publishing history", c2d: "Your queue, sent posts and drafts вЂ” all in one history. Save ideas and return when you're ready to turn them into posts.",
+      c3t: "Activity вЂ” your publishing rhythm", c3d: "See how many messages you sent this week or month, then plan your next posts based on your activity."
     }
   };
 
