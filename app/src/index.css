@@ -1003,12 +1003,52 @@ html.electron-runtime .history-confirmation-backdrop {
   .history-content.is-page .history-list-pane .history-record-list {
     padding-right: 0;
     padding-left: 0;
-    scrollbar-gutter: auto;
-    scrollbar-width: none;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #71818d transparent;
   }
 
   .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar {
-    width: 0;
+    width: 12px;
+  }
+
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-button:vertical:decrement,
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-button:vertical:increment,
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-button:vertical:start:decrement,
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-button:vertical:end:increment {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f5f7f8 0%, #d2dbe0 24%, #82919a 58%, #26343c 100%);
+    background-clip: padding-box;
+  }
+
+  .history-content.is-page .history-list-pane .history-record-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #e0e7eb 24%, #71838d 58%, #19272f 100%);
+    background-clip: padding-box;
   }
 
   .history-record-list .history-month-heading {
@@ -1633,7 +1673,7 @@ html.electron-runtime .history-confirmation-backdrop {
 }
 
 .history-content.is-page .history-record-open {
-  padding: 2px 5px 3px;
+  padding: 2px 0 3px;
 }
 
 .history-content.is-page .history-record-meta {
@@ -2752,6 +2792,12 @@ html[data-theme] .history-drawer.is-page .history-detail-body.is-details .histor
 }
 
 .history-drawer.is-page .history-content.is-page .history-record-heading strong {
+  position: relative;
+  top: -3px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: "Avenir Next", "Segoe UI Variable", "Segoe UI", sans-serif;
   font-size: 16px;
   font-weight: 680;
@@ -2781,25 +2827,59 @@ html[data-theme] .history-drawer.is-page .history-detail-body.is-details .histor
 }
 
 .history-drawer.is-page .history-content.is-page .history-record-text {
-  margin-top: 1px;
+  grid-row: 4;
+  position: relative;
+  top: -3px;
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 0;
   font-family: "Avenir Next", "Segoe UI Variable", "Segoe UI", sans-serif;
   font-size: 12px;
   color: rgba(191, 202, 210, 0.76);
   font-weight: 400;
   letter-spacing: 0.005em;
-  line-height: 1.35;
+  line-height: 16px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-drawer.is-page .history-content.is-page .history-record-chat {
-  margin-top: 1px;
+  position: relative;
+  top: -3px;
+  min-width: 0;
+  overflow: hidden;
+  grid-row: 3;
+  margin-top: 0;
   color: #aab8c2;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.005em;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-drawer.is-page .history-content.is-page .history-record:has(.history-record-chat) .history-record-text {
-  margin-top: 2px;
+  margin-top: 0;
+}
+
+.history-drawer.is-page .history-content.is-page .history-record-open {
+  min-height: 88px;
+  grid-template-rows: 28px 22px 15px 16px auto;
+}
+
+.history-drawer.is-page .history-content.is-page .history-record-meta {
+  grid-row: 1;
+}
+
+.history-drawer.is-page .history-content.is-page .history-record-heading {
+  min-width: 0;
+  grid-row: 2;
+}
+
+.history-drawer.is-page .history-content.is-page .history-record-error-preview {
+  grid-row: 5;
 }
 
 .history-drawer.is-page .history-content.is-page .history-date-heading {
@@ -2818,7 +2898,7 @@ html[data-theme] .history-drawer.is-page .history-detail-body.is-details .histor
 
 .history-drawer.is-page .history-content.is-page .history-record,
 .history-drawer.is-page .history-content.is-page .history-record.is-draft[data-draft-color] {
-  padding: 3px 23px 3px 8px;
+  padding: 3px 8px 3px 10px;
   border: 0;
   border-bottom: 1px solid rgba(154, 168, 184, 0.12);
   border-radius: 0;
