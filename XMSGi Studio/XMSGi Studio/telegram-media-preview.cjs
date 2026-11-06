@@ -1,7 +1,24 @@
+const { Api } = require('teleproto');
+
 function toPreviewNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : undefined;
 }
+
+const PREVIEW_FILE_ATTRIBUTES = {
+  duration: [
+    [Api.DocumentAttributeAudio, 'duration'],
+    [Api.DocumentAttributeVideo, 'duration'],
+  ],
+  width: [
+    [Api.DocumentAttributeImageSize, 'w'],
+    [Api.DocumentAttributeVideo, 'w'],
+  ],
+  height: [
+    [Api.DocumentAttributeImageSize, 'h'],
+    [Api.DocumentAttributeVideo, 'h'],
+  ],
+};
 
 function getPreviewMediaDataBytes(media) {
   const dataUrls = [media?.dataUrl, media?.thumbnailDataUrl].filter((value) => typeof value === 'string');
@@ -13,6 +30,17 @@ function getPreviewMediaDataBytes(media) {
 }
 
 function getPreviewFileProperty(file, property) {
+  const attributes = file?.media?.attributes;
+  const propertyAttributes = PREVIEW_FILE_ATTRIBUTES[property];
+  if (Array.isArray(attributes) && propertyAttributes) {
+    for (const attribute of attributes) {
+      for (const [AttributeType, field] of propertyAttributes) {
+        if (attribute instanceof AttributeType) return attribute[field];
+      }
+    }
+    return undefined;
+  }
+
   try {
     return file?.[property];
   } catch (error) {

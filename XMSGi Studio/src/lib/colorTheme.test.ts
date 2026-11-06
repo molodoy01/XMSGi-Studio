@@ -102,6 +102,8 @@ describe('applyColorTheme', () => {
       closeWindow: vi.fn().mockResolvedValue(undefined),
       isWindowMaximized: vi.fn().mockResolvedValue(false),
       onWindowMaximizedChange: vi.fn().mockReturnValue(vi.fn()),
+      isWindowFullScreen: vi.fn().mockResolvedValue(false),
+      onWindowFullScreenChange: vi.fn().mockReturnValue(vi.fn()),
       setColorTheme,
     };
 

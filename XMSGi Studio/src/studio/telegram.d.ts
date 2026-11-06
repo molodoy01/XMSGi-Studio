@@ -50,6 +50,8 @@ declare global {
       closeWindow: () => Promise<void>;
       isWindowMaximized: () => Promise<boolean>;
       onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
+      isWindowFullScreen: () => Promise<boolean>;
+      onWindowFullScreenChange: (callback: (isFullScreen: boolean) => void) => () => void;
       setColorTheme: (theme: 'light' | 'dark') => Promise<{ success: boolean }>;
     };
     draftStorage: {

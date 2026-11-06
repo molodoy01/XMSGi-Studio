@@ -56,6 +56,8 @@ const {
   getApplicationApiCredentials,
 } = require('./telegram-config.cjs');
 
+const AUTH_REQUEST_TIMEOUT = 15000;
+
 function getTelegramUserName(user) {
   return [user?.firstName, user?.lastName]
     .filter(Boolean)
@@ -70,7 +72,8 @@ function getTelegramUsername(user) {
 }
 
 function createTelegramCore(options = {}) {
-  const lifecycleState = createLifecycleState();
+  const lifecycleState = createLifecycleState({ loginTtlMs: options.loginTtlMs });
+  const authRequestTimeoutMs = options.authRequestTimeoutMs ?? AUTH_REQUEST_TIMEOUT;
   const rateLimitInterceptor = createTelegramRateLimitInterceptor(options.rateLimitTimers);
   const applicationApiCredentials = getApplicationApiCredentials(loadAccountSecrets());
   let runtimeApiId = Number(options.apiId ?? applicationApiCredentials.apiId);
@@ -265,6 +268,28 @@ function clearTelegramSession() {
   return forgetTelegramAccount();
 }
 
+async function signInWithTwoFactorPassword(loginClient, credentials, password, timeoutMs) {
+  let passwordError;
+
+  try {
+    return await withTimeout(
+      loginClient.signInWithPassword(credentials, {
+        password: async () => password,
+        onError: async (error) => {
+          passwordError = error;
+          console.error('Telegram 2FA error:', error?.errorMessage || error?.code || error?.name || 'unknown');
+          return true;
+        }
+      }),
+      timeoutMs,
+      'Telegram 2FA verification'
+    );
+  } catch (error) {
+    if (passwordError) throw passwordError;
+    throw error;
+  }
+}
+
 async function loginUserInternal(params = {}) {
   const apiIdValue = params.API_ID ?? params.apiId ?? runtimeApiId;
   const apiHashValue = params.API_HASH ?? params.apiHash ?? runtimeApiHash;
@@ -307,29 +332,41 @@ async function loginUserInternal(params = {}) {
       { connectionRetries: 3 }
     );
 
-    await loginClient.connect();
+    let sendCodeResult;
+    try {
+      await withTimeout(
+        loginClient.connect(),
+        authRequestTimeoutMs,
+        'Telegram login connection'
+      );
 
-    if (
-      loginGeneration !== lifecycleState.loginGeneration ||
-      lifecycleState.status === 'shutting-down' ||
-      lifecycleState.status === 'stopped'
-    ) {
+      if (
+        loginGeneration !== lifecycleState.loginGeneration ||
+        lifecycleState.status === 'shutting-down' ||
+        lifecycleState.status === 'stopped'
+      ) {
+        throw new Error('Telegram login was cancelled.');
+      }
+
+      sendCodeResult = await withTimeout(
+        loginClient.sendCode({
+          apiId: loginApiId,
+          apiHash: String(apiHashValue)
+        }, phone),
+        authRequestTimeoutMs,
+        'Telegram login code request'
+      );
+
+      if (
+        loginGeneration !== lifecycleState.loginGeneration ||
+        lifecycleState.status === 'shutting-down' ||
+        lifecycleState.status === 'stopped'
+      ) {
+        throw new Error('Telegram login was cancelled.');
+      }
+    } catch (error) {
       await disconnectPendingLogin({ client: loginClient });
-      throw new Error('Telegram login was cancelled.');
-    }
-
-    const sendCodeResult = await loginClient.sendCode({
-      apiId: loginApiId,
-      apiHash: String(apiHashValue)
-    }, phone);
-
-    if (
-      loginGeneration !== lifecycleState.loginGeneration ||
-      lifecycleState.status === 'shutting-down' ||
-      lifecycleState.status === 'stopped'
-    ) {
-      await disconnectPendingLogin({ client: loginClient });
-      throw new Error('Telegram login was cancelled.');
+      throw error;
     }
 
     startPendingLogin(lifecycleState, {
@@ -342,14 +379,12 @@ async function loginUserInternal(params = {}) {
       requiresPassword: false
     }, disconnectPendingLogin);
 
-    if (!code) {
-      return {
-        requiresCode: true,
-        phoneCodeHash: sendCodeResult.phoneCodeHash,
-        isCodeViaApp: sendCodeResult.isCodeViaApp,
-        nextStep: 'code'
-      };
-    }
+    return {
+      requiresCode: true,
+      phoneCodeHash: sendCodeResult.phoneCodeHash,
+      isCodeViaApp: sendCodeResult.isCodeViaApp,
+      nextStep: 'code'
+    };
   }
 
   if (!code) {
@@ -375,27 +410,27 @@ async function loginUserInternal(params = {}) {
         };
       }
 
-      user = await loginClient.signInWithPassword(
+      user = await signInWithTwoFactorPassword(
+        loginClient,
         {
           apiId: loginApiId,
           apiHash: String(apiHashValue)
         },
-        {
-          password: async () => password,
-          onError: async (passwordError) => {
-            console.error('Telegram 2FA error:', passwordError?.code || passwordError?.name || 'unknown');
-            return true;
-          }
-        }
+        password,
+        authRequestTimeoutMs
       );
     } else {
       try {
-        const authorization = await loginClient.invoke(
-          new Api.auth.SignIn({
-            phoneNumber: pendingLogin.phone,
-            phoneCodeHash: pendingLogin.phoneCodeHash,
-            phoneCode: code
-          })
+        const authorization = await withTimeout(
+          loginClient.invoke(
+            new Api.auth.SignIn({
+              phoneNumber: pendingLogin.phone,
+              phoneCodeHash: pendingLogin.phoneCodeHash,
+              phoneCode: code
+            })
+          ),
+          authRequestTimeoutMs,
+          'Telegram code verification'
         );
 
         user = authorization.user;
@@ -415,18 +450,14 @@ async function loginUserInternal(params = {}) {
           };
         }
 
-        user = await loginClient.signInWithPassword(
+        user = await signInWithTwoFactorPassword(
+          loginClient,
           {
             apiId: loginApiId,
             apiHash: String(apiHashValue)
           },
-          {
-            password: async () => password,
-            onError: async (passwordError) => {
-              console.error('Telegram 2FA error:', passwordError?.code || passwordError?.name || 'unknown');
-              return true;
-            }
-          }
+          password,
+          authRequestTimeoutMs
         );
       }
     }
@@ -497,7 +528,10 @@ function loginUser(params = {}) {
 
   loginPromise = trackTelegramOperation('login', () => loginUserInternal(params))
     .catch(async (error) => {
-      await clearPendingLogin();
+      const errorMessage = error?.errorMessage || error?.message || String(error);
+      if (!/\b(?:PHONE_CODE_INVALID|PASSWORD_HASH_INVALID)\b/i.test(errorMessage)) {
+        await clearPendingLogin();
+      }
       throw error;
     })
     .finally(() => {

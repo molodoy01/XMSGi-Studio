@@ -1,8 +1,33 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { StudioBridgeProps, StudioSchedulerActions, StudioSchedulerRuntime } from '@shared/bridge';
 import type { NotificationState, NotificationType } from '@shared/types';
+import { getBackgroundProductView, getInitialProductView } from '@/lib/productView';
+import { isDesktopTelegramRuntime } from '@/services/telegramAppService';
 
-const StudioApp = lazy(() => import('@studio/App'));
+let studioAppLoadPromise: Promise<typeof import('@studio/App')> | null = null;
+
+function loadStudioApp() {
+  studioAppLoadPromise ??= import('@studio/App');
+  return studioAppLoadPromise;
+}
+
+const StudioApp = lazy(loadStudioApp);
+
+export function preloadStudioApp() {
+  const loadPromise = loadStudioApp();
+  void loadPromise.catch((error: unknown) => {
+    console.error('Studio app preload failed.', error);
+  });
+  return loadPromise;
+}
+
+const desktopRuntime = isDesktopTelegramRuntime();
+const initialProductView = getInitialProductView(!desktopRuntime);
+const initialStudioView = initialProductView === 'studio'
+  || (initialProductView === 'posts'
+    && getBackgroundProductView(initialProductView, desktopRuntime ? 'studio' : 'planner') === 'studio');
+
+if (initialStudioView) void preloadStudioApp();
 
 type StudioInlineNotification = {
   message: string;

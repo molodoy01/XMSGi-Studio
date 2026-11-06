@@ -22,6 +22,7 @@ const quickPlannerStyles = readFileSync(path.join(path.dirname(fileURLToPath(imp
 const activityStyles = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'QuickPlannerActivity.css'), 'utf8');
 const globalStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../index.css'), 'utf8');
 const colorThemeStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../styles/colorThemes.css'), 'utf8');
+const fontStyles = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../styles/fonts.css'), 'utf8');
 
 function render(ui: ReactNode, initialMode: 'Send now' | 'Schedule' = 'Schedule') {
   const view = renderTestingLibrary(createElement(LocaleProvider, null, ui));
@@ -46,12 +47,105 @@ function createScheduledMessage(overrides: Partial<ScheduledMessage> = {}): Sche
 }
 
 describe('QuickPlanner layout', () => {
+  it('waits for Exo 2 instead of swapping from a fallback font', () => {
+    const exo2FontFaces = fontStyles.match(/@font-face\s*\{[^}]*font-family:\s*'Exo 2';[^}]*\}/g) ?? [];
+    expect(exo2FontFaces).toHaveLength(8);
+    expect(exo2FontFaces.every((fontFace) => /font-display:\s*block;/.test(fontFace))).toBe(true);
+  });
+
+  it('uses the workbench as the only editor contour in both themes', () => {
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message\s*\{[^}]*border-color:\s*transparent;[^}]*box-shadow:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message:focus\s*\{[^}]*border-color:\s*transparent;[^}]*box-shadow:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:not\(:focus\):not\(:hover\)\s*\{\s*border-color:\s*transparent;\s*box-shadow:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus,\s*html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus-visible\s*\{\s*border-color:\s*transparent;\s*box-shadow:\s*none;/,
+    );
+  });
+
+  it('keeps the message field corners square in both themes', () => {
+    expect(quickPlannerStyles).toMatch(/html\[data-theme='light'\] \.quick-planner \.quick-planner-message\s*\{\s*border-radius:\s*0;/);
+    expect(quickPlannerStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner \.quick-planner-message\s*\{\s*color-scheme:\s*dark;\s*border-color:\s*transparent;\s*border-radius:\s*0;/);
+  });
+
+  it('matches the dark Studio editor contour on the Planner workbench', () => {
+    expect(quickPlannerStyles).toMatch(/\.quick-planner-workbench\s*\{[^}]*border-radius:\s*12px;/);
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-workbench\s*\{\s*border-color:\s*#35434c;[^}]*box-shadow:\s*0 14px 34px rgba\(0, 0, 0, 0\.24\);/,
+    );
+  });
+
+  it('highlights the whole attachment chip when its remove button is hovered or focused', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-attachment:has\(button:hover\),\s*\.quick-planner-attachment:has\(button:focus-visible\)\s*\{[^}]*background-color:\s*#fbefed;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-attachment button:hover,\s*\.quick-planner-attachment button:focus-visible\s*\{[^}]*background:\s*transparent;[^}]*color:\s*#a5362c;/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner-attachment:has\(button:hover\),\s*html\[data-theme='dark'\] \.quick-planner-attachment:has\(button:focus-visible\)\s*\{[^}]*background-color:\s*rgba\(120, 48, 44, 0\.28\);/,
+    );
+  });
+
+  it('uses a flat light workbench surface without a diagonal highlight', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-workbench\s*\{[^}]*background:\s*#f7f8fa;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(
+      /\.quick-planner-workbench\s*\{[^}]*background:\s*linear-gradient/,
+    );
+  });
+
+  it('uses the same subtle background glow as Studio in both themes', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner\s*\{[^}]*background:\s*radial-gradient\(ellipse 72% 62% at 45% 42%, rgba\(71, 124, 158, 0\.035\) 0%, rgba\(71, 124, 158, 0\.012\) 42%, transparent 78%\),\s*var\(--void\);/,
+    );
+    expect(colorThemeStyles).toMatch(
+      /html\[data-theme='dark'\] \.quick-planner\s*\{[^}]*background:\s*radial-gradient\(ellipse 72% 62% at 45% 42%, rgba\(35, 157, 251, 0\.045\), transparent 78%\), var\(--void\);/,
+    );
+  });
+
   it('keeps 17px horizontal spacing around the message field at every viewport size', () => {
     expect(quickPlannerStyles).toMatch(
       /\.quick-planner-composer\s*\{[^}]*padding:\s*24px 17px 18px;/,
     );
     expect(quickPlannerStyles).toMatch(
       /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-composer\s*\{[^}]*padding:\s*20px 17px 16px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-message\s*\{[^}]*margin:\s*13px 0 -10px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 560px\)[\s\S]*?\.quick-planner-message\s*\{[^}]*margin-top:\s*11px;[^}]*margin-bottom:\s*-10px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-message\s*\{\s*margin-bottom:\s*8px;/,
+    );
+  });
+
+  it('spaces the Planner tool buttons evenly and lowers their row by 7px', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-tools\s*\{[^}]*gap:\s*7px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-tools > \.quick-planner-tool-anchor\s*\{\s*flex:\s*0 0 48px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-tools > \.quick-planner-tool-anchor \+ \.quick-planner-tool-anchor\s*\{\s*margin-left:\s*5px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-tools-row\s*\{[^}]*transform:\s*translateY\(7px\);/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-tools-row\s*\{\s*transform:\s*translateY\(-18px\);/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-tools button\s*\{[^}]*width:\s*48px;[^}]*height:\s*40px;/,
     );
   });
 
@@ -96,6 +190,26 @@ describe('QuickPlanner feedback', () => {
       'xmsgi-planner-draft-snapshot-v1',
       'xmsgi:active-draft:v1',
     ]) localStorage.removeItem(key);
+  });
+
+  it('uses the 4096-character limit without attachments', () => {
+    const { container } = render(<QuickPlanner />);
+    const editor = screen.getByRole('textbox', { name: 'Reminder text' });
+    expect(editor).toHaveAttribute('maxLength', '4096');
+    expect(container.querySelector('.quick-planner-character-count')).toHaveTextContent('/ 4096');
+
+    fireEvent.change(editor, { target: { value: 'a'.repeat(4096) } });
+
+    expect(container.querySelector('.quick-planner-character-count')).toHaveTextContent('4096 / 4096');
+    expect(screen.getByText('4096 of 4096 characters')).toBeInTheDocument();
+  });
+
+  it('uses the 1024-character Telegram caption limit when an attachment is present', () => {
+    localStorage.setItem('xmsgi-planner-draft-attachments', JSON.stringify(['C:\\photo.png']));
+    const { container } = render(<QuickPlanner />);
+
+    expect(screen.getByRole('textbox', { name: 'Reminder text' })).toHaveAttribute('maxLength', '1024');
+    expect(container.querySelector('.quick-planner-character-count')).toHaveTextContent('/ 1024');
   });
 
   it('removes the message placeholder on focus and restores it on blur', () => {
@@ -143,6 +257,60 @@ describe('QuickPlanner feedback', () => {
     expect(quickPlannerStyles).toMatch(
       /@media \(max-width: 900px\)[\s\S]*?\.quick-planner-activity\s*\{\s*display:\s*none;\s*\}/,
     );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 1040px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-activity\s*\{\s*display:\s*none;\s*\}/,
+    );
+  });
+
+  it('keeps Electron Activity adjacent to the fixed Planner card without overlap', () => {
+    expect(quickPlannerStyles).toMatch(
+      /@media \(min-width: 781px\) and \(max-width: 1259px\)[\s\S]*?\.quick-planner-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);[^}]*width:\s*min\(calc\(100% \+ 12px\),\s*760px\);[\s\S]*?\.quick-planner-activity\s*\{\s*display:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(min-width: 781px\) and \(max-width: 1259px\)[\s\S]*?\.quick-planner-heading\s*\{\s*min-height:\s*0;\s*margin-bottom:\s*0;\s*\}[\s\S]*?\.quick-planner-heading h1\s*\{\s*display:\s*none;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(/@media \(min-width: 1260px\)/);
+  });
+
+  it('vertically centers the Planner workbench in narrow Electron windows', () => {
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 1040px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-layout\s*\{[^}]*align-content:\s*safe center;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 780px\)\s*\{\s*html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-layout\s*\{\s*align-content:\s*safe center;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 1040px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-heading\s*\{\s*min-height:\s*0;\s*margin-bottom:\s*0;/,
+    );
+    expect(quickPlannerStyles).not.toContain('top: -68px;');
+  });
+
+  it('hides the new-message heading in narrow Electron windows', () => {
+    expect(quickPlannerStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-heading h1\s*\{\s*display:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-heading\s*\{\s*min-height:\s*0;\s*margin-bottom:\s*0;/,
+    );
+  });
+
+  it('keeps the Electron Planner workbench and its controls fixed across resolutions', () => {
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-workbench\s*\{[^}]*width:\s*760px;[^}]*min-width:\s*760px;[^}]*max-width:\s*760px;[^}]*height:\s*510px;[^}]*min-height:\s*510px;[^}]*max-height:\s*510px;[^}]*flex:\s*0 0 510px;[^}]*overflow:\s*hidden;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(180px,\s*0\.8fr\) minmax\(0,\s*1\.2fr\);[^}]*gap:\s*20px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-composer\s*\{[^}]*height:\s*240px;[^}]*min-height:\s*240px;[^}]*max-height:\s*240px;[^}]*flex:\s*0 0 240px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-message\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*min-height:\s*0;[^}]*flex:\s*1 1 0;[^}]*margin:\s*13px 0 8px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-schedule-row\s*\{[^}]*height:\s*62px;[^}]*min-height:\s*62px;[^}]*flex:\s*0 0 62px;[^}]*flex-wrap:\s*nowrap;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(/@media \(min-width: 781px\) and \(max-height: 800px\)/);
   });
 
   it('wraps action-mode labels inside narrow workbench buttons', () => {
@@ -602,19 +770,19 @@ describe('QuickPlanner feedback', () => {
       /\.quick-planner-message\s*\{[^}]*transition:\s*background-color 180ms ease,\s*transform 180ms ease;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message:not\(:focus\),\s*html\[data-theme='light'\] \.quick-planner \.quick-planner-message:not\(:focus\):hover\s*\{[^}]*border-color:\s*rgba\(var\(--planner-accent-rgb\), 0\.52\);[^}]*box-shadow:\s*0 0 0 1px rgba\(var\(--planner-accent-rgb\), 0\.13\),\s*0 0 6px rgba\(var\(--planner-accent-rgb\), 0\.1\);/,
+      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message:not\(:focus\),\s*html\[data-theme='light'\] \.quick-planner \.quick-planner-message:not\(:focus\):hover\s*\{[^}]*border-color:\s*transparent;[^}]*box-shadow:\s*none;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message:focus\s*\{[^}]*border-color:\s*var\(--planner-accent\);[^}]*box-shadow:\s*0 0 0 2px rgba\(var\(--planner-accent-rgb\), 0\.18\);/,
+      /html\[data-theme='light'\] \.quick-planner \.quick-planner-message:focus\s*\{[^}]*border-color:\s*transparent;[^}]*box-shadow:\s*none;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:not\(:focus\):not\(:hover\)\s*\{\s*border-color:\s*#59636b;\s*box-shadow:\s*none;/,
+      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:not\(:focus\):not\(:hover\)\s*\{\s*border-color:\s*transparent;\s*box-shadow:\s*none;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:not\(:focus\):hover\s*\{\s*border-color:\s*#46545e;\s*box-shadow:\s*none;/,
+      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:not\(:focus\):hover\s*\{\s*border-color:\s*transparent;\s*box-shadow:\s*none;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus,\s*html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus-visible\s*\{\s*border-color:\s*#46545e;\s*box-shadow:\s*none;\s*outline:\s*none;/,
+      /html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus,\s*html\[data-theme='dark'\] \.quick-planner \.quick-planner-message:focus-visible\s*\{\s*border-color:\s*transparent;\s*box-shadow:\s*none;\s*outline:\s*none;/,
     );
   });
 
@@ -651,9 +819,23 @@ describe('QuickPlanner feedback', () => {
     );
   });
 
-  it('hides the workbench top highlight stripe in the light theme', () => {
+  it('keeps the workbench free of decorative top stripes and inner glow at every size', () => {
+    expect(quickPlannerStyles).not.toMatch(/\.quick-planner-workbench::before/);
+    const workbenchShadows = [...quickPlannerStyles.matchAll(/\.quick-planner-workbench\s*\{[^}]*box-shadow:\s*([^;]+);/g)]
+      .map((match) => match[1]);
+    expect(workbenchShadows.length).toBeGreaterThan(0);
+    workbenchShadows.forEach((shadow) => {
+      expect(shadow).not.toMatch(/inset|0\s+0\s+0\s+1px/);
+    });
+    expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.quick-planner-workbench\s*\{[^}]*box-shadow:[^;]*inset/);
+  });
+
+  it('keeps the light workbench background free of highlights', () => {
     expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='light'\] \.quick-planner-workbench::before\s*\{\s*display:\s*none;/,
+      /\.quick-planner-workbench\s*\{[^}]*background:\s*#f7f8fa;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(
+      /\.quick-planner-workbench\s*\{[^}]*background:\s*(?:radial|linear)-gradient/,
     );
   });
 
@@ -668,6 +850,18 @@ describe('QuickPlanner feedback', () => {
       /@media \(max-width:\s*560px\)\s*\{[\s\S]*?\.quick-planner-schedule-row \.quick-planner-time-value > \.quick-planner-schedule-field\s*\{\s*width:\s*124px;\s*flex-basis:\s*124px;/,
     );
     expect(quickPlannerStyles).toMatch(/\.quick-planner-schedule-row \.quick-planner-presets\s*\{[^}]*margin-left:\s*12px;/);
+  });
+
+  it('centers the date and time labels and icons inside their controls', () => {
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-schedule-row > \.quick-planner-schedule-field > button,\s*\.quick-planner-time-value > \.quick-planner-schedule-field > button\s*\{[^}]*justify-content:\s*center;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-schedule-row > \.quick-planner-schedule-field > button > span\s*\{\s*flex:\s*0 1 auto;\s*text-align:\s*left;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /\.quick-planner-schedule-row \.quick-planner-schedule-field > button\.is-readonly > svg:last-child\s*\{\s*visibility:\s*hidden;/,
+    );
   });
 
   it('reflows schedule controls inside a narrow Planner card instead of clipping them', () => {
@@ -1097,6 +1291,8 @@ describe('QuickPlanner feedback', () => {
     const clearButton = screen.getByRole('button', { name: 'Clear reminder text' });
     expect(clearButton.parentElement).toHaveClass('quick-planner-counter-controls');
     expect(clearButton.previousElementSibling).toHaveClass('quick-planner-character-count');
+    expect(clearButton.querySelector('svg')).toHaveAttribute('width', '20');
+    expect(clearButton.querySelector('svg')).toHaveAttribute('height', '20');
     editor.focus();
     fireEvent.mouseDown(clearButton);
     expect(editor).toHaveFocus();

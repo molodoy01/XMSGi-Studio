@@ -42,6 +42,7 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
   const [effectsLoading, setEffectsLoading] = useState(false);
   const [effectsLoaded, setEffectsLoaded] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const emojiPickerPanelRef = useRef<HTMLDivElement | null>(null);
   const effectsPickerRef = useRef<HTMLDivElement | null>(null);
@@ -125,32 +126,87 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
   }, [effectPickerOpen, emojiPickerOpen]);
 
   useLayoutEffect(() => {
-    if (!emojiPickerOpen) return undefined;
+    if (!emojiPickerOpen && !effectPickerOpen && !linkPopoverOpen && !exportMenuOpen) return undefined;
 
-    const updateEmojiPickerPosition = () => {
-      const anchor = emojiPickerRef.current;
-      const picker = emojiPickerPanelRef.current;
-      if (!anchor || !picker) return;
+    const updateToolbarMenuPositions = () => {
+      const toolbar = toolbarRef.current;
+      const editor = toolbar?.closest('.workspace-page-rich-text-editor');
+      const input = editor?.querySelector<HTMLElement>('.workspace-page-rich-text-input.is-active');
+      const isNarrowElectron = document.documentElement.classList.contains('electron-runtime')
+        && window.innerWidth <= 1100;
+      const inputRect = input?.getBoundingClientRect();
 
-      const anchorRect = anchor.getBoundingClientRect();
-      const pickerRect = picker.getBoundingClientRect();
-      const viewportInset = 12;
-      const maxLeft = Math.max(viewportInset, window.innerWidth - pickerRect.width - viewportInset);
-      const left = Math.min(maxLeft, Math.max(viewportInset, anchorRect.left));
-      const top = anchorRect.bottom + 8;
+      const emojiAnchor = emojiPickerRef.current;
+      const emojiPicker = emojiPickerPanelRef.current;
+      if (emojiAnchor && emojiPicker) {
+        const anchorRect = emojiAnchor.getBoundingClientRect();
+        const pickerRect = emojiPicker.getBoundingClientRect();
+        const viewportInset = 12;
+        const maxLeft = Math.max(viewportInset, window.innerWidth - pickerRect.width - viewportInset);
+        const left = isNarrowElectron && inputRect
+          ? inputRect.left
+          : Math.min(maxLeft, Math.max(viewportInset, anchorRect.left));
 
-      picker.style.left = `${left}px`;
-      picker.style.top = `${top}px`;
+        emojiPicker.style.left = `${left}px`;
+        emojiPicker.style.top = `${anchorRect.bottom + 8}px`;
+        if (isNarrowElectron && inputRect) {
+          emojiPicker.style.width = `${inputRect.width}px`;
+          emojiPicker.style.maxWidth = `${inputRect.width}px`;
+        } else {
+          emojiPicker.style.removeProperty('width');
+          emojiPicker.style.removeProperty('max-width');
+        }
+      }
+
+      const positionMenu = (menuSelector: string) => {
+        const menu = toolbar?.querySelector<HTMLElement>(menuSelector);
+        if (!menu) return;
+        if (!isNarrowElectron || !inputRect) {
+          menu.style.removeProperty('position');
+          menu.style.removeProperty('left');
+          menu.style.removeProperty('right');
+          menu.style.removeProperty('top');
+          menu.style.removeProperty('width');
+          menu.style.removeProperty('max-width');
+          menu.style.removeProperty('box-sizing');
+          return;
+        }
+
+        const anchor = menu.parentElement;
+        if (!anchor) return;
+        const anchorRect = anchor.getBoundingClientRect();
+        const toolbarRect = toolbar?.getBoundingClientRect();
+        const menuWidth = Math.min(inputRect.width, window.innerWidth - 24);
+        const left = Math.max(12, Math.min(inputRect.left, window.innerWidth - menuWidth - 12));
+        menu.style.setProperty('position', 'fixed', 'important');
+        menu.style.setProperty('left', `${left - (toolbarRect?.left ?? 0)}px`, 'important');
+        menu.style.setProperty('right', 'auto', 'important');
+        menu.style.setProperty('top', `${anchorRect.bottom - (toolbarRect?.top ?? 0) + 8}px`, 'important');
+        menu.style.setProperty('width', `${menuWidth}px`, 'important');
+        menu.style.setProperty('max-width', `${menuWidth}px`, 'important');
+        menu.style.setProperty('box-sizing', 'border-box', 'important');
+      };
+
+      positionMenu('.workspace-page-rich-text-effects-picker');
+      positionMenu('.workspace-page-rich-text-link-popover');
+      positionMenu('.workspace-page-editor-export-menu');
     };
 
-    updateEmojiPickerPosition();
-    window.addEventListener('resize', updateEmojiPickerPosition);
-    window.addEventListener('scroll', updateEmojiPickerPosition, true);
+    updateToolbarMenuPositions();
+    const editor = toolbarRef.current?.closest('.workspace-page-rich-text-editor');
+    const input = editor?.querySelector<HTMLElement>('.workspace-page-rich-text-input.is-active');
+    const resizeObserver = typeof ResizeObserver === 'undefined' || !input
+      ? null
+      : new ResizeObserver(updateToolbarMenuPositions);
+    if (input) resizeObserver?.observe(input);
+    window.addEventListener('resize', updateToolbarMenuPositions);
+    window.addEventListener('scroll', updateToolbarMenuPositions, true);
     return () => {
-      window.removeEventListener('resize', updateEmojiPickerPosition);
-      window.removeEventListener('scroll', updateEmojiPickerPosition, true);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateToolbarMenuPositions);
+      window.removeEventListener('scroll', updateToolbarMenuPositions, true);
     };
-  }, [emojiPickerOpen]);
+  }, [emojiPickerOpen, effectPickerOpen, linkPopoverOpen, exportMenuOpen]);
 
   useEffect(() => {
     if (stageMode !== 'editor') return undefined;
@@ -212,7 +268,7 @@ export function EditorToolbar({ stageMode, activeFormats, linkPopoverOpen, linkP
   if (stageMode !== 'editor') return null;
 
   return (
-    <div className="workspace-page-rich-text-toolbar is-airy" role="toolbar" aria-label={t('studio.formattingTools')} aria-orientation="horizontal">
+    <div ref={toolbarRef} className="workspace-page-rich-text-toolbar is-airy" role="toolbar" aria-label={t('studio.formattingTools')} aria-orientation="horizontal">
       <div className="workspace-page-rich-text-leading-tools" role="group" aria-label={t('studio.messageTools')}>
         {onInsertEmoji && (
           <div className="workspace-page-rich-text-tool-anchor" ref={emojiPickerRef}>

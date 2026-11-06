@@ -1,3 +1,3 @@
 export { AppShell } from './AppShell';
 export { HistoryDrawer } from './HistoryDrawer';
-export { StudioMount } from './StudioMount';
+export { preloadStudioApp, StudioMount } from './StudioMount';

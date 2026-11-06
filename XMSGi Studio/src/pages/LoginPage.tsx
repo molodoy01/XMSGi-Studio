@@ -28,6 +28,7 @@ type LoginPageProps = {
   setAuthError: React.Dispatch<React.SetStateAction<string>>;
   handleTelegramAuth: () => Promise<void>;
   handleWelcomeBack: () => Promise<void>;
+  handleForgetAccount: () => Promise<void>;
 };
 
 export function LoginPage({
@@ -52,20 +53,26 @@ export function LoginPage({
   setAuthError,
   handleTelegramAuth,
   handleWelcomeBack,
+  handleForgetAccount,
 }: LoginPageProps) {
   const { locale, t } = useLocale();
   const [colorTheme, setColorTheme] = useState(readColorTheme);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [fontsReadyLocale, setFontsReadyLocale] = useState<string | null>(null);
   const returningUserLabel = returningUserName || (returningUserUsername ? `@${returningUserUsername}` : t('auth.returningUser'));
   const returningUserActionLabel = t('auth.returnToApp', { name: returningUserLabel });
+  const loginFontsReady = fontsReadyLocale === locale;
   const loginLayoutRef = useRef<HTMLElement>(null);
   const loginFormRef = useRef<HTMLFormElement>(null);
-  const loginStudioRef = useRef<HTMLSpanElement>(null);
-  const loginPanelRef = useRef<HTMLElement>(null);
-  const loginErrorSlotRef = useRef<HTMLDivElement>(null);
-  const loginPhoneRef = useRef<HTMLInputElement>(null);
-  const loginCodeRef = useRef<HTMLInputElement>(null);
-  const loginPasswordRef = useRef<HTMLInputElement>(null);
+  const loginDividerRef = useRef<HTMLElement | null>(null);
+  const setLoginDividerRef = (element: HTMLDivElement | HTMLButtonElement | null) => {
+    loginDividerRef.current = element;
+  };
+  const hasAuthInput = authStep === 'phone'
+    ? Boolean(phoneNumber.trim())
+    : authStep === 'code'
+      ? Boolean(phoneCode.trim())
+      : Boolean(twoFactorPassword.trim());
   const isConnectionWarning = !authError && !isOnline;
   const visibleAuthMessage = authError || (isConnectionWarning ? t('auth.noInternet') : '');
 
@@ -79,18 +86,46 @@ export function LoginPage({
     };
   }, []);
 
+  useEffect(() => {
+    if (loginFontsReady) return undefined;
+
+    const fontSet = document.fonts;
+    if (!fontSet || typeof fontSet.load !== 'function') {
+      setFontsReadyLocale(locale);
+      return undefined;
+    }
+
+    let active = true;
+    const fontLoads = [
+      fontSet.load('700 76px "Orbitron"', `${t('auth.loginHeroMain')} ${t('auth.welcomeBack')}`),
+      fontSet.load('800 40px "Orbitron"', t('auth.loginHeroSub')),
+      fontSet.load('700 23px "Orbitron"', `${t('auth.loginHeroTagline')} ${t('auth.continue')} ${t('auth.telegram')}`),
+      fontSet.load('700 18px "Exo 2"', `${t('auth.loginHeroTagline')} ${t('auth.loginHeroTaglineSub')}`),
+      fontSet.load('700 14px "Exo 2"', t('auth.loginHeroTaglineSub')),
+      fontSet.load('600 14px "Exo 2"', `${returningUserActionLabel} ${t('auth.openingStudio')}`),
+    ];
+
+    void Promise.allSettled(fontLoads).then((results) => {
+      if (!active) return;
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          console.error('Unable to load a login hero font before display.', result.reason);
+        }
+      }
+      setFontsReadyLocale(locale);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [locale, loginFontsReady, returningUserActionLabel, t]);
+
   useLayoutEffect(() => {
     const layout = loginLayoutRef.current;
     const form = loginFormRef.current;
-    const studio = loginStudioRef.current;
     const brand = layout?.querySelector<HTMLElement>('.login-brand');
-    const divider = layout?.querySelector<HTMLElement>('.login-divider');
-    const panel = loginPanelRef.current;
-    const errorSlot = loginErrorSlotRef.current;
-    const phoneInput = loginPhoneRef.current;
-    const codeInput = loginCodeRef.current;
-    const passwordInput = loginPasswordRef.current;
-    if (!layout || !form || !studio || !panel) return;
+    const divider = loginDividerRef.current;
+    if (!layout || !form) return;
 
     if (showAuthForm) {
       form.style.setProperty('--login-form-open-height', `${form.scrollHeight}px`);
@@ -98,75 +133,34 @@ export function LoginPage({
       form.style.removeProperty('--login-form-open-height');
     }
 
-    const syncPanelTop = () => {
-      const layoutTop = layout.getBoundingClientRect().top;
-      const appliedTop = Number.parseFloat(getComputedStyle(panel).top) || 0;
-      const studioRect = studio.getBoundingClientRect();
-
-      if (divider && brand && window.innerWidth >= 461) {
-        const heading = brand.querySelector<HTMLElement>('.login-wordmark');
-        const tagline = brand.querySelector<HTMLElement>('.login-tagline');
-        if (heading) {
-          const headingRect = heading.getBoundingClientRect();
-          const taglineRect = tagline?.getBoundingClientRect();
-          const dividerRect = divider.getBoundingClientRect();
-          const heroTop = headingRect.top;
-          const heroBottom = taglineRect?.bottom ?? headingRect.bottom;
-          divider.style.setProperty('--login-divider-line-top', `${heroTop - dividerRect.top}px`);
-          divider.style.setProperty('--login-divider-line-height', `${heroBottom - heroTop}px`);
-        }
-      }
-
-      if (showAuthForm && visibleAuthMessage && errorSlot && window.innerWidth >= 461) {
-        const errorMessage = errorSlot.querySelector<HTMLElement>('.login-error');
-        if (!errorMessage) return;
-        const messageRect = errorMessage.getBoundingClientRect();
-        const messageHeight = messageRect.height;
-        const errorAnchorOffset = messageHeight <= 100 ? 40 : -20;
-        const errorAnchorTop = layoutTop + errorAnchorOffset;
-        panel.style.setProperty('--login-panel-offset', `${appliedTop + errorAnchorTop - messageRect.top}px`);
-        return;
-      }
-
-      const firstAuthInput = authStep === 'phone'
-        ? phoneInput
-        : authStep === 'code'
-          ? codeInput
-          : passwordInput;
-      if (showAuthForm && firstAuthInput && window.innerWidth >= 461) {
-        const inputRect = firstAuthInput.getBoundingClientRect();
-        const studioCenter = studioRect.top + studioRect.height / 2;
-        const inputCenter = inputRect.top + inputRect.height / 2;
-        panel.style.setProperty('--login-panel-offset', `${appliedTop + studioCenter - inputCenter}px`);
-        return;
-      }
-
-      const panelFlowTop = panel.offsetTop - appliedTop;
-      panel.style.setProperty('--login-panel-offset', `${studioRect.top - layoutTop - panelFlowTop}px`);
+    const syncDivider = () => {
+      if (!divider || !brand || window.innerWidth < 461) return;
+      const heading = brand.querySelector<HTMLElement>('.login-wordmark');
+      const tagline = brand.querySelector<HTMLElement>('.login-tagline');
+      if (!heading) return;
+      const headingRect = heading.getBoundingClientRect();
+      const taglineRect = tagline?.getBoundingClientRect();
+      const dividerRect = divider.getBoundingClientRect();
+      const heroTop = headingRect.top;
+      const heroBottom = taglineRect?.bottom ?? headingRect.bottom;
+      divider.style.setProperty('--login-divider-line-top', `${heroTop - dividerRect.top}px`);
+      divider.style.setProperty('--login-divider-line-height', `${heroBottom - heroTop}px`);
     };
-    syncPanelTop();
-    const resizeObserver = new ResizeObserver(syncPanelTop);
-    resizeObserver.observe(studio);
-    if (brand) {
-      resizeObserver.observe(brand);
-    }
-    if (visibleAuthMessage && errorSlot) {
-      resizeObserver.observe(errorSlot);
-    }
-    if (showAuthForm && authStep === 'phone') {
-      resizeObserver.observe(panel);
-    }
-    window.addEventListener('resize', syncPanelTop);
+    syncDivider();
+    const resizeObserver = new ResizeObserver(syncDivider);
+    resizeObserver.observe(layout);
+    if (brand) resizeObserver.observe(brand);
+    window.addEventListener('resize', syncDivider);
 
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener('resize', syncPanelTop);
+      window.removeEventListener('resize', syncDivider);
     };
-  }, [authError, authStep, locale, showAuthForm, visibleAuthMessage]);
+  }, [authBusy, authStep, locale, loginFontsReady, showAuthForm, signedOut, visibleAuthMessage]);
 
   return (
     <>
-      {connecting && isOnline && (
+      {connecting && isOnline && !(openingStudio && signedOut) && (
         <div className="connection-spinner show" role="status" aria-live="polite">
           <div className="connection-status-card">
             <div className="connection-spinner-ring" aria-hidden="true" />
@@ -176,7 +170,7 @@ export function LoginPage({
       )}
 
       <div className="app">
-        <section className={`auth-panel auth-screen ${showAuthForm ? 'is-auth-open' : ''}`} lang={locale}>
+        <section className={`auth-panel auth-screen${showAuthForm ? ' is-auth-open' : ''}${signedOut ? ' is-returning' : ''}${loginFontsReady ? ' is-login-fonts-ready' : ''}`} lang={locale}>
           <div className="auth-top-controls">
             <button
               type="button"
@@ -201,7 +195,7 @@ export function LoginPage({
                   <span className="login-mark" aria-hidden="true" />
                   <span>{t('auth.loginHeroMain')}</span>
                 </span>
-                <span className="login-wordmark-bottom" ref={loginStudioRef}>{t('auth.loginHeroSub')}</span>
+                <span className="login-wordmark-bottom">{t('auth.loginHeroSub')}</span>
               </h1>
               <p className="login-tagline">
                 <span>{t('auth.loginHeroTagline')}</span>
@@ -210,31 +204,29 @@ export function LoginPage({
             </section>
 
             {signedOut ? (
-              <div className="login-divider" aria-hidden="true" />
+              <div ref={setLoginDividerRef} className="login-divider" aria-hidden="true" />
             ) : (
               <button
+                ref={setLoginDividerRef}
                 className="login-divider"
                 type="button"
-                aria-label={showAuthForm ? t('auth.startOver') : t('auth.signIn')}
+                aria-label={showAuthForm ? t('common.close') : t('auth.signIn')}
                 aria-expanded={showAuthForm}
                 aria-controls="telegram-login-form"
-                data-tooltip={showAuthForm ? t('auth.startOver') : t('auth.signIn')}
+                data-tooltip={showAuthForm ? undefined : t('auth.signIn')}
                 onClick={() => {
                   setShowAuthForm((current) => !current);
-                  setAuthStep('phone');
-                  setPhoneNumber('');
-                  setPhoneCode('');
-                  setTwoFactorPassword('');
-                  setAuthError('');
                 }}
               >
-                <span className="login-button-tooltip" aria-hidden="true">
-                  {showAuthForm ? t('auth.startOver') : t('auth.signIn')}
-                </span>
+                {!showAuthForm && (
+                  <span className="login-button-tooltip" aria-hidden="true">
+                    {t('auth.signIn')}
+                  </span>
+                )}
               </button>
             )}
 
-            <section className="login-panel" ref={loginPanelRef} aria-label={t('hero.signInIntro')}>
+            <section className="login-panel" aria-label={t('hero.signInIntro')}>
               <div className={`login-method ${signedOut ? 'is-returning' : ''}`}>
                 {signedOut ? (
                   <div className="login-returning-user">
@@ -244,47 +236,40 @@ export function LoginPage({
                       className="login-returning-account"
                       onClick={handleWelcomeBack}
                       disabled={authBusy}
-                      aria-label={returningUserActionLabel}
-                      data-tooltip={returningUserActionLabel}
+                      aria-label={openingStudio ? t('auth.openingStudio') : returningUserActionLabel}
+                      aria-busy={openingStudio}
+                      aria-live="polite"
+                      data-tooltip={openingStudio ? t('auth.openingStudio') : returningUserActionLabel}
                     >
-                      <span>{returningUserActionLabel}</span>
-                      <ArrowUpRight size={18} aria-hidden="true" />
+                      <span>{openingStudio ? t('auth.openingStudio') : returningUserActionLabel}</span>
+                      {openingStudio
+                        ? <span className="login-returning-spinner" aria-hidden="true" />
+                        : <ArrowUpRight size={18} aria-hidden="true" />}
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="login-method-action"
-                      aria-label={t('auth.continueTelegram')}
-                      aria-expanded={showAuthForm}
-                      aria-controls="telegram-login-form"
-                      onClick={() => {
-                        setShowAuthForm((current) => !current);
-                        setAuthStep('phone');
-                        setAuthError('');
-                      }}
-                    >
+                  <button
+                    type="button"
+                    className="login-method-action"
+                    aria-label={t('auth.continueTelegram')}
+                    aria-expanded={showAuthForm}
+                    aria-controls="telegram-login-form"
+                    onClick={() => {
+                      setShowAuthForm((current) => !current);
+                    }}
+                  >
+                    <span className="login-method-label">
                       {t('auth.continue')}
-                    </button>
+                    </span>
                     <ArrowRight className="login-arrow" size={25} aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="login-method-action"
-                      aria-expanded={showAuthForm}
-                      aria-controls="telegram-login-form"
-                      onClick={() => {
-                        setShowAuthForm((current) => !current);
-                        setAuthError('');
-                      }}
-                    >
+                    <span className="login-method-label">
                       {t('auth.telegram')}
-                    </button>
-                  </>
+                    </span>
+                  </button>
                 )}
               </div>
 
-              <div ref={loginErrorSlotRef} className={`login-error-slot${visibleAuthMessage ? ' has-message' : ''}`} aria-live="polite">
+              <div className={`login-error-slot${visibleAuthMessage ? ' has-message' : ''}`} aria-live="polite">
                 <div className="login-error-slot-content">
                   {visibleAuthMessage && (
                     <p className={`login-error${isConnectionWarning ? ' is-warning' : ''}${authNotice ? ' is-info' : ''}`} role={isConnectionWarning || authNotice ? 'status' : 'alert'}>
@@ -299,19 +284,10 @@ export function LoginPage({
                 <button
                   type="button"
                   className="login-returning-start-over"
-                  aria-expanded={showAuthForm}
-                  aria-controls="telegram-login-form"
-                  onClick={() => {
-                    setShowAuthForm(true);
-                    setAuthStep('phone');
-                    setPhoneNumber('');
-                    setPhoneCode('');
-                    setTwoFactorPassword('');
-                    setAuthError('');
-                  }}
+                  onClick={() => { void handleForgetAccount(); }}
                   disabled={authBusy}
                 >
-                  {t('auth.startOver')}
+                  {t('auth.signOutStartOver')}
                 </button>
               )}
 
@@ -322,7 +298,7 @@ export function LoginPage({
                 aria-hidden={!showAuthForm}
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (authBusy || (authStep === 'phone' ? !phoneNumber.trim() : !phoneCode.trim())) return;
+                  if (authBusy || !hasAuthInput) return;
                   void handleTelegramAuth();
                 }}
               >
@@ -340,7 +316,6 @@ export function LoginPage({
                   <input
                     className="login-field-input"
                     id={`login-${authStep}`}
-                    ref={authStep === 'phone' ? loginPhoneRef : authStep === 'code' ? loginCodeRef : loginPasswordRef}
                     type={authStep === 'phone' ? 'tel' : authStep === 'password' ? 'password' : 'text'}
                     value={authStep === 'phone' ? phoneNumber : authStep === 'code' ? phoneCode : twoFactorPassword}
                     onChange={(event) => {
@@ -367,7 +342,7 @@ export function LoginPage({
                 <button
                   className="login-submit"
                   type="submit"
-                  disabled={authBusy || (authStep === 'phone' ? !phoneNumber.trim() : !phoneCode.trim())}
+                  disabled={authBusy || !hasAuthInput}
                 >
                   {authBusy
                     ? t('auth.connecting')
@@ -378,22 +353,25 @@ export function LoginPage({
                         : t('auth.verifyCode')}
                 </button>
 
-                {authStep !== 'phone' && (
+                <div className={`login-back-slot${authStep !== 'phone' ? ' is-visible' : ''}`}>
                   <button
                     type="button"
                     className="login-back-button"
                     onClick={() => {
+                      if (authBusy || authStep === 'phone') return;
                       setAuthStep('phone');
                       setPhoneNumber('');
                       setPhoneCode('');
                       setTwoFactorPassword('');
                       setAuthError('');
                     }}
-                    disabled={authBusy}
+                    aria-disabled={authBusy || authStep === 'phone'}
+                    aria-hidden={authStep === 'phone'}
+                    tabIndex={authStep === 'phone' ? -1 : 0}
                   >
                     {t('auth.startOver')}
                   </button>
-                )}
+                </div>
               </form>
             </section>
           </main>

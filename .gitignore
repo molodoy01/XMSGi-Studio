@@ -1,4 +1,4 @@
-# Root ignores — nested project + standalone website clone
+# Root ignores ï¿½ nested project + standalone website clone
 .vite/
 website XMSGi Studio/
 XMSGi Studio/node_modules/
@@ -14,7 +14,6 @@ node_modules
 /dist/
 /release/
 /release-working-*/
-
 # Common build + temp files
 node_modules/
 dist/
@@ -34,5 +33,6 @@ Thumbs.db
 **/.vscode/
 **/.env
 **/.env.*
+!**/.env.example
 **/electron-user-data/
 **/app-data/

@@ -1,4 +1,5 @@
 const https = require('node:https');
+const INTERNET_CHECK_INTERVAL_MS = 10_000;
 
 function checkInternetConnection() {
   return new Promise((resolve, reject) => {
@@ -33,6 +34,7 @@ function createTelegramReconnect({
   telegramRequest,
   trackOperation,
   withTimeout,
+  checkInternetConnection: checkInternetConnectionImpl = checkInternetConnection,
 }) {
   async function reconnectTelegramInternal() {
     assertRunning();
@@ -129,6 +131,7 @@ function createTelegramReconnect({
     const watchdogGeneration = lifecycleState.reconnectGeneration;
     const watchdogClient = getClient();
     let internetWasOffline = false;
+    let internetCheckInProgress = false;
     let reconnectDelay = 3000;
     let nextReconnectAt = 0;
 
@@ -140,10 +143,11 @@ function createTelegramReconnect({
       ) {
         return;
       }
-      if (lifecycleState.reconnectInProgress) return;
+      if (lifecycleState.reconnectInProgress || internetCheckInProgress) return;
 
+      internetCheckInProgress = true;
       try {
-        await checkInternetConnection();
+        await checkInternetConnectionImpl();
 
         if (internetWasOffline) {
           internetWasOffline = false;
@@ -173,8 +177,10 @@ function createTelegramReconnect({
           notifyStatus('reconnecting');
         }
         internetWasOffline = true;
+      } finally {
+        internetCheckInProgress = false;
       }
-    }, 3000);
+    }, INTERNET_CHECK_INTERVAL_MS);
   }
 
   function stopTelegramReconnect() {

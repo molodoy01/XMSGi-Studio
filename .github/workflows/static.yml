@@ -30,10 +30,13 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Verify website entry point
+        run: test -s "XMSGi Studio/XMSGi Studio/website/index.html"
+
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'XMSGi Studio/website'
+          path: 'XMSGi Studio/XMSGi Studio/website'
 
       - name: Deploy to GitHub Pages
         id: deployment

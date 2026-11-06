@@ -1,7 +1,7 @@
 # Разработка и сборка XMSGi Studio
 
 Инструкции для контрибьюторов и разработчиков.
-Соответствует версии **1.3.6**.
+Соответствует версии **1.4.0**.
 
 ---
 
@@ -172,7 +172,7 @@ CI описан в `.github/workflows/` (дерево репозитория —
   нет (`softprops/action-gh-release`). Перед matrix-сборками этот workflow
   выполняет `npm ci`, lint, typecheck и полный test suite; при ошибке проверок
   сборка и публикация не запускаются. Сам тег создаётся и пушится локально:
-  `git tag v1.3.0 && git push origin v1.3.0`.
+  `git tag v1.4.0 && git push origin v1.4.0`.
 - `.github/workflows/static.yml` — деплой статического сайта на GitHub Pages
   (ветка `main`, каталог `XMSGi Studio/website`).
 

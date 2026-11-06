@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 - 2026-11-06
+
+### Highlights
+
+- Refined the Studio workspace and rich-text editing, including attachment handling, previews, drafts, and templates.
+- Improved Quick Planner scheduling, layout, activity views, and light/dark theme behavior.
+- Expanded the bilingual website with dedicated pages for content calendars, post editors, formatting, and templates.
+
+### Fixes and reliability
+
+- Improved Telegram history and media-preview handling, draft persistence, and reconnect reliability.
+- Hardened local attachment-path and IPC validation.
+- Reduced unnecessary Telegram connectivity checks and prevented overlapping checks.
+- Removed obsolete AES-CBC Telegram secret migration while retaining plaintext-to-safeStorage migration.
 
 ## 1.3.6 - 2026-10-28
 
@@ -49,7 +62,7 @@ to XMSGi Studio, so the version was reset for the new product name. History unde
 ### Highlights
 
 - Renamed the desktop product to XMSGi Studio while keeping the in-app header brand as XMSGi.
-- Added rich-text composition with attachments, inline buttons, templates, and saved drafts.
+- Added rich-text composition with attachments, templates, and saved drafts.
 - Expanded scheduling and history workflows for queued posts, cancellation, and rescheduling.
 - Improved Telegram sign-in, reconnect, session storage, and account-data migration.
 - Migrated active app-data filenames to the XMSGi Studio name while retaining legacy data migration.

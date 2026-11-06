@@ -21,7 +21,7 @@ function clearEnvironmentApiCredentials() {
   delete process.env.API_HASH;
 }
 
-function installLoginHarness(storageState) {
+function installLoginHarness(storageState, { onInvoke, sendCode, signInWithPassword } = {}) {
   const originalLoad = nodeModule._load;
   const constructedClients = [];
 
@@ -39,15 +39,34 @@ function installLoginHarness(storageState) {
             this.connected = true;
           }
 
-          async sendCode() {
+          async sendCode(...args) {
+            if (sendCode) return sendCode(...args);
             return { phoneCodeHash: 'phone-code-hash', isCodeViaApp: false };
+          }
+
+          async invoke(request) {
+            if (onInvoke) return onInvoke(request);
+            return { user: { firstName: 'Alex' } };
+          }
+
+          async signInWithPassword(credentials, callbacks) {
+            if (signInWithPassword) return signInWithPassword(credentials, callbacks);
+            return { firstName: 'Alex' };
           }
 
           async disconnect() {
             this.connected = false;
           }
         },
-        Api: {}
+        Api: {
+          auth: {
+            SignIn: class FakeSignIn {
+              constructor(data) {
+                Object.assign(this, data);
+              }
+            }
+          }
+        }
       };
     }
 
@@ -56,7 +75,13 @@ function installLoginHarness(storageState) {
     }
 
     if (request === 'teleproto/sessions') {
-      return { StringSession: class FakeStringSession {} };
+      return {
+        StringSession: class FakeStringSession {
+          save() {
+            return 'login-session-stub';
+          }
+        }
+      };
     }
 
     if (request === './telegram-account-storage.cjs') {
@@ -144,6 +169,204 @@ describe('application API configuration', () => {
       expect(harness.constructedClients[0].apiHash).toBe(packageJson.xmsgiApi.apiHash);
     } finally {
       if (core) await clearPendingLogin(core);
+      harness.restore();
+    }
+  });
+
+  it('keeps the pending login after an invalid code so the correct code can be retried', async () => {
+    vi.resetModules();
+    const phone = '+15550000000';
+    const sendCode = vi.fn().mockResolvedValue({
+      phoneCodeHash: 'phone-code-hash',
+      isCodeViaApp: false
+    });
+    const submittedCodes = [];
+    const harness = installLoginHarness({}, {
+      sendCode,
+      onInvoke: async (request) => {
+        submittedCodes.push(request);
+        if (request.phoneCode === 'wrong-code') {
+          const error = new Error('The phone code is invalid.');
+          error.errorMessage = 'PHONE_CODE_INVALID';
+          throw error;
+        }
+        return { user: { firstName: 'Alex' } };
+      }
+    });
+    let core = null;
+
+    try {
+      const { createTelegramCore } = await import('./telegram.cjs');
+      core = createTelegramCore();
+
+      await core.loginUser({ phoneNumber: phone });
+      await expect(core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'wrong-code'
+      })).rejects.toThrow('The phone code is invalid.');
+
+      expect(core.lifecycleState.pendingLogin).not.toBeNull();
+
+      const result = await core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'correct-code'
+      });
+
+      expect(result.success).toBe(true);
+      expect(sendCode).toHaveBeenCalledOnce();
+      expect(submittedCodes.map(({ phoneNumber, phoneCodeHash, phoneCode }) => ({
+        phoneNumber,
+        phoneCodeHash,
+        phoneCode
+      }))).toEqual([
+        { phoneNumber: phone, phoneCodeHash: 'phone-code-hash', phoneCode: 'wrong-code' },
+        { phoneNumber: phone, phoneCodeHash: 'phone-code-hash', phoneCode: 'correct-code' }
+      ]);
+    } finally {
+      if (core) await core.shutdownTelegram();
+      harness.restore();
+    }
+  });
+
+  it('keeps the pending login after an invalid 2FA password so the correct password can be retried', async () => {
+    vi.resetModules();
+    const phone = '+15550000000';
+    const sendCode = vi.fn().mockResolvedValue({
+      phoneCodeHash: 'phone-code-hash',
+      isCodeViaApp: false
+    });
+    const signInWithPassword = vi.fn(async (_credentials, callbacks) => {
+      const password = await callbacks.password();
+      if (password === 'wrong-password') {
+        const error = new Error('The password is invalid.');
+        error.errorMessage = 'PASSWORD_HASH_INVALID';
+        if (await callbacks.onError(error)) {
+          throw new Error('AUTH_USER_CANCEL');
+        }
+      }
+      return { firstName: 'Alex' };
+    });
+    const harness = installLoginHarness({}, {
+      sendCode,
+      onInvoke: async () => {
+        const error = new Error('Two-step verification is enabled.');
+        error.errorMessage = 'SESSION_PASSWORD_NEEDED';
+        throw error;
+      },
+      signInWithPassword
+    });
+    let core = null;
+
+    try {
+      const { createTelegramCore } = await import('./telegram.cjs');
+      core = createTelegramCore();
+
+      await core.loginUser({ phoneNumber: phone });
+      await expect(core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'correct-code'
+      })).resolves.toMatchObject({ requiresPassword: true, nextStep: 'password' });
+
+      await expect(core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'correct-code',
+        password: 'wrong-password'
+      })).rejects.toThrow('The password is invalid.');
+
+      expect(core.lifecycleState.pendingLogin).not.toBeNull();
+
+      const result = await core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'correct-code',
+        password: 'correct-password'
+      });
+
+      expect(result.success).toBe(true);
+      expect(sendCode).toHaveBeenCalledOnce();
+      expect(signInWithPassword).toHaveBeenCalledTimes(2);
+      expect(await signInWithPassword.mock.calls[0][1].password()).toBe('wrong-password');
+      expect(await signInWithPassword.mock.calls[1][1].password()).toBe('correct-password');
+    } finally {
+      if (core) await core.shutdownTelegram();
+      harness.restore();
+    }
+  });
+
+  it('requests a fresh code instead of reusing credentials after the pending login expires', async () => {
+    vi.resetModules();
+    const phone = '+15550000000';
+    const sendCode = vi.fn()
+      .mockResolvedValueOnce({ phoneCodeHash: 'first-hash', isCodeViaApp: false })
+      .mockResolvedValueOnce({ phoneCodeHash: 'fresh-hash', isCodeViaApp: false });
+    const onInvoke = vi.fn(async () => {
+      const error = new Error('Two-step verification is enabled.');
+      error.errorMessage = 'SESSION_PASSWORD_NEEDED';
+      throw error;
+    });
+    const harness = installLoginHarness({}, { sendCode, onInvoke });
+    let core = null;
+
+    try {
+      const { createTelegramCore } = await import('./telegram.cjs');
+      core = createTelegramCore({ loginTtlMs: 25 });
+
+      await core.loginUser({ phoneNumber: phone });
+      await expect(core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'accepted-code'
+      })).resolves.toMatchObject({ requiresPassword: true, nextStep: 'password' });
+
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 40));
+      expect(core.lifecycleState.pendingLogin).toBeNull();
+
+      const result = await core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'stale-code',
+        password: 'stale-password'
+      });
+
+      expect(result).toMatchObject({ requiresCode: true, nextStep: 'code' });
+      expect(sendCode).toHaveBeenCalledTimes(2);
+      expect(onInvoke).toHaveBeenCalledOnce();
+      expect(core.lifecycleState.pendingLogin.value.phoneCodeHash).toBe('fresh-hash');
+    } finally {
+      if (core) await core.shutdownTelegram();
+      harness.restore();
+    }
+  });
+
+  it('times out a stuck 2FA verification and clears the pending login', async () => {
+    vi.resetModules();
+    const phone = '+15550000000';
+    const neverResolves = new Promise(() => {});
+    const harness = installLoginHarness({}, {
+      onInvoke: async () => {
+        const error = new Error('Two-step verification is enabled.');
+        error.errorMessage = 'SESSION_PASSWORD_NEEDED';
+        throw error;
+      },
+      signInWithPassword: vi.fn(() => neverResolves)
+    });
+    let core = null;
+
+    try {
+      const { createTelegramCore } = await import('./telegram.cjs');
+      core = createTelegramCore({ authRequestTimeoutMs: 10 });
+
+      await core.loginUser({ phoneNumber: phone });
+      await core.loginUser({ phoneNumber: phone, phoneCode: 'accepted-code' });
+
+      await expect(core.loginUser({
+        phoneNumber: phone,
+        phoneCode: 'accepted-code',
+        password: 'password'
+      })).rejects.toMatchObject({
+        code: 'OPERATION_TIMEOUT',
+        message: 'Telegram 2FA verification timed out after 10 ms'
+      });
+      expect(core.lifecycleState.pendingLogin).toBeNull();
+    } finally {
+      if (core) await core.shutdownTelegram();
       harness.restore();
     }
   });

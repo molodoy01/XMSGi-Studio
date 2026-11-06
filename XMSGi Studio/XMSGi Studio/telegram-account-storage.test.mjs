@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Buffer } from 'node:buffer';
-import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -53,19 +52,6 @@ function createFakeStorage(initialConfig = {}, options = {}) {
   });
 
   return { adapter, files, fs };
-}
-
-function encryptLegacyFallback(value) {
-  const key = crypto.createHash('sha256')
-    .update('xmsgi-telegram-secret-v1:C:\\temp')
-    .digest();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  return Buffer.concat([
-    iv,
-    cipher.update(value),
-    cipher.final()
-  ]).toString('base64');
 }
 
 describe('telegram account storage adapter', () => {
@@ -346,27 +332,60 @@ describe('telegram account storage adapter', () => {
     });
   });
 
-  it('migrates the previous local fallback ciphertext into safeStorage', () => {
-    const apiId = '12345';
-    const apiHash = 'a'.repeat(32);
-    const session = '1BAA' + 'A'.repeat(56);
-    const { adapter, files } = createFakeStorage({
-      API_ID_ENCRYPTED: encryptLegacyFallback(apiId),
-      API_HASH_ENCRYPTED: encryptLegacyFallback(apiHash),
-      SESSION_STRING_ENCRYPTED: encryptLegacyFallback(session),
-    }, { rejectUnknownCiphertext: true });
+  it('does not interpret unsupported encrypted values as legacy secrets', () => {
+    const originalConfig = {
+      API_ID_ENCRYPTED: 'legacy-api-id-ciphertext',
+      API_HASH_ENCRYPTED: 'legacy-api-hash-ciphertext',
+      SESSION_STRING_ENCRYPTED: 'legacy-session-ciphertext',
+    };
+    const { adapter, files } = createFakeStorage(originalConfig, {
+      rejectUnknownCiphertext: true,
+    });
+    const errorSpy = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {});
 
-    expect(adapter.loadAccountSecrets()).toEqual({
-      API_ID: apiId,
-      API_HASH: apiHash,
-      SESSION_STRING: session,
-      signedOut: false
+    try {
+      expect(adapter.loadAccountSecrets()).toEqual({
+        API_ID: '',
+        API_HASH: '',
+        SESSION_STRING: '',
+        signedOut: false
+      });
+      expect(JSON.parse(files.get(getConfigPath()))).toEqual(originalConfig);
+      expect(errorSpy).toHaveBeenCalledTimes(3);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Telegram secret decryption failed:',
+        expect.any(Error),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('reports when legacy plaintext migration cannot be persisted', () => {
+    const originalConfig = {
+      API_ID: '12345',
+      API_HASH: 'a'.repeat(32),
+      SESSION_STRING: '1BAA' + 'A'.repeat(56),
+    };
+    const { adapter, files } = createFakeStorage(originalConfig, {
+      renameError: new Error('rename failed'),
     });
-    expect(JSON.parse(files.get(getConfigPath()))).toEqual({
-      API_ID_ENCRYPTED: Buffer.from(`encrypted:${apiId}`).toString('base64'),
-      API_HASH_ENCRYPTED: Buffer.from(`encrypted:${apiHash}`).toString('base64'),
-      SESSION_STRING_ENCRYPTED: Buffer.from(`encrypted:${session}`).toString('base64'),
-    });
+    const errorSpy = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {});
+
+    try {
+      expect(adapter.loadAccountSecrets()).toEqual({
+        API_ID: originalConfig.API_ID,
+        API_HASH: originalConfig.API_HASH,
+        SESSION_STRING: originalConfig.SESSION_STRING,
+        signedOut: false
+      });
+      expect(JSON.parse(files.get(getConfigPath()))).toEqual(originalConfig);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Legacy plaintext Telegram secret migration could not be persisted. The existing config is unchanged; migration will retry on next launch.'
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('does not use legacy plaintext secrets when safeStorage is unavailable', () => {
