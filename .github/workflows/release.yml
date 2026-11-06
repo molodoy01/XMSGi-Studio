@@ -133,8 +133,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          # Тег уже существует (создан локально и запушен) — не создаём новый.
-          generate_release_notes: true
+          name: XMSGi Studio ${{ github.event.inputs.tag || github.ref_name }}
+          body: |
+            ## What's changed
+
+            - Small UI refinements to the light-theme topbar and Posts toolbar.
+            - Updated the repository layout and website metadata.
+            - Installer filenames are version-free on all platforms; macOS files include the architecture.
+
+            Download the installer for your platform below.
           draft: false
           prerelease: false
           files: |

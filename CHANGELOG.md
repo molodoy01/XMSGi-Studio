@@ -4,8 +4,9 @@
 
 ### Improvements
 
-- Refined the light-theme application topbar and adjusted the Posts toolbar alignment.
-- Consolidated the application files at the repository root and updated release workflows for the root-based layout.
+- Included small UI refinements to the light-theme topbar and Posts toolbar.
+- Organized application files under `app/` and updated release workflows.
+- Used version-free filenames for installers on all platforms; macOS filenames include the architecture.
 
 ## 1.4.0 - 2026-11-06
 

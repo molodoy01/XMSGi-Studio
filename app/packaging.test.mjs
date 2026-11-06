@@ -13,11 +13,15 @@ describe('production packaging', () => {
     expect(packageJson.version).toBe('1.4.1');
     expect(packageJson.build.productName).toBe('XMSGi Studio');
     expect(packageJson.build.win.artifactName).toBe('XMSGi Studio.${ext}');
+    expect(packageJson.build.linux.artifactName).toBe('XMSGi Studio.${ext}');
+    expect(packageJson.build.mac.artifactName).toBe('XMSGi Studio-${arch}.${ext}');
     expect(packageJson.build.icon).toBe('build/icon.ico');
     expect(packageJson.build.files).toContain('src/studio/assets/logo.png');
     expect(packageJson.build.files).toContain('src/studio/assets/fonts/LICENSE-Exo-2.txt');
     expect(packageJson.build.files).toContain('src/studio/assets/fonts/LICENSE-Orbitron.txt');
     expect(packageJson.build.win.target).toEqual(['portable']);
+    expect(packageJson.build.linux.target.map(({ target }) => target)).toEqual(['AppImage', 'deb']);
+    expect(packageJson.build.mac.target.map(({ target }) => target)).toEqual(['dmg', 'zip']);
     expect(packageJson.build.linux.maintainer).toBe('XMSGi Studio');
     expect(packageJson.build.asar).toBe(true);
   });

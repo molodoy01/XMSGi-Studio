@@ -113,6 +113,7 @@
       ]
     },
     "linux": {
+      "artifactName": "XMSGi Studio.${ext}",
       "maintainer": "XMSGi Studio",
       "icon": "src/studio/assets/logo.png",
       "category": "Utility",
@@ -132,6 +133,7 @@
       ]
     },
     "mac": {
+      "artifactName": "XMSGi Studio-${arch}.${ext}",
       "icon": "src/studio/assets/logo.png",
       "category": "public.app-category.productivity",
       "target": [
