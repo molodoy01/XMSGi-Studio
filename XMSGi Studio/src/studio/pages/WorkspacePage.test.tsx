@@ -439,6 +439,9 @@ describe('WorkspacePage publish action colors', () => {
     expect(workspacePageStyles).toMatch(
       /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\) \.workspace-page-draft-color-dot\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.9\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/,
     );
+    expect(workspacePageStyles).toMatch(
+      /html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\) \.workspace-page-draft-color-dot\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.9\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/,
+    );
     expect(workspacePageStyles).not.toMatch(/html\[data-theme\] \.workspace-page .*workspace-page-draft-color-filter .*workspace-page-draft-color-dot\.is-selected\s*\{/);
     expect(colorThemeStyles).not.toMatch(/workspace-page-draft-footer \.workspace-page-schedule-summary\.has-draft-color-picker .*draft-color-swatch:is\(:hover, :focus-visible\)/);
   });

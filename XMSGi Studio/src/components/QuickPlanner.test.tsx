@@ -76,7 +76,7 @@ describe('QuickPlanner layout', () => {
   it('matches the dark Studio editor contour on the Planner workbench', () => {
     expect(quickPlannerStyles).toMatch(/\.quick-planner-workbench\s*\{[^}]*border-radius:\s*12px;/);
     expect(colorThemeStyles).toMatch(
-      /html\[data-theme='dark'\] \.quick-planner-workbench\s*\{\s*border-color:\s*#35434c;[^}]*box-shadow:\s*inset 0 0 0 1px rgba\(255, 255, 255, 0\.025\), 0 14px 34px rgba\(0, 0, 0, 0\.24\);/,
+      /html\[data-theme='dark'\] \.quick-planner-workbench\s*\{\s*border-color:\s*#35434c;[^}]*box-shadow:\s*0 14px 34px rgba\(0, 0, 0, 0\.24\);/,
     );
   });
 
@@ -262,6 +262,16 @@ describe('QuickPlanner feedback', () => {
     );
   });
 
+  it('keeps Electron Activity adjacent to the fixed Planner card without overlap', () => {
+    expect(quickPlannerStyles).toMatch(
+      /@media \(min-width: 781px\) and \(max-width: 1259px\)[\s\S]*?\.quick-planner-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);[^}]*width:\s*min\(calc\(100% \+ 12px\),\s*760px\);[\s\S]*?\.quick-planner-activity\s*\{\s*display:\s*none;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /@media \(min-width: 781px\) and \(max-width: 1259px\)[\s\S]*?\.quick-planner-heading\s*\{\s*min-height:\s*0;\s*margin-bottom:\s*0;\s*\}[\s\S]*?\.quick-planner-heading h1\s*\{\s*display:\s*none;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(/@media \(min-width: 1260px\)/);
+  });
+
   it('vertically centers the Planner workbench in narrow Electron windows', () => {
     expect(quickPlannerStyles).toMatch(
       /@media \(max-width: 1040px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-layout\s*\{[^}]*align-content:\s*safe center;/,
@@ -275,13 +285,32 @@ describe('QuickPlanner feedback', () => {
     expect(quickPlannerStyles).not.toContain('top: -68px;');
   });
 
-  it('keeps the narrow Electron Planner workbench at the wide-layout height', () => {
+  it('hides the new-message heading in narrow Electron windows', () => {
     expect(quickPlannerStyles).toMatch(
-      /@media \(max-width: 780px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-workbench\s*\{[^}]*height:\s*510px;[^}]*min-height:\s*510px;[^}]*flex:\s*0 0 510px;[^}]*overflow-y:\s*auto;/,
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-heading h1\s*\{\s*display:\s*none;/,
     );
     expect(quickPlannerStyles).toMatch(
-      /@media \(min-width: 781px\)[\s\S]*?html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-workbench\s*\{[^}]*height:\s*510px;[^}]*min-height:\s*510px;/,
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-heading\s*\{\s*min-height:\s*0;\s*margin-bottom:\s*0;/,
     );
+  });
+
+  it('keeps the Electron Planner workbench and its controls fixed across resolutions', () => {
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-workbench\s*\{[^}]*width:\s*760px;[^}]*min-width:\s*760px;[^}]*max-width:\s*760px;[^}]*height:\s*510px;[^}]*min-height:\s*510px;[^}]*max-height:\s*510px;[^}]*flex:\s*0 0 510px;[^}]*overflow:\s*hidden;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(180px,\s*0\.8fr\) minmax\(0,\s*1\.2fr\);[^}]*gap:\s*20px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-composer\s*\{[^}]*height:\s*240px;[^}]*min-height:\s*240px;[^}]*max-height:\s*240px;[^}]*flex:\s*0 0 240px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-message\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*min-height:\s*0;[^}]*flex:\s*1 1 0;[^}]*margin:\s*13px 0 8px;/,
+    );
+    expect(quickPlannerStyles).toMatch(
+      /html\.electron-runtime:has\(\.product-view\.is-active \.quick-planner\) \.quick-planner-schedule-row\s*\{[^}]*height:\s*62px;[^}]*min-height:\s*62px;[^}]*flex:\s*0 0 62px;[^}]*flex-wrap:\s*nowrap;/,
+    );
+    expect(quickPlannerStyles).not.toMatch(/@media \(min-width: 781px\) and \(max-height: 800px\)/);
   });
 
   it('wraps action-mode labels inside narrow workbench buttons', () => {
@@ -790,10 +819,15 @@ describe('QuickPlanner feedback', () => {
     );
   });
 
-  it('hides the workbench top highlight stripe in the light theme', () => {
-    expect(quickPlannerStyles).toMatch(
-      /html\[data-theme='light'\] \.quick-planner-workbench::before\s*\{\s*display:\s*none;/,
-    );
+  it('keeps the workbench free of decorative top stripes and inner glow at every size', () => {
+    expect(quickPlannerStyles).not.toMatch(/\.quick-planner-workbench::before/);
+    const workbenchShadows = [...quickPlannerStyles.matchAll(/\.quick-planner-workbench\s*\{[^}]*box-shadow:\s*([^;]+);/g)]
+      .map((match) => match[1]);
+    expect(workbenchShadows.length).toBeGreaterThan(0);
+    workbenchShadows.forEach((shadow) => {
+      expect(shadow).not.toMatch(/inset|0\s+0\s+0\s+1px/);
+    });
+    expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.quick-planner-workbench\s*\{[^}]*box-shadow:[^;]*inset/);
   });
 
   it('keeps the light workbench background free of highlights', () => {

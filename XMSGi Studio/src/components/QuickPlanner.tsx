@@ -332,7 +332,6 @@ export function QuickPlanner({
   const scheduleTimePickerRef = useRef<HTMLDivElement>(null);
   const chatTriggerRef = useRef<HTMLButtonElement>(null);
   const chatSearchRef = useRef<HTMLInputElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const workbenchRef = useRef<HTMLElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -444,24 +443,6 @@ export function QuickPlanner({
     };
   }, [attachments.length]);
 
-  useLayoutEffect(() => {
-    const heading = headingRef.current;
-    const workbench = workbenchRef.current;
-    if (!heading || !workbench) return undefined;
-
-    const updateHeadingWidth = () => {
-      const width = Number.parseFloat(window.getComputedStyle(heading).width);
-      if (Number.isFinite(width)) workbench.style.setProperty('--planner-heading-width', `${width}px`);
-    };
-    updateHeadingWidth();
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateHeadingWidth);
-    resizeObserver?.observe(heading);
-    return () => {
-      resizeObserver?.disconnect();
-      workbench.style.removeProperty('--planner-heading-width');
-    };
-  }, []);
   const sourceChats = activeChat && !chats.some((chat) => chat.id === activeChat.id)
     ? [activeChat, ...chats]
     : chats;
@@ -1208,7 +1189,7 @@ export function QuickPlanner({
       <div className="quick-planner-inner">
         <header className="quick-planner-heading">
           <div>
-            <h1 ref={headingRef} id="quick-planner-title">{t('quickPlanner.newMessage')}</h1>
+            <h1 id="quick-planner-title">{t('quickPlanner.newMessage')}</h1>
           </div>
         </header>
 

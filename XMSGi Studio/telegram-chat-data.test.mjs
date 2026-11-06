@@ -1,3 +1,4 @@
+/* global console */
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';

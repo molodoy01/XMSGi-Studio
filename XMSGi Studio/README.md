@@ -110,13 +110,15 @@ Full control over every post in the queue — right up to the moment it's sent.
 
 | Platform | Format | Download |
 | --- | --- | --- |
-| Windows | Portable `.exe` | [XMSGi Studio.exe](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio.exe) — no installation required |
-| Linux | AppImage (x64) | [XMSGi.Studio-1.3.6.AppImage](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6.AppImage) |
-| Linux | `.deb` (x64) | [xmsgi-studio_1.3.6_amd64.deb](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/xmsgi-studio_1.3.6_amd64.deb) |
-| macOS | `.dmg` (Intel, unsigned) | [XMSGi.Studio-1.3.6.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6.dmg) |
-| macOS | `.dmg` (Apple Silicon, unsigned) | [XMSGi.Studio-1.3.6-arm64.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6-arm64.dmg) |
+| Windows | Portable `.exe` | [XMSGi Studio.exe](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio.exe) — no installation required |
+| Linux | AppImage (x64) | [XMSGi.Studio-1.4.0.AppImage](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.AppImage) |
+| Linux | `.deb` (x64) | [xmsgi-studio_1.4.0_amd64.deb](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/xmsgi-studio_1.4.0_amd64.deb) |
+| macOS | `.dmg` (Intel, unsigned) | [XMSGi.Studio-1.4.0.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.dmg) |
+| macOS | `.dmg` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64.dmg) |
+| macOS | `.zip` (Intel, unsigned) | [XMSGi.Studio-1.4.0-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-mac.zip) |
+| macOS | `.zip` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64-mac.zip) |
 
-The v1.3.6 download links will work after the release and its platform packages are published.
+The v1.4.0 download links will work after the release and its platform packages are published.
 
 ### First launch on macOS
 
@@ -194,7 +196,7 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 
 ## 🧪 Automated tests
 
-The v1.3.6 release-candidate run is verified with the project test suite before publication.
+The v1.4.0 release candidate is verified with the project test suite before publication.
 
 Validated with `npm test`, `npm run typecheck`, and `git diff --check`.
 

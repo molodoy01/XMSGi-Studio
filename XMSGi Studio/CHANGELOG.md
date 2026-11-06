@@ -1,15 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 - 2026-11-06
 
-### Added
+### Highlights
 
-- No changes yet.
+- Refined the Studio workspace and rich-text editing, including attachment handling, previews, drafts, and templates.
+- Improved Quick Planner scheduling, layout, activity views, and light/dark theme behavior.
+- Expanded the bilingual website with dedicated pages for content calendars, post editors, formatting, and templates.
 
-### Changed
+### Fixes and reliability
 
-- Remove obsolete AES-CBC Telegram secret migration; retain plaintext-to-safeStorage migration.
-- Reduce Telegram connectivity-check frequency and prevent overlapping checks.
+- Improved Telegram history and media-preview handling, draft persistence, and reconnect reliability.
+- Hardened local attachment-path and IPC validation.
+- Reduced unnecessary Telegram connectivity checks and prevented overlapping checks.
+- Removed obsolete AES-CBC Telegram secret migration while retaining plaintext-to-safeStorage migration.
 
 ## 1.3.6 - 2026-10-28
 

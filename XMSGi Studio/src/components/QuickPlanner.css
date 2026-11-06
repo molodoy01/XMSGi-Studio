@@ -85,7 +85,7 @@ html[data-theme='light'] .quick-planner-heading h1 {
   border: 1px solid rgba(var(--planner-accent-rgb), 0.22);
   border-radius: 12px;
   background: #f7f8fa;
-  box-shadow: 0 14px 36px rgba(34, 47, 58, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  box-shadow: 0 14px 36px rgba(34, 47, 58, 0.07);
   backdrop-filter: blur(12px) saturate(120%);
   -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
@@ -103,21 +103,6 @@ html[data-theme='light'] .quick-planner-heading h1 {
 .quick-planner-workbench:has(.quick-planner-chat-menu) .quick-planner-toolbar {
   position: relative;
   z-index: 1;
-}
-
-.quick-planner-workbench::before {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--planner-heading-width, 188px);
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, rgba(var(--planner-accent-rgb), 0.4) 12%, rgba(var(--planner-accent-rgb), 0.4) 88%, transparent 100%);
-  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-  content: "";
-}
-
-html[data-theme='light'] .quick-planner-workbench::before {
-  display: none;
 }
 
 .quick-planner-toolbar {
@@ -1814,14 +1799,6 @@ html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner
   }
 }
 
-@media (min-width: 781px) and (max-height: 740px) {
-  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-composer {
-    min-height: 0;
-    padding-top: 16px;
-    padding-bottom: 14px;
-  }
-}
-
 @media (max-width: 780px) {
   html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-layout {
     align-content: safe center;
@@ -2177,7 +2154,17 @@ html[data-theme='light'] .quick-planner .quick-planner-mode-switch button.is-act
     flex: 0 0 160px;
     margin-left: 0;
   }
+}
 
+@media (max-width: 1100px) {
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading {
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading h1 {
+    display: none;
+  }
 }
 
 .quick-planner-schedule-row {
@@ -2403,9 +2390,7 @@ html[data-theme='light'] .quick-planner .quick-planner-mode-switch button.is-act
   container-type: inline-size;
   border-color: rgba(91, 145, 177, 0.3);
   box-shadow:
-    0 0 0 1px rgba(91, 145, 177, 0.12),
-    0 12px 32px rgba(35, 70, 91, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+    0 12px 32px rgba(35, 70, 91, 0.07);
 }
 
 .quick-planner-message {
@@ -2916,5 +2901,117 @@ html[data-theme='dark'] .quick-planner-emoji-picker--floating {
   .quick-planner .quick-planner-schedule-row > .quick-planner-submit,
   .quick-planner .quick-planner-schedule-row > .quick-planner-draft-actions {
     right: 17px;
+  }
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-workbench {
+  box-sizing: border-box;
+  width: 760px;
+  min-width: 760px;
+  max-width: 760px;
+  height: 510px;
+  min-height: 510px;
+  max-height: 510px;
+  flex: 0 0 510px;
+  overflow: hidden;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-toolbar {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+  gap: 20px;
+  padding: 24px 17px 18px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-mode-switch {
+  height: 46px;
+  min-height: 46px;
+  flex: 0 0 46px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-mode-switch button {
+  flex-direction: row;
+  gap: 6px;
+  padding: 0 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-composer {
+  box-sizing: border-box;
+  height: 240px;
+  min-height: 240px;
+  max-height: 240px;
+  flex: 0 0 240px;
+  padding: 24px 17px 18px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-message {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  margin: 13px 0 8px;
+  font-size: 16px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-tools-row {
+  flex: 0 0 52px;
+  min-height: 52px;
+  padding: 0 18px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-schedule-row {
+  box-sizing: border-box;
+  display: flex;
+  height: 62px;
+  min-height: 62px;
+  flex: 0 0 62px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 8px 17px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-schedule-row .quick-planner-timezone {
+  display: flex;
+  width: 68px;
+  flex: 0 0 68px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-schedule-row .quick-planner-presets button {
+  padding-inline: 5px;
+  font-size: 10px;
+}
+
+html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-compose-footer {
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+  padding: 16px 18px 8px;
+}
+
+@media (min-width: 781px) and (max-width: 1259px) {
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-layout {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    align-self: center;
+    align-content: safe center;
+    width: min(calc(100% + 12px), 760px);
+    margin-left: 0;
+  }
+
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-activity {
+    display: none;
+  }
+
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading {
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  html.electron-runtime:has(.product-view.is-active .quick-planner) .quick-planner-heading h1 {
+    display: none;
   }
 }

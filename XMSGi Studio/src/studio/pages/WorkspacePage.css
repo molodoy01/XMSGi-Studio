@@ -12445,6 +12445,15 @@ html[data-theme='light'] .workspace-page .workspace-page-rich-text-draft-stage .
   filter: none !important;
 }
 
+html[data-theme='dark'] .workspace-page .workspace-page-rich-text-draft-stage .workspace-page-draft-color-filters .workspace-page-draft-color-filter:is(:hover, :focus-visible) .workspace-page-draft-color-dot {
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  background: var(--draft-swatch-color) !important;
+  background-color: var(--draft-swatch-color) !important;
+  background-image: none !important;
+  box-shadow: 0 0 0 2px var(--draft-swatch-color), 0 0 7px 1px color-mix(in srgb, var(--draft-swatch-color) 56%, transparent) !important;
+  filter: none !important;
+}
+
 @media (min-width: 1101px) {
   html.electron-runtime .workspace-page .workspace-page-rich-text-stage {
     margin-bottom: 0;

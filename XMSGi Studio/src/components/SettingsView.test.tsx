@@ -77,7 +77,7 @@ describe('SettingsView Telegram integration', () => {
     renderSettings();
 
     expect(screen.getByText('XMSGi Studio — Create and schedule Telegram posts in one workspace.')).toBeInTheDocument();
-    expect(screen.getByText('Version 1.3.6')).toBeInTheDocument();
+    expect(screen.getByText('Version 1.4.0')).toBeInTheDocument();
   });
 
   it('aligns the language selector to the right of its heading', () => {

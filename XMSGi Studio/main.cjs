@@ -398,7 +398,7 @@ function createWindow() {
     width: 900,
     height: 800,
     minWidth: 900,
-    minHeight: 800,
+    minHeight: 740,
     resizable: true,
     backgroundColor: '#11110f',
     ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' } : {}),
