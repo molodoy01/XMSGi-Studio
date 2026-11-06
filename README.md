@@ -40,7 +40,7 @@ Studio is the main workspace for composing and organizing posts. Quick Planner h
 - **Keep control:** edit, reschedule, or cancel queued posts; FloodWait limits retry automatically.
 - **Keep data local:** sessions stay on the device and use Electron <code>safeStorage</code> where supported. Portable Windows build available.
 
-For setup and workflow details, see the [user guide](XMSGi%20Studio/docs/ru/user-guide.md).
+For setup and workflow details, see the [user guide](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md).
 
 ## 🖼️ Screenshots
 
@@ -56,13 +56,15 @@ For setup and workflow details, see the [user guide](XMSGi%20Studio/docs/ru/user
 
 | Platform | Format | Download |
 | --- | --- | --- |
-| Windows | Portable `.exe` | [XMSGi Studio.exe](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio.exe) — no installation required |
-| Linux | AppImage (x64) | [XMSGi.Studio-1.3.6.AppImage](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6.AppImage) |
-| Linux | `.deb` (x64) | [xmsgi-studio_1.3.6_amd64.deb](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/xmsgi-studio_1.3.6_amd64.deb) |
-| macOS | `.dmg` (Intel, unsigned) | [XMSGi.Studio-1.3.6.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6.dmg) |
-| macOS | `.dmg` (Apple Silicon, unsigned) | [XMSGi.Studio-1.3.6-arm64.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.3.6/XMSGi.Studio-1.3.6-arm64.dmg) |
+| Windows | Portable `.exe` | [XMSGi Studio.exe](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio.exe) — no installation required |
+| Linux | AppImage (x64) | [XMSGi.Studio-1.4.0.AppImage](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.AppImage) |
+| Linux | `.deb` (x64) | [xmsgi-studio_1.4.0_amd64.deb](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/xmsgi-studio_1.4.0_amd64.deb) |
+| macOS | `.dmg` (Intel, unsigned) | [XMSGi.Studio-1.4.0.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0.dmg) |
+| macOS | `.dmg` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64.dmg](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64.dmg) |
+| macOS | `.zip` (Intel, unsigned) | [XMSGi.Studio-1.4.0-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-mac.zip) |
+| macOS | `.zip` (Apple Silicon, unsigned) | [XMSGi.Studio-1.4.0-arm64-mac.zip](https://github.com/molodoy01/XMSGi-Studio/releases/download/v1.4.0/XMSGi.Studio-1.4.0-arm64-mac.zip) |
 
-The v1.3.6 download links will work after the release and its platform packages are published.
+The v1.4.0 download links will work after the release and its platform packages are published.
 
 ### First launch on macOS
 
@@ -82,7 +84,8 @@ Requirements:
 Run locally:
 
 ```bash
-npm install
+cd "XMSGi Studio/XMSGi Studio"
+npm ci
 npm run build
 npm run electron
 ```
@@ -90,6 +93,7 @@ npm run electron
 Build a Windows release package:
 
 ```bash
+cd "XMSGi Studio/XMSGi Studio"
 npm run dist
 ```
 
@@ -118,7 +122,7 @@ Studio's locale context is provided by the host. Keep `StudioMount` under the ho
 />
 ```
 
-The `@/`, `@studio/` and `@shared/` aliases are configured by the host Vite and TypeScript settings. Run `npm --prefix "XMSGi Studio" run typecheck`, `npm --prefix "XMSGi Studio" test` and `npm --prefix "XMSGi Studio" run build` from the repository root to validate the complete app, including Studio.
+The `@/`, `@studio/` and `@shared/` aliases are configured by the host Vite and TypeScript settings. Run `npm --prefix "XMSGi Studio/XMSGi Studio" run typecheck`, `npm --prefix "XMSGi Studio/XMSGi Studio" test` and `npm --prefix "XMSGi Studio/XMSGi Studio" run build` from the repository root to validate the complete app, including Studio.
 
 ### Scheduler ownership
 
@@ -130,13 +134,13 @@ The Electron application always passes the host scheduler runtime, which is auth
 
 ## 📚 Documentation
 
-Full documentation lives in the [`docs/`](XMSGi%20Studio/docs/README.md) directory:
+Full documentation lives in the [`docs/`](XMSGi%20Studio/XMSGi%20Studio/docs/README.md) directory:
 
-- [User guide](XMSGi%20Studio/docs/ru/user-guide.md) — features, modes, installation, workflows (RU)
-- [Architecture](XMSGi%20Studio/docs/ru/architecture.md) — process layers, modules, data flows (RU)
-- [Development](XMSGi%20Studio/docs/ru/development.md) — setup, commands, tests, conventions (RU)
-- [Security and privacy](XMSGi%20Studio/docs/ru/security.md) — storage, encryption, trust boundaries (RU)
-- [IPC reference](XMSGi%20Studio/docs/ru/ipc-reference.md) — renderer ⇄ main channels (RU)
+- [User guide](XMSGi%20Studio/XMSGi%20Studio/docs/ru/user-guide.md) — features, modes, installation, workflows (RU)
+- [Architecture](XMSGi%20Studio/XMSGi%20Studio/docs/ru/architecture.md) — process layers, modules, data flows (RU)
+- [Development](XMSGi%20Studio/XMSGi%20Studio/docs/ru/development.md) — setup, commands, tests, conventions (RU)
+- [Security and privacy](XMSGi%20Studio/XMSGi%20Studio/docs/ru/security.md) — storage, encryption, trust boundaries (RU)
+- [IPC reference](XMSGi%20Studio/XMSGi%20Studio/docs/ru/ipc-reference.md) — renderer ⇄ main channels (RU)
 
 ## 🔒 Security &amp; privacy
 

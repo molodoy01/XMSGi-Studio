@@ -150,18 +150,7 @@ export function useEditorFormats(editorRef: MutableRefObject<HTMLDivElement | nu
           return;
         }
 
-        const inlineContainer = caretNode.nodeType === Node.ELEMENT_NODE
-          ? caretNode as Element
-          : caretNode.parentElement;
-        let current: Element | null = inlineContainer;
-        while (current && current !== editor) {
-          if (current.matches(selector)) {
-            next[format] = true;
-            return;
-          }
-          current = current.parentElement;
-        }
-        next[format] = false;
+        next[format] = walkMatches(caretNode, selector);
       } else {
         const commandState = readCommandState(commandByFormat[format]);
         next[format] = commandState ?? isSelectionFullyFormatted(editor, range, selector);

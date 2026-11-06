@@ -9,8 +9,8 @@ const packageJson = JSON.parse(
 );
 
 describe('production packaging', () => {
-  it('publishes the XMSGi Studio 1.3.6 portable package metadata', () => {
-    expect(packageJson.version).toBe('1.3.6');
+  it('publishes the XMSGi Studio 1.4.0 portable package metadata', () => {
+    expect(packageJson.version).toBe('1.4.0');
     expect(packageJson.build.productName).toBe('XMSGi Studio');
     expect(packageJson.build.win.artifactName).toBe('XMSGi Studio.${ext}');
     expect(packageJson.build.icon).toBe('build/icon.ico');

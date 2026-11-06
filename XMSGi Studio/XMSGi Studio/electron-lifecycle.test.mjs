@@ -22,7 +22,7 @@ describe('Electron tray lifecycle contract', () => {
   it('keeps a practical desktop minimum size for both product views', () => {
     expect(mainSource).toContain('width: 900');
     expect(mainSource).toContain('minWidth: 900');
-    expect(mainSource).toContain('minHeight: 800');
+    expect(mainSource).toContain('minHeight: 740');
     expect(mainSource).toContain('resizable: true');
   });
 

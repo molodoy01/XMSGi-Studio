@@ -16,6 +16,14 @@ const wallpaperStorageKey = 'awaitmsg-chat-preview-wallpaper';
 const chat: Chat = { id: 'chat-1', name: 'Telegram', username: 'telegram', type: 'channel' };
 type PreviewProps = ComponentProps<typeof ChatPreviewStand>;
 
+describe('ChatPreviewStand mobile header alignment', () => {
+  it('keeps only the avatar and chat title block at the adjusted vertical position', () => {
+    expect(chatPreviewStyles).toMatch(
+      /\.chat-preview-stand\.is-mobile \.chat-preview-avatar,\s*\.chat-preview-stand\.is-mobile \.chat-preview-header-copy\s*\{\s*transform:\s*translateY\(0\);/,
+    );
+  });
+});
+
 function renderChatPreviewStand(
   attachments: PreviewProps['attachments'] = [],
   draftText: PreviewProps['draftText'] = '',
@@ -829,5 +837,24 @@ describe('ChatPreviewStand wallpaper picker', () => {
     } finally {
       unmount();
     }
+  });
+
+  it('renders Today as a non-interactive badge with its light-theme hover appearance', () => {
+    const { container, onToggleChatList, unmount } = renderChatPreviewStand();
+    const todayBadge = container.querySelector('.chat-preview-service-date');
+
+    expect(todayBadge?.tagName).toBe('DIV');
+    expect(todayBadge).toHaveTextContent('Today');
+    expect(todayBadge).not.toHaveAttribute('tabindex');
+    fireEvent.click(todayBadge!);
+    expect(onToggleChatList).not.toHaveBeenCalled();
+
+    const lightThemeRule = chatPreviewStyles.match(/html\[data-theme='light'\] \.chat-preview-service-date\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(lightThemeRule).toMatch(/background:\s*#fff;/);
+    expect(lightThemeRule).toMatch(/color:\s*#263e50;/);
+    expect(lightThemeRule).toMatch(/box-shadow:\s*0 0 0 1px rgba\(78, 128, 161, 0\.25\);/);
+    expect(chatPreviewStyles).not.toMatch(/\.chat-preview-service-date:hover/);
+
+    unmount();
   });
 });

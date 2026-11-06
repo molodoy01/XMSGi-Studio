@@ -1,0 +1,61 @@
+.app-notification.shell-notification {
+  top: 76px;
+  border-color: var(--line, #e2e6ea);
+  background: var(--surface-raised, #ffffff);
+  color: var(--text, #242a31);
+  box-shadow: var(--shadow-soft, 0 8px 28px rgba(34, 47, 58, 0.12));
+}
+
+.app-notification.shell-notification.success {
+  border-color: rgba(67, 134, 91, 0.38);
+}
+
+.app-notification.shell-notification.warning {
+  border-color: rgba(148, 106, 23, 0.38);
+}
+
+.app-notification.shell-notification.error {
+  border-color: rgba(183, 71, 71, 0.38);
+}
+
+.app-notification.shell-notification .notification-icon {
+  border-color: var(--line, #e2e6ea);
+  background: var(--surface-muted, #f0f2f4);
+  color: var(--signal, #667887);
+}
+
+.app-notification.shell-notification.success .notification-icon {
+  border-color: rgba(67, 134, 91, 0.4);
+  background: rgba(67, 134, 91, 0.1);
+  color: #43865b;
+}
+
+.app-notification.shell-notification.warning .notification-icon {
+  border-color: rgba(148, 106, 23, 0.4);
+  background: rgba(148, 106, 23, 0.1);
+  color: #946a17;
+}
+
+.app-notification.shell-notification.error .notification-icon {
+  border-color: rgba(183, 71, 71, 0.4);
+  background: rgba(183, 71, 71, 0.1);
+  color: #b74747;
+}
+
+.app-notification.shell-notification .notification-title {
+  color: var(--text, #242a31);
+  font-family: var(--sans, sans-serif);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.app-notification.shell-notification .notification-message,
+.app-notification.shell-notification .notification-close {
+  color: var(--dim, #737d88);
+}
+
+html[data-theme='light'] .app-notification.shell-notification.error .notification-message {
+  color: var(--text, #242a31);
+  font-size: 14px;
+  line-height: 1.5;
+}

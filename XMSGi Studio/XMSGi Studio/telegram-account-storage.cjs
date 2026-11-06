@@ -1,4 +1,3 @@
-const crypto = require('node:crypto');
 const defaultPath = require('path');
 const { resolveAppDataPath } = require('./app-data-path.cjs');
 const SECRET_FIELDS = {
@@ -46,39 +45,6 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage, platform = pr
     }
 
     return electron.safeStorage.encryptString(String(secret ?? '')).toString('base64');
-  }
-
-  function decryptLegacyFallbackSecret(secret) {
-    try {
-      const raw = Buffer.from(secret, 'base64');
-      if (raw.length < 32 || (raw.length - 16) % 16 !== 0) {
-        return '';
-      }
-
-      const userDataRoot = electron.app && typeof electron.app.getPath === 'function'
-        ? electron.app.getPath('userData')
-        : process.env.APPDATA || process.cwd();
-      const key = crypto.createHash('sha256')
-        .update(`xmsgi-telegram-secret-v1:${userDataRoot}`)
-        .digest();
-      const decipher = crypto.createDecipheriv('aes-256-cbc', key, raw.subarray(0, 16));
-      return Buffer.concat([
-        decipher.update(raw.subarray(16)),
-        decipher.final(),
-      ]).toString('utf8').trim();
-    } catch {
-      return '';
-    }
-  }
-
-  function isValidLegacySecret(key, value) {
-    if (key === 'API_ID') {
-      return /^\d+$/.test(value) && Number(value) > 0;
-    }
-    if (key === 'API_HASH') {
-      return /^[\da-f]{32}$/i.test(value);
-    }
-    return value.length >= 40 && /^[A-Za-z0-9+/=_-]+$/.test(value);
   }
 
   function decryptSecret(secret) {
@@ -163,28 +129,12 @@ function createAccountStorageAdapter({ fs, path, app, safeStorage, platform = pr
       }
     });
 
-    Object.entries(SECRET_FIELDS).forEach(([key, encryptedKey]) => {
-      const encryptedValue = nextConfig[encryptedKey];
-      if (!encryptedValue) {
-        return;
-      }
-
-      try {
-        electron.safeStorage.decryptString(Buffer.from(encryptedValue, 'base64'));
-        return;
-      } catch {
-        const legacyValue = decryptLegacyFallbackSecret(encryptedValue);
-        if (!legacyValue || !isValidLegacySecret(key, legacyValue)) {
-          return;
-        }
-
-        nextConfig[encryptedKey] = encryptSecret(legacyValue);
-        migrated = true;
-      }
-    });
-
     if (migrated) {
-      writeRawConfig(nextConfig);
+      if (!writeRawConfig(nextConfig)) {
+        console.error(
+          'Legacy plaintext Telegram secret migration could not be persisted. The existing config is unchanged; migration will retry on next launch.'
+        );
+      }
     }
 
     return nextConfig;

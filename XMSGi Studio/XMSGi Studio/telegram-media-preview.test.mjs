@@ -1,6 +1,7 @@
 /* global console */
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
+import { Api } from 'teleproto';
 import { getPreviewMedia, toPreviewNumber } from './telegram-media-preview.cjs';
 
 describe('Telegram history media previews', () => {
@@ -91,6 +92,11 @@ describe('Telegram history media previews', () => {
       name: 'video.mp4',
       mimeType: 'video/mp4',
       size: 1024,
+      media: {
+        attributes: [
+          new Api.DocumentAttributeVideo({ duration: 12, w: 1920, h: 1080 }),
+        ],
+      },
       get duration() {
         throw new TypeError("Right-hand side of 'instanceof' is not callable");
       },
@@ -111,10 +117,10 @@ describe('Telegram history media previews', () => {
       });
 
       expect(result).toMatchObject({ kind: 'video', name: 'video.mp4', mimeType: 'video/mp4', size: 1024 });
-      expect(result.duration).toBeUndefined();
-      expect(result.width).toBeUndefined();
-      expect(result.height).toBeUndefined();
-      expect(errorSpy).toHaveBeenCalledTimes(3);
+      expect(result.duration).toBe(12);
+      expect(result.width).toBe(1920);
+      expect(result.height).toBe(1080);
+      expect(errorSpy).not.toHaveBeenCalled();
     } finally {
       errorSpy.mockRestore();
     }

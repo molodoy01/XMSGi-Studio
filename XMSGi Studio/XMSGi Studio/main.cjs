@@ -398,7 +398,7 @@ function createWindow() {
     width: 900,
     height: 800,
     minWidth: 900,
-    minHeight: 800,
+    minHeight: 740,
     resizable: true,
     backgroundColor: '#11110f',
     ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' } : {}),
@@ -438,6 +438,12 @@ function createWindow() {
   });
   mainWindow.on('unmaximize', () => {
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:window-maximized-changed', false);
+  });
+  mainWindow.on('enter-full-screen', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:window-full-screen-changed', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:window-full-screen-changed', false);
   });
 
   const expectedRendererUrl = getTrustedRendererUrl(
@@ -546,6 +552,10 @@ ipcMain.handle('app:window-close', (event) => {
 
 ipcMain.handle('app:window-is-maximized', (event) => (
   getTrustedWindowControlTarget(event).isMaximized()
+));
+
+ipcMain.handle('app:window-is-full-screen', (event) => (
+  getTrustedWindowControlTarget(event).isFullScreen()
 ));
 
 ipcMain.handle('chat-storage-load', async (event) => {
@@ -1043,7 +1053,7 @@ ipcMain.handle('telegram-login', async (event, data = {}) => {
     };
   } catch (error) {
     console.error('Telegram login error:', error?.code || error?.name || 'unknown');
-    return { success: false, error: error.message };
+    return { success: false, error: error?.errorMessage || error.message };
   }
 });
 

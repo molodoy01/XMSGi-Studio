@@ -70,8 +70,12 @@ export function TemplatesStage({
     <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage ${mode === 'template' ? 'is-active' : ''}`} aria-hidden={mode !== 'template'}>
       <header className="workspace-page-stage-header workspace-page-template-stage-header">
         <div className="workspace-page-template-header-info">
-          <strong>{templateEditingId ? t('studio.templateTitle') : t('studio.templatesTitle')}</strong>
-          <span>{templateEditingId ? t('studio.editSavedContent') : t('studio.savedCount', { count: templates.length })}</span>
+          <strong>
+            {templateEditingId
+              ? t(templateEditingId === 'new' ? 'studio.newTemplateTitle' : 'studio.templateTitle')
+              : t('studio.templatesTitle')}
+          </strong>
+          {!templateEditingId && <span>{t('studio.savedCount', { count: templates.length })}</span>}
         </div>
         {!templateEditingId && templates.length > 0 && (
           <label className="workspace-page-template-stage-search">
@@ -163,7 +167,7 @@ export function TemplatesStage({
                   <Download size={14} strokeWidth={1.8} aria-hidden="true" /> {t('studio.exportTemplatesCompact')}
                 </button>
               )}
-              <button type="button" className="workspace-page-stage-primary" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
+              <button type="button" className="workspace-page-stage-primary workspace-page-template-stage-add" onClick={() => openTemplateEditor()}>{t('studio.newTemplate')}</button>
             </>
           )}
         </div>

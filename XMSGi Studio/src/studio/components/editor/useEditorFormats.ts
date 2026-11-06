@@ -112,24 +112,6 @@ export function useEditorFormats(editorRef: MutableRefObject<HTMLDivElement | nu
 
     const range = selection.getRangeAt(0);
 
-    // Обход предков ограничен редактором: element.closest() уходил за его
-    // пределы и мог «залипать» на форматировании соседних элементов страницы.
-    const walkMatches = (candidate: Node | null, selector: string): boolean => {
-      let current: Node | null = candidate;
-      while (current) {
-        if (current.nodeType === Node.ELEMENT_NODE && (current as Element).matches(selector)) return true;
-        if (current === editor) break;
-        current = current.parentNode;
-      }
-      return false;
-    };
-
-    const candidates: Node[] = [];
-    [range.commonAncestorContainer, range.startContainer, range.endContainer, selection.anchorNode, selection.focusNode]
-      .forEach((node) => {
-        if (node) candidates.push(node);
-      });
-
     // Для каретки смотрим только её inline-контекст. Для выделения учитываем
     // весь диапазон: частично оформленный текст не должен включать кнопку.
     const isCollapsed = range.collapsed;
@@ -139,7 +121,29 @@ export function useEditorFormats(editorRef: MutableRefObject<HTMLDivElement | nu
       const selector = formatSelectors[format];
       if (isCollapsed) {
         const commandState = readCommandState(commandByFormat[format]);
-        next[format] = commandState ?? candidates.some((candidate) => walkMatches(candidate, selector));
+        if (commandState !== null) {
+          next[format] = commandState;
+          return;
+        }
+
+        const caretNode = selection.anchorNode ?? selection.focusNode;
+        if (!caretNode) {
+          next[format] = false;
+          return;
+        }
+
+        const inlineContainer = caretNode.nodeType === Node.ELEMENT_NODE
+          ? caretNode as Element
+          : caretNode.parentElement;
+        let current: Element | null = inlineContainer;
+        while (current && current !== editor) {
+          if (current.matches(selector)) {
+            next[format] = true;
+            return;
+          }
+          current = current.parentElement;
+        }
+        next[format] = false;
       } else {
         const commandState = readCommandState(commandByFormat[format]);
         next[format] = commandState ?? isSelectionFullyFormatted(editor, range, selector);

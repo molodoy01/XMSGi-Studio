@@ -344,7 +344,8 @@ export function ScheduleStage({
                       top: schedulePickerPosition.top,
                       left: schedulePickerPosition.left,
                       maxHeight: Math.max(80, window.innerHeight - schedulePickerPosition.top - 8),
-                      '--quick-planner-accent': '71 124 158',
+                      '--planner-accent': '#477c9e',
+                      '--planner-accent-rgb': '71, 124, 158',
                     } as CSSProperties}
                   >
                     <div className="quick-planner-date-picker-header">

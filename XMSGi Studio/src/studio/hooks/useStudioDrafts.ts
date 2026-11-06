@@ -23,6 +23,7 @@ import type { ScheduleRepeatOptions } from '@studio/lib/scheduling';
 import {
   appendWorkspaceDocumentVersion,
   areWorkspaceSnapshotsEqual,
+  hasEmbeddedWorkspaceHistoryAvatars,
   hasWorkspaceDocumentContent,
 } from '@studio/lib/documentHistory';
 import { normalizeWorkspaceDocumentHistories } from '@studio/lib/documentHistory';
@@ -72,6 +73,10 @@ function useSavedDraftCollection() {
     setSavedDrafts(nextDrafts);
   };
 
+  const previewSavedDrafts = (nextDrafts: SavedDraft[]) => {
+    setSavedDrafts(nextDrafts);
+  };
+
   const replaceDocumentHistories = (nextHistories: PersistedWorkspaceDocumentHistories) => {
     documentHistoriesRef.current = nextHistories;
     setDocumentHistories(nextHistories);
@@ -90,7 +95,7 @@ function useSavedDraftCollection() {
         ? getDocumentHistories()
         : getDocumentHistories;
       const nextSavedDrafts = typeof getSavedDrafts === 'function' ? getSavedDrafts() : getSavedDrafts;
-      const savedDraftsChanged = JSON.stringify(savedDraftsRef.current) !== JSON.stringify(nextSavedDrafts);
+      const savedDraftsChanged = savedDraftsRef.current !== nextSavedDrafts;
       const data: PersistedDraftStore = {
         schemaVersion: DRAFT_STORE_SCHEMA_VERSION,
         migrationVersion: 1,
@@ -145,6 +150,7 @@ function useSavedDraftCollection() {
     savedDrafts,
     savedDraftsRef,
     replaceSavedDrafts,
+    previewSavedDrafts,
     documentHistories,
     documentHistoriesRef,
     replaceDocumentHistories,
@@ -200,6 +206,10 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
     } satisfies WorkspaceDraft;
   };
 
+  const markWorkspaceDraftPersisted = (snapshot: WorkspaceDraft | null) => {
+    lastPersistedWorkspaceSnapshotRef.current = persistableWorkspaceSnapshot(snapshot);
+  };
+
   const applyPersistedDraftStore = (store: PersistedDraftStore) => {
     drafts.replaceSavedDrafts(store.savedDrafts);
     drafts.replaceDocumentHistories(normalizeWorkspaceDocumentHistories(store.documentHistories));
@@ -247,6 +257,9 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
     const workspaceDraft = createWorkspaceDraftSnapshot();
     if (workspaceDraft) setSavedAt(workspaceDraft.savedAt);
     const previousSnapshot = lastPersistedWorkspaceSnapshotRef.current;
+    if (areWorkspaceSnapshotsEqual(previousSnapshot, workspaceDraft)) {
+      return { success: true, error: '' };
+    }
     const documentId = workspaceDraft?.documentId ?? '';
     if (activeEditDocumentIdRef.current !== documentId) {
       if (documentId) editHistoryCheckpointedDocumentsRef.current.delete(documentId);
@@ -351,8 +364,19 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
     snapshot: WorkspaceDraft | null,
     reason: PersistedWorkspaceDocumentVersion['reason'],
     requireAvailableAttachments = true,
+    savedDraftsToPersist?: SavedDraft[],
   ) => {
-    if (!hasWorkspaceDocumentContent(snapshot)) return { success: true, snapshot, error: '' };
+    if (!hasWorkspaceDocumentContent(snapshot)) {
+      if (!savedDraftsToPersist) return { success: true, snapshot, error: '' };
+
+      const persisted = await drafts.persistDraftStore(
+        savedDraftsToPersist,
+        createWorkspaceDraftSnapshot(),
+        () => drafts.replaceSavedDrafts(savedDraftsToPersist),
+      );
+      if (!persisted) return { success: false, snapshot: null, error: drafts.draftStoreError };
+      return { success: true, snapshot, error: '' };
+    }
     const archived = await makeHistorySnapshot(snapshot, requireAvailableAttachments);
     if (!archived.snapshot) {
       drafts.setDraftStoreError(archived.error);
@@ -369,11 +393,12 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
     let persistedHistories = drafts.documentHistoriesRef.current;
     const workspaceDraft = createWorkspaceDraftSnapshot();
     const persisted = await drafts.persistDraftStore(
-      () => drafts.savedDraftsRef.current,
+      savedDraftsToPersist ?? (() => drafts.savedDraftsRef.current),
       workspaceDraft,
       (histories) => {
         persistedHistories = histories;
         drafts.replaceDocumentHistories(histories);
+        if (savedDraftsToPersist) drafts.replaceSavedDrafts(savedDraftsToPersist);
       },
       () => appendWorkspaceDocumentVersion(
         drafts.documentHistoriesRef.current,
@@ -473,6 +498,11 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
 
         const seeded = seedDefaultDraft(store);
         store = seeded.store;
+        const historyNeedsCompaction = hasEmbeddedWorkspaceHistoryAvatars(store.documentHistories);
+        store = {
+          ...store,
+          documentHistories: normalizeWorkspaceDocumentHistories(store.documentHistories),
+        };
         if (seeded.added) {
           const saved = await draftStorage.save(store);
           if (saved.success) {
@@ -481,6 +511,16 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
           } else {
             drafts.setDraftStoreError(saved.error || translateRef.current('studio.defaultDraftCouldNotSave'));
           }
+        } else if (historyNeedsCompaction) {
+          void draftStorage.save(store).then((saved) => {
+            if (!saved.success) {
+              drafts.setDraftStoreError(saved.error || translateRef.current('studio.draftsCouldNotSave'));
+            }
+          }).catch((error) => {
+            drafts.setDraftStoreError(error instanceof Error
+              ? error.message
+              : translateRef.current('studio.draftsCouldNotSave'));
+          });
         }
 
         if (cancelled) return;
@@ -523,6 +563,7 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
         const workspaceDraft = createWorkspaceDraftSnapshot();
         if (workspaceDraft) setSavedAt(workspaceDraft.savedAt);
         const previousSnapshot = lastPersistedWorkspaceSnapshotRef.current;
+        if (areWorkspaceSnapshotsEqual(previousSnapshot, workspaceDraft)) return;
         const documentId = workspaceDraft?.documentId ?? '';
         if (activeEditDocumentIdRef.current !== documentId) {
           if (documentId) editHistoryCheckpointedDocumentsRef.current.delete(documentId);
@@ -708,6 +749,7 @@ export function useStudioDrafts(options: WorkspaceDraftLifecycleOptions) {
     savedAt,
     setSavedAt,
     createWorkspaceDraftSnapshot,
+    markWorkspaceDraftPersisted,
     applyPersistedDraftStore,
     cancelPendingAutosave,
     flushWorkspaceDraftNow,

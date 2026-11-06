@@ -194,11 +194,18 @@ contextBridge.exposeInMainWorld('desktop', {
   toggleMaximizeWindow: () => ipcRenderer.invoke('app:window-toggle-maximize'),
   closeWindow: () => ipcRenderer.invoke('app:window-close'),
   isWindowMaximized: () => ipcRenderer.invoke('app:window-is-maximized'),
+  isWindowFullScreen: () => ipcRenderer.invoke('app:window-is-full-screen'),
   onWindowMaximizedChange: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, isMaximized) => callback(isMaximized);
     ipcRenderer.on('app:window-maximized-changed', listener);
     return () => ipcRenderer.removeListener('app:window-maximized-changed', listener);
+  },
+  onWindowFullScreenChange: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, isFullScreen) => callback(isFullScreen);
+    ipcRenderer.on('app:window-full-screen-changed', listener);
+    return () => ipcRenderer.removeListener('app:window-full-screen-changed', listener);
   },
   setColorTheme: (theme) => ipcRenderer.invoke('app:set-color-theme', theme),
 });

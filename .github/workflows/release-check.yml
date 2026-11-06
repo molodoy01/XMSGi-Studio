@@ -25,20 +25,20 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: XMSGi Studio/package-lock.json
+          cache-dependency-path: 'XMSGi Studio/XMSGi Studio/package-lock.json'
 
       - name: Install dependencies
-        working-directory: XMSGi Studio
+        working-directory: 'XMSGi Studio/XMSGi Studio'
         run: npm ci
 
       - name: Lint
-        working-directory: XMSGi Studio
+        working-directory: 'XMSGi Studio/XMSGi Studio'
         run: npm run lint
 
       - name: Typecheck
-        working-directory: XMSGi Studio
+        working-directory: 'XMSGi Studio/XMSGi Studio'
         run: npm run typecheck
 
       - name: Test
-        working-directory: XMSGi Studio
+        working-directory: 'XMSGi Studio/XMSGi Studio'
         run: npm test -- --reporter=dot
