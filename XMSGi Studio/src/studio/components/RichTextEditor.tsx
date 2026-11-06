@@ -819,13 +819,17 @@ export function RichTextEditor({ text, entities, onChange, onAddFiles, onPasteIm
     >
       {stageMode === 'editor' && (
         <div className="workspace-page-rich-text-meta-row">
-          <span
-            className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
-            aria-live="polite"
-          >
-            {remainingCharacters}
-          </span>
-          {editorClearButton}
+          {hasEditorText && (
+            <>
+              <span
+                className={`workspace-page-character-count ${counterTone === 'critical' ? 'is-critical' : counterTone === 'warning' ? 'is-warning' : ''}`}
+                aria-live="polite"
+              >
+                {remainingCharacters}
+              </span>
+              {editorClearButton}
+            </>
+          )}
         </div>
       )}
       <div className="workspace-page-rich-text-stage-shell">

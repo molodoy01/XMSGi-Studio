@@ -86,7 +86,7 @@ describe('WorkspacePage publish action colors', () => {
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*right:\s*0;[^}]*left:\s*auto;[^}]*width:\s*max-content;[^}]*justify-content:\s*flex-start;[^}]*padding:\s*3px 6px 1px;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*transform:\s*translateY\(-4px\);/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*6px;\s*transform:\s*translateY\(-9px\);/,
+      /html\.electron-runtime\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-editor \.workspace-page-rich-text-toolbar\.is-airy\s*\{\s*right:\s*21px;\s*transform:\s*translateY\(-9px\);/,
     );
     expect(workspacePageStyles).toMatch(
       /html\.electron-runtime \.workspace-page \.workspace-page-rich-text-toolbar\.is-airy button svg\s*\{\s*transform:\s*translateY\(-1px\);/,
@@ -225,6 +225,27 @@ describe('WorkspacePage publish action colors', () => {
     );
   });
 
+  it('preserves desktop action button sizes in compact Electron windows', () => {
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-schedule-row > \.workspace-page-action-left-group \.workspace-page-mode-button,[\s\S]*?\.workspace-page-schedule-compact-button\s*\{\s*flex:\s*0 0 auto !important;\s*width:\s*auto !important;\s*min-width:\s*82px !important;[\s\S]*?height:\s*40px !important;[\s\S]*?font-size:\s*12px !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-schedule-row > \.workspace-page-submit-actions \.workspace-page-publish-main\s*\{\s*flex:\s*0 0 120px !important;\s*width:\s*120px !important;\s*min-width:\s*120px !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-shell \.workspace-page-schedule-row \.workspace-page-media-row \.workspace-page-attachment-toggle,[\s\S]*?\.workspace-page-preview-toggle\s*\{\s*flex:\s*0 0 40px !important;\s*width:\s*40px !important;[\s\S]*?height:\s*40px !important;/,
+    );
+  });
+
+  it('hides the Studio and live-preview headings in narrow Electron windows', () => {
+    expect(workspacePageStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*?html\.electron-runtime \.workspace-page \.workspace-page-editor-title-text,\s*html\.electron-runtime \.workspace-page \.chat-preview-toolbar-label\s*\{\s*display:\s*none;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /html\.electron-runtime \.workspace-page \.workspace-page-editor-heading\s*\{\s*height:\s*44px;\s*min-height:\s*44px;/,
+    );
+  });
+
   it('keeps the scheduled publish label on one line in compact layouts', () => {
     expect(workspacePageStyles).toMatch(
       /\.workspace-page-publish-main\.is-scheduled \.workspace-page-publish-trigger-main\s*\{[^}]*font-size:\s*10px;[^}]*letter-spacing:\s*0;[^}]*overflow-wrap:\s*normal;[^}]*white-space:\s*nowrap;/,
@@ -280,12 +301,11 @@ describe('WorkspacePage publish action colors', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='light'\] \.workspace-page \.chat-preview-window\.theme-custom \.chat-preview-history-entry\.is-outgoing\s*\{[^}]*background:\s*rgba\(31, 57, 78, 0\.96\);/);
   });
 
-  it('uses a cohesive dark palette while retaining the blue publishing accent', () => {
+  it('uses a cohesive dark palette for publishing controls', () => {
     expect(themeTokenStyles).toMatch(/:root\[data-theme='dark'\]\s*\{[\s\S]*?--void:\s*#0e1317;[\s\S]*?--surface-raised:\s*#182127;[\s\S]*?--surface-muted:\s*#202a31;[\s\S]*?--surface-hover:\s*#29363e;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.quick-planner-workbench\s*\{[^}]*linear-gradient\(155deg, #19232a, #141b20\);/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*#35434c;[^}]*background:\s*#19232a;/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page\s*\{\s*color-scheme:\s*dark;\s*background:\s*var\(--void\);/);
-    expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page\s*\{[^}]*radial-gradient/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell\s*\{[^}]*border-color:\s*#35434c;[^}]*radial-gradient\(ellipse 88% 48% at 50% 0%, rgba\(35, 157, 251, 0\.035\), transparent 74%\),\s*linear-gradient\(155deg, #19232a, #141b20\);/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page\s*\{\s*color-scheme:\s*dark;\s*background:\s*radial-gradient\(ellipse 72% 62% at 45% 42%, rgba\(35, 157, 251, 0\.045\), transparent 78%\), var\(--void\);/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\):has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\s*\{\s*border-color:\s*#35434c;\s*box-shadow:\s*inset 0 0 0 1px rgba\(255, 255, 255, 0\.025\), 0 14px 34px rgba\(0, 0, 0, 0\.24\);/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-editor-shell:not\(\[data-editor-appearance='outline'\]\)::after\s*\{\s*opacity:\s*0;\s*box-shadow:\s*none;/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)\s*\{\s*border-color:\s*#35434c !important;\s*box-shadow:\s*inset 0 0 0 1px rgba\(255, 255, 255, 0\.025\), 0 14px 34px rgba\(0, 0, 0, 0\.24\) !important;/);
@@ -293,10 +313,10 @@ describe('WorkspacePage publish action colors', () => {
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)::after,\s*html\[data-theme='light'\] \.workspace-page \.workspace-page-editor-shell\[data-editor-appearance='outline'\]:is\(:has\(\.workspace-page-rich-text-input:focus\), :has\(\.workspace-page-rich-text-editor\.is-toolbar-active\)\)::after\s*\{\s*opacity:\s*0\.5 !important;\s*border-color:\s*rgba\(var\(--editor-outline\), 0\.26\) !important;/);
     expect(colorThemeStyles).not.toMatch(/\.workspace-page-editor-shell\[data-editor-appearance='outline'\]:hover/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.history-drawer\.is-page \.history-list-status-section \.history-status-tab\.is-active\s*\{[^}]*rgba\(35, 157, 251, 0\.14\)/);
-    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-submit-actions \.workspace-page-publish-main:not\(:disabled\)\s*\{[^}]*background:\s*#239dfb !important;/);
+    expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page-submit-actions \.workspace-page-publish-main:not\(:disabled\)\s*\{\s*border-color:\s*#34414a !important;\s*background:\s*var\(--surface-muted\) !important;\s*color:\s*#d4dde3 !important;/);
   });
 
-  it('retains the configured light and dark publish button palettes', () => {
+  it('retains the light publish palette and aligns the dark publish button with other controls', () => {
     expect(workspacePageStyles).toMatch(
       /html\[data-theme='light'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):not\(:disabled\)\s*\{\s*border-color:\s*#d7dfe4 !important;\s*background:\s*#f0f2f4 !important;\s*color:\s*#3a4650 !important;/,
     );
@@ -304,7 +324,7 @@ describe('WorkspacePage publish action colors', () => {
       /html\[data-theme='light'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):is\(:hover, :focus-visible\):not\(:disabled\)\s*\{\s*border-color:\s*#239dfb !important;\s*background:\s*#239dfb !important;\s*color:\s*#ffffff !important;/,
     );
     expect(workspacePageStyles).toMatch(
-      /html\[data-theme='dark'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):not\(:disabled\)\s*\{\s*border-color:\s*#36414a !important;\s*background:\s*#1a2228 !important;/,
+      /html\[data-theme='dark'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-main:is\(\.is-send, \.is-scheduled, \.is-draft\):not\(:disabled\)\s*\{\s*border-color:\s*#34414a !important;\s*background:\s*var\(--surface-muted\) !important;\s*color:\s*#d4dde3 !important;\s*box-shadow:\s*none !important;/,
     );
   });
 
@@ -405,13 +425,35 @@ describe('WorkspacePage publish action colors', () => {
     expect(workspacePageStyles).toMatch(/@keyframes workspace-page-draft-focus-pulse\s*\{[\s\S]*?box-shadow:\s*var\(--draft-focus-pulse-shadow\);/);
   });
 
-  it('keeps the send-footer draft color hover circular and inside the swatch', () => {
-    const hoverRule = colorThemeStyles.match(/html\[data-theme\] \.workspace-page \.workspace-page-draft-footer \.workspace-page-schedule-summary\.has-draft-color-picker \.draft-color-control \.draft-color-picker button\.draft-color-swatch:is\(:hover, :focus-visible\)\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(hoverRule).toMatch(/border-radius:\s*50% !important;/);
-    expect(hoverRule).toMatch(/background-color:\s*var\(--draft-swatch-color\) !important;/);
-    expect(hoverRule).toMatch(/box-shadow:\s*inset 0 0 0 2px rgba\(255, 255, 255, 0\.9\), 0 0 6px color-mix\(in srgb, var\(--draft-swatch-color\) 68%, transparent\) !important;/);
-    expect(hoverRule).toMatch(/outline:\s*none !important;/);
-    expect(hoverRule).toMatch(/transform:\s*none !important;/);
+  it('removes rectangular active backgrounds from draft sort color filters', () => {
+    expect(workspacePageStyles).toMatch(
+      /html\[data-theme\] \.workspace-page \.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filter:is\(:hover, :focus, :focus-visible, :active, \[aria-pressed='true'\]\)\s*\{[^}]*background:\s*transparent !important;[^}]*background-color:\s*transparent !important;[^}]*box-shadow:\s*none !important;[^}]*transform:\s*none !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /workspace-page-draft-color-filter:is\(:hover, :focus, :focus-visible, :active, \[aria-pressed='true'\]\) > span:not\(\.workspace-page-draft-color-dot\)\s*\{[^}]*background:\s*transparent !important;[^}]*background-color:\s*transparent !important;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /workspace-page-draft-color-filter\[aria-pressed='true'\] \.workspace-page-draft-color-dot\s*\{[^}]*background:\s*var\(--draft-swatch-color\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/,
+    );
+    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter:hover \.workspace-page-draft-color-dot\s*\{\s*transform:\s*scale\(1\.08\);/);
+    expect(workspacePageStyles).toMatch(
+      /html\[data-theme='light'\] \.workspace-page \.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\) \.workspace-page-draft-color-dot\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.9\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/,
+    );
+    expect(workspacePageStyles).not.toMatch(/html\[data-theme\] \.workspace-page .*workspace-page-draft-color-filter .*workspace-page-draft-color-dot\.is-selected\s*\{/);
+    expect(colorThemeStyles).not.toMatch(/workspace-page-draft-footer \.workspace-page-schedule-summary\.has-draft-color-picker .*draft-color-swatch:is\(:hover, :focus-visible\)/);
+  });
+
+  it('fixes the black selected-swatch background only in the open new-draft form', () => {
+    expect(workspacePageStyles).toMatch(
+      /html\[data-theme\] \.workspace-page \.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-color-field \.draft-color-picker \.draft-color-swatch:is\(:hover, :focus-visible, \.is-selected\)\s*\{[^}]*background:\s*var\(--draft-swatch-color\) !important;[^}]*background-color:\s*var\(--draft-swatch-color\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;[^}]*transform:\s*none !important;/,
+    );
+    expect(workspacePageStyles).not.toMatch(/html\[data-theme\] \.workspace-page \.workspace-page-rich-text-draft-stage \.draft-color-picker \.draft-color-swatch/);
+  });
+
+  it('uses the open draft form color ring in the draft footer picker', () => {
+    expect(workspacePageStyles).toMatch(
+      /html\[data-theme\] \.workspace-page \.workspace-page-draft-footer \.workspace-page-schedule-summary\.has-draft-color-picker \.draft-color-picker \.draft-color-swatch:is\(:hover, :focus-visible, \.is-selected\)\s*\{[^}]*background:\s*var\(--draft-swatch-color\) !important;[^}]*box-shadow:\s*0 0 0 2px var\(--draft-swatch-color\), 0 0 7px 1px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;[^}]*transform:\s*none !important;/,
+    );
   });
 
   it('colors the selected draft color name to match its swatch', () => {
@@ -434,11 +476,12 @@ describe('WorkspacePage publish action colors', () => {
 
   it('styles draft color filters like the editor swatches with counts', () => {
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-selected-color\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*400;[^}]*letter-spacing:\s*0\.08em;[^}]*line-height:\s*1\.4;[^}]*text-transform:\s*uppercase;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter \.workspace-page-draft-color-dot\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*border:\s*1px solid rgba\(245, 247, 250, 0\.42\);[^}]*box-shadow:\s*inset 0 0 0 1px color-mix\(in srgb, var\(--draft-swatch-color\) 72%, transparent\);/);
     expect(workspacePageStyles).toMatch(/\.draft-color-picker \.draft-color-swatch\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*flex:\s*0 0 18px;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme\] \.workspace-page \.workspace-page-rich-text-template-stage\.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*transparent !important;[^}]*background-color:\s*transparent !important;[^}]*box-shadow:\s*none !important;[^}]*outline:\s*none !important;/);
+    expect(workspacePageStyles).not.toMatch(/\.workspace-page-rich-text-draft-stage \.workspace-page-draft-color-filters \.workspace-page-draft-color-filter:is\(:hover, :focus-visible\)\s*\{[^}]*box-shadow:\s*none !important;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter \.workspace-page-draft-color-dot\.is-selected\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.9\);[^}]*box-shadow:\s*inset 0 0 0 2px color-mix\(in srgb, var\(--draft-swatch-color\) 72%, transparent\), 0 0 6px color-mix\(in srgb, var\(--draft-swatch-color\) 56%, transparent\) !important;/);
-    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter:hover \.workspace-page-draft-color-dot\s*\{[^}]*box-shadow:\s*inset 0 0 0 2px rgba\(255, 255, 255, 0\.9\), 0 0 5px color-mix\(in srgb, var\(--draft-swatch-color\) 68%, transparent\);/);
+    expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filter:hover \.workspace-page-draft-color-dot\s*\{\s*transform:\s*scale\(1\.08\);/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters \.workspace-page-draft-color-dot\[data-color='coral'\]\s*\{[^}]*--draft-swatch-color:\s*#e56f68;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-list-header\s*\{[^}]*align-items:\s*center;/);
     expect(workspacePageStyles).toMatch(/\.workspace-page-draft-color-filters\s*\{[^}]*margin-left:\s*auto;/);
@@ -470,6 +513,45 @@ describe('WorkspacePage publish action colors', () => {
   it('keeps draft footer buttons the same compact height as template stage buttons', () => {
     expect(workspacePageStyles).toMatch(
       /\.workspace-page-rich-text-draft-stage \.workspace-page-draft-stage-footer \.workspace-page-stage-secondary,\s*\.workspace-page-rich-text-draft-stage \.workspace-page-draft-stage-footer \.workspace-page-stage-primary\s*\{\s*height:\s*22px;\s*min-height:\s*22px !important;\s*padding:\s*0 11px;/,
+    );
+  });
+
+  it('shortens the draft name input in a narrow open draft editor', () => {
+    expect(workspacePageStyles).toMatch(
+      /@container draft-stage \(max-width: 900px\)\s*\{[\s\S]*?\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-name-row\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\) 260px;[\s\S]*?\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-name-field\s*\{\s*width:\s*min\(calc\(100% - 50px\),\s*440px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-color-field\s*\{\s*width:\s*260px;\s*min-width:\s*260px;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage\.has-draft-editor \.draft-color-selected-label\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*36px;[^}]*flex:\s*0 0 auto;[^}]*text-align:\s*right;[^}]*white-space:\s*nowrap;/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-color-field \.draft-color-control \.draft-color-picker\s*\{\s*transform:\s*translateX\(-10px\);/,
+    );
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-color-field \.draft-color-control\s*\{\s*gap:\s*18px;/,
+    );
+  });
+
+  it('aligns draft name and body labels with the draft section heading', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-draft-name-field > span,\s*\.workspace-page-rich-text-draft-stage\.has-draft-editor \.workspace-page-template-stage-editor > label > span,\s*\.workspace-page-rich-text-template-stage:not\(\.workspace-page-rich-text-draft-stage\) \.workspace-page-template-stage-editor > label > span\s*\{\s*margin-left:\s*4px;/,
+    );
+  });
+
+  it('aligns template editor labels with the template section heading', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-template-stage:not\(\.workspace-page-rich-text-draft-stage\) \.workspace-page-template-stage-editor > label > span/,
+    );
+  });
+
+  it('matches the template body width and only allows vertical draft body resizing', () => {
+    expect(workspacePageStyles).toMatch(
+      /\.workspace-page-rich-text-draft-stage \.workspace-page-template-stage-editor label:last-of-type textarea\s*\{\s*box-sizing:\s*border-box;\s*width:\s*100%;\s*min-width:\s*0;\s*max-width:\s*100%;\s*min-height:\s*0;\s*height:\s*100%;\s*resize:\s*vertical;\s*overflow:\s*auto;/,
+    );
+    expect(workspacePageStyles).not.toMatch(
+      /\.workspace-page-rich-text-draft-stage \.workspace-page-template-stage-editor label:last-of-type textarea\s*\{[^}]*overflow:\s*hidden;/,
     );
   });
 
@@ -3406,7 +3488,8 @@ describe('WorkspacePage main-screen flows', () => {
     );
     expect(darkSelectedPublishOption).toMatch(/border-color:\s*#59636b !important;\s*background:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;[\s\S]*?transform:\s*none !important;/);
     expect(darkSelectedPublishOption).toMatch(/\.workspace-page-publish-option\.is-selected::before,[\s\S]*?\.workspace-page-publish-option\.is-selected::after\s*\{\s*opacity:\s*0 !important;/);
-    expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-toolbar button:hover:not\(:disabled\):not\(\.is-selected\),[\s\S]*?\.workspace-page-rich-text-chat-stage button:focus-visible:not\(:disabled\):not\(\.is-selected\)\s*\{\s*border-color:\s*#59636b !important;\s*background-color:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;\s*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.1\) !important;\s*transform:\s*none;/);
+    expect(workspacePageStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-rich-text-toolbar button:hover:not\(:disabled\):not\(\.is-selected\),[\s\S]*?\.workspace-page-rich-text-template-stage button:hover:not\(:disabled\):not\(\.is-selected\):not\(\.workspace-page-draft-color-filter\),[\s\S]*?\.workspace-page-rich-text-chat-stage button:focus-visible:not\(:disabled\):not\(\.is-selected\)\s*\{\s*border-color:\s*#59636b !important;\s*background-color:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;\s*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.1\) !important;\s*transform:\s*none;/);
+    expect(workspacePageStyles).toMatch(/workspace-page-rich-text-template-stage button:focus-visible:not\(:disabled\):not\(\.is-selected\):not\(\.workspace-page-draft-color-filter\)/);
     expect(workspacePageStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-action-left-group \.workspace-page-preview-toggle\[aria-pressed='true'\]/);
     expect(colorThemeStyles).not.toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-action-left-group \.workspace-page-preview-toggle\[aria-pressed='true'\]/);
     expect(colorThemeStyles).toMatch(/html\[data-theme='dark'\] \.workspace-page \.workspace-page-submit-actions \.workspace-page-publish-menu-toggle:is\(:hover, :focus-visible, :active, \.is-active, \[aria-expanded='true'\], \[aria-pressed='true'\]\)\s*\{\s*border-color:\s*#59636b !important;\s*background:\s*#39434a !important;\s*color:\s*#f2f5f7 !important;\s*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.1\) !important;/);
@@ -4589,7 +4672,7 @@ describe('WorkspacePage main-screen flows', () => {
       templatesButton.click();
     });
     await act(async () => {
-      screen.getByRole('button', { name: '+ New template' }).click();
+      screen.getByRole('button', { name: '+ Template' }).click();
     });
 
     const nameInput = document.querySelector('[aria-label="Template name"]') as HTMLInputElement;
@@ -4718,6 +4801,7 @@ describe('WorkspacePage main-screen flows', () => {
     const editorMeta = document.querySelector('.workspace-page-rich-text-meta-row');
 
     expect(toolbar).not.toBeNull();
+    expect(editorMeta).not.toBeNull();
     expect(editorMeta?.querySelector('.workspace-page-character-count')).not.toBeNull();
     expect(toolbar!.querySelector('.workspace-page-character-count')).toBeNull();
     const characterCount = editorMeta?.querySelector('.workspace-page-character-count');

@@ -149,10 +149,12 @@ export function DraftsStage({
     <div className={`workspace-page-rich-text-stage-view workspace-page-rich-text-template-stage workspace-page-rich-text-draft-stage ${mode === 'draft' ? 'is-active' : ''}${draftEditingId ? ' has-draft-editor' : ''}`} aria-hidden={mode !== 'draft'}>
       <header className={`workspace-page-stage-header workspace-page-template-stage-header${!draftEditingId ? ' workspace-page-draft-list-header' : ''}`}>
         <div className="workspace-page-draft-header-info">
-          <strong>{draftEditingId ? t('studio.draft') : t('studio.savedDrafts')}</strong>
-          {draftEditingId ? (
-            <span>{t('studio.editSavedContent')}</span>
-          ) : (
+          <strong>
+            {draftEditingId
+              ? t(draftEditingId === 'new' ? 'studio.newDraftTitle' : 'studio.draft')
+              : t('studio.savedDrafts')}
+          </strong>
+          {!draftEditingId && (
             <span>
               {t('studio.savedCount', { count: savedDrafts.length })}
               {draftStoreSaving
@@ -182,10 +184,7 @@ export function DraftsStage({
                 onMouseLeave={() => setPreviewDraftColor(null)}
                 onFocus={() => setPreviewDraftColor(option.value)}
                 onBlur={() => setPreviewDraftColor(null)}
-                onClick={() => {
-                  if (!draftColorCounts.has(option.value)) return;
-                  setSelectedDraftColor((current) => current === option.value ? null : option.value);
-                }}
+                onClick={() => setSelectedDraftColor((current) => current === option.value ? null : option.value)}
               >
                 <span
                   className={`workspace-page-draft-color-dot${selectedDraftColor === option.value ? ' is-selected' : ''}`}

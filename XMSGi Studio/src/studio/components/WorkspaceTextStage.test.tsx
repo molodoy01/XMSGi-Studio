@@ -237,6 +237,9 @@ describe('WorkspaceTextStage editor flows', () => {
     const { editor, unmount } = renderRichTextEditor();
 
     expect(editor.parentElement?.classList.contains('workspace-page-rich-text-stage')).toBe(true);
+    expect(document.querySelector('.workspace-page-rich-text-meta-row')).not.toBeNull();
+    expect(document.querySelector('.workspace-page-character-count')).toBeNull();
+    expect(document.querySelector('.workspace-page-rich-text-clear')).toBeNull();
 
     unmount();
   });
@@ -1006,6 +1009,7 @@ describe('WorkspaceTextStage editor flows', () => {
 
     expect(nameInput).toBeTruthy();
     expect(bodyInput).toBeTruthy();
+    expect(document.querySelector('.workspace-page-template-header-info strong')?.textContent).toBe('New template');
     expect(nameInput.value).toBe('Meeting note');
     expect(bodyInput.value).toBe('Body text');
 
@@ -1133,6 +1137,10 @@ describe('WorkspaceTextStage editor flows', () => {
     const emptyColorFilter = screen.getByRole('button', { name: 'Green draft color' });
     expect(emptyColorFilter).toBeEnabled();
     act(() => emptyColorFilter.click());
+    expect(emptyColorFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveTextContent('Green');
+    expect(getRows()).toHaveLength(0);
+    act(() => emptyColorFilter.click());
     expect(emptyColorFilter).toHaveAttribute('aria-pressed', 'false');
     expect(getRows()).toHaveLength(3);
 
@@ -1148,6 +1156,14 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(coralFilter).toHaveAttribute('aria-pressed', 'true');
     expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveTextContent('Coral');
     expect(window.localStorage.getItem('xmsgi_saved_draft_color_filter')).toBe('coral');
+
+    const blueFilter = screen.getByRole('button', { name: 'Blue draft color' });
+    act(() => fireEvent.mouseEnter(blueFilter));
+    expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveTextContent('Blue');
+    expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveAttribute('data-color', 'blue');
+    act(() => fireEvent.mouseLeave(blueFilter));
+    expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveTextContent('Coral');
+    expect(draftView.querySelector('.workspace-page-draft-selected-color')).toHaveAttribute('data-color', 'coral');
 
     unmount();
     const reopened = renderStage({ mode: 'draft', savedDrafts });
@@ -1224,6 +1240,7 @@ describe('WorkspaceTextStage editor flows', () => {
     });
 
     const draftEditor = document.querySelector('#workspace-draft-editor-form') as HTMLFormElement;
+    expect(document.querySelector('.workspace-page-draft-header-info strong')?.textContent).toBe('New draft');
     expect((draftEditor.querySelector('[aria-label="Draft name"]') as HTMLInputElement).value).toBe('New note');
     expect((draftEditor.querySelector('[aria-label="Draft text"]') as HTMLTextAreaElement).value).toBe('Draft body');
     expect(draftEditor.querySelector('[aria-label="Coral draft color"]')?.getAttribute('aria-checked')).toBe('true');
@@ -3113,14 +3130,14 @@ describe('WorkspaceTextStage editor flows', () => {
     expect(editor.classList.contains('has-content')).toBe(true);
     const clearTextButton = container.querySelector('[aria-label="Clear editor text"]') as HTMLButtonElement;
     expect(clearTextButton).not.toBeNull();
+    expect(container.querySelector('.workspace-page-character-count')).not.toBeNull();
 
     act(() => clearTextButton.click());
     expect(onChange).toHaveBeenLastCalledWith('', []);
     act(() => renderEditor(''));
-    const hiddenClearTextButton = container.querySelector('[aria-label="Clear editor text"]') as HTMLButtonElement;
-    expect(hiddenClearTextButton).toBeDisabled();
-    expect(hiddenClearTextButton).toHaveAttribute('aria-hidden', 'true');
-    expect(hiddenClearTextButton).toHaveClass('is-hidden');
+    expect(container.querySelector('[aria-label="Clear editor text"]')).toBeNull();
+    expect(container.querySelector('.workspace-page-character-count')).toBeNull();
+    expect(container.querySelector('.workspace-page-rich-text-meta-row')).not.toBeNull();
 
     act(() => {
       animation.onfinish?.call(animation, {} as AnimationPlaybackEvent);
